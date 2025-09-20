@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 
-// ✅ GET single warehouse
+// ✅ GET one warehouse
 export async function GET(request, { params }) {
   try {
     const [rows] = await db.query("SELECT * FROM warehouses WHERE id = ?", [params.id]);
@@ -13,17 +13,44 @@ export async function GET(request, { params }) {
   }
 }
 
-// ✅ PUT - update warehouse
+// ✅ PUT - Update warehouse
 export async function PUT(request, { params }) {
   try {
     const body = await request.json();
-    const { warehouse_name, location, capacity, status } = body;
+    const {
+      warehouse_name,
+      warehouse_code,
+      description,
+      address,
+      city,
+      state,
+      country = "India",
+      pincode,
+      contact_person,
+      phone,
+      email,
+      status = "active",
+    } = body;
 
     await db.query(
-      `UPDATE warehouses 
-       SET warehouse_name=?, location=?, capacity=?, status=? 
-       WHERE id=?`,
-      [warehouse_name, location, capacity, status, params.id]
+      `UPDATE warehouses SET 
+      warehouse_name=?, warehouse_code=?, description=?, address=?, city=?, state=?, country=?, pincode=?, contact_person=?, phone=?, email=?, status=? 
+      WHERE id=?`,
+      [
+        warehouse_name,
+        warehouse_code,
+        description,
+        address,
+        city,
+        state,
+        country,
+        pincode,
+        contact_person,
+        phone,
+        email,
+        status,
+        params.id,
+      ]
     );
 
     return Response.json({ message: "Warehouse updated successfully" });
@@ -32,7 +59,7 @@ export async function PUT(request, { params }) {
   }
 }
 
-// ✅ DELETE - remove warehouse
+// ✅ DELETE - Remove warehouse
 export async function DELETE(request, { params }) {
   try {
     await db.query("DELETE FROM warehouses WHERE id = ?", [params.id]);
