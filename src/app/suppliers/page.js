@@ -12,32 +12,51 @@ export default function SuppliersPage() {
 
   // Suppliers data
   const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch suppliers (dummy API simulation)
+  // Fetch suppliers
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
         const res = await fetch("/api/suppliers");
-        if (res.ok) {
-          const data = await res.json();
-          setSuppliers(data);
-        } else {
-          setSuppliers([]);
-        }
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        setSuppliers(data);
       } catch (error) {
-        setSuppliers([]);
+        setFlash({ type: "danger", message: "Error loading suppliers" });
+      } finally {
+        setLoading(false);
       }
     };
     fetchSuppliers();
   }, []);
+
+  // Delete supplier
+  const handleDelete = async (id) => {
+    if (!confirm("Are you sure you want to delete this supplier?")) return;
+
+    try {
+      const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSuppliers(suppliers.filter((s) => s.id !== id));
+        setFlash({ type: "success", message: "Supplier deleted successfully!" });
+      } else {
+        const err = await res.json();
+        setFlash({ type: "danger", message: err.error || "Delete failed" });
+      }
+    } catch (error) {
+      setFlash({ type: "danger", message: "Server error while deleting" });
+    }
+  };
 
   // Apply filters
   const filteredSuppliers = suppliers.filter((s) => {
     return (
       (status ? s.status === status : true) &&
       (search
-        ? s.supplier_name.toLowerCase().includes(search.toLowerCase()) ||
-          s.contact_person.toLowerCase().includes(search.toLowerCase())
+        ? s.supplier_name?.toLowerCase().includes(search.toLowerCase()) ||
+          s.contact_person?.toLowerCase().includes(search.toLowerCase()) ||
+          s.supplier_code?.toLowerCase().includes(search.toLowerCase())
         : true)
     );
   });
@@ -114,21 +133,13 @@ export default function SuppliersPage() {
                 <div className="col-md-2 d-flex align-items-end">
                   <button
                     type="button"
-                    className="btn btn-outline-primary d-block w-100"
-                  >
-                    <i className="bi bi-funnel"></i> Filter
-                  </button>
-                </div>
-                <div className="col-md-2 d-flex align-items-end">
-                  <button
-                    type="button"
                     className="btn btn-outline-secondary d-block w-100"
                     onClick={() => {
                       setStatus("");
                       setSearch("");
                     }}
                   >
-                    <i className="bi bi-x-circle"></i> Clear
+                    <i className="bi bi-x-circle"></i> Reset
                   </button>
                 </div>
               </form>
@@ -142,11 +153,15 @@ export default function SuppliersPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              {filteredSuppliers.length === 0 ? (
+              {loading ? (
+                <p>Loading...</p>
+              ) : filteredSuppliers.length === 0 ? (
                 <div className="text-center py-5">
                   <i className="bi bi-people fs-1 text-muted"></i>
                   <h4 className="mt-3 text-muted">No suppliers found</h4>
-                  <p className="text-muted">Start by adding your first supplier</p>
+                  <p className="text-muted">
+                    Start by adding your first supplier
+                  </p>
                   <Link href="/suppliers/create" className="btn btn-primary">
                     <i className="bi bi-plus-circle me-2"></i> Add Supplier
                   </Link>
@@ -181,8 +196,7 @@ export default function SuppliersPage() {
                                 s.status === "active" ? "success" : "secondary"
                               }`}
                             >
-                              {s.status.charAt(0).toUpperCase() +
-                                s.status.slice(1)}
+                              {s.status}
                             </span>
                           </td>
                           <td>
@@ -201,6 +215,13 @@ export default function SuppliersPage() {
                               >
                                 <i className="bi bi-pencil"></i>
                               </Link>
+                              <button
+                                className="btn btn-outline-danger"
+                                title="Delete"
+                                onClick={() => handleDelete(s.id)}
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
                             </div>
                           </td>
                         </tr>
