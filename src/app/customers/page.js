@@ -10,11 +10,11 @@ export default function CustomersPage() {
   const [status, setStatus] = useState("");
   const [flashMessage, setFlashMessage] = useState({ success: "", error: "" });
 
-  // ✅ API Call (DB से data आएगा)
+  // ✅ Fetch customers
   useEffect(() => {
     async function fetchCustomers() {
       try {
-        const res = await fetch("/api/customers"); // <-- ये API तुम्हें बनानी होगी
+        const res = await fetch("/api/customers");
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         setCustomers(data);
@@ -27,7 +27,28 @@ export default function CustomersPage() {
     fetchCustomers();
   }, []);
 
-  // Filter Logic
+  // ✅ Delete handler
+  const handleDelete = async (id) => {
+    if (!confirm("Are you sure you want to delete this customer?")) return;
+
+    try {
+      const res = await fetch(`/api/customers/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setCustomers(customers.filter((c) => c.id !== id));
+        setFlashMessage({ success: "Customer deleted successfully!", error: "" });
+      } else {
+        const data = await res.json();
+        setFlashMessage({ success: "", error: data.error || "Delete failed" });
+      }
+    } catch (err) {
+      setFlashMessage({ success: "", error: "Server error" });
+    }
+  };
+
+  // ✅ Filter Logic
   const filteredCustomers = customers.filter((c) => {
     const matchSearch =
       search === "" ||
@@ -175,12 +196,7 @@ export default function CustomersPage() {
                             </Link>
                             <button
                               className="btn btn-danger"
-                              onClick={() =>
-                                confirm("Are you sure?") &&
-                                setCustomers(
-                                  customers.filter((x) => x.id !== c.id)
-                                )
-                              }
+                              onClick={() => handleDelete(c.id)}
                             >
                               <i className="bi bi-trash"></i>
                             </button>
