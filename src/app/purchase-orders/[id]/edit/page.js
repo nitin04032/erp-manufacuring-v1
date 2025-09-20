@@ -9,21 +9,24 @@ export default function EditPurchaseOrderPage() {
 
   const [suppliers, setSuppliers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [items, setItems] = useState([]);
   const [purchaseOrder, setPurchaseOrder] = useState(null);
   const [flash, setFlash] = useState({ type: "", message: "" });
 
-  // Fetch data
+  // ✅ Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [poRes, supRes, whRes] = await Promise.all([
+        const [poRes, supRes, whRes, itemRes] = await Promise.all([
           fetch(`/api/purchase-orders/${id}`),
           fetch("/api/suppliers"),
           fetch("/api/warehouses"),
+          fetch("/api/items"),
         ]);
         if (poRes.ok) setPurchaseOrder(await poRes.json());
         if (supRes.ok) setSuppliers(await supRes.json());
         if (whRes.ok) setWarehouses(await whRes.json());
+        if (itemRes.ok) setItems(await itemRes.json());
       } catch (err) {
         console.error("Failed to load data", err);
         setFlash({ type: "danger", message: "Failed to load purchase order." });
@@ -32,6 +35,7 @@ export default function EditPurchaseOrderPage() {
     fetchData();
   }, [id]);
 
+  // ✅ Update header field
   const handleChange = (field, value) => {
     setPurchaseOrder((prev) => ({
       ...prev,
@@ -39,6 +43,47 @@ export default function EditPurchaseOrderPage() {
     }));
   };
 
+  // ✅ Update item row
+  const updateItemRow = (index, field, value) => {
+    const newItems = [...purchaseOrder.items];
+    newItems[index][field] = value;
+
+    if (field === "item_id") {
+      const item = items.find((i) => i.id == value);
+      if (item) {
+        newItems[index].unit_price = item.purchase_rate || 0;
+      }
+    }
+
+    setPurchaseOrder({ ...purchaseOrder, items: newItems });
+  };
+
+  // ✅ Add item row
+  const addItemRow = () => {
+    setPurchaseOrder((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          item_id: "",
+          ordered_qty: 0,
+          unit_price: 0,
+          discount_percent: 0,
+          tax_percent: 0,
+          remarks: "",
+        },
+      ],
+    }));
+  };
+
+  // ✅ Remove item row
+  const removeItemRow = (index) => {
+    const newItems = [...purchaseOrder.items];
+    newItems.splice(index, 1);
+    setPurchaseOrder({ ...purchaseOrder, items: newItems });
+  };
+
+  // ✅ Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -59,24 +104,7 @@ export default function EditPurchaseOrderPage() {
     }
   };
 
-  const handleDelete = async () => {
-    try {
-      const res = await fetch(`/api/purchase-orders/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        router.push("/purchase-orders");
-      } else {
-        alert("Failed to delete purchase order.");
-      }
-    } catch (err) {
-      alert("Server error while deleting order.");
-    }
-  };
-
-  if (!purchaseOrder) {
-    return <div className="p-4">Loading...</div>;
-  }
+  if (!purchaseOrder) return <div className="p-4">Loading...</div>;
 
   return (
     <div className="container-fluid">
@@ -100,11 +128,9 @@ export default function EditPurchaseOrderPage() {
         </div>
       </div>
 
-      {/* Flash Messages */}
+      {/* Flash */}
       {flash.message && (
-        <div
-          className={`alert alert-${flash.type} alert-dismissible fade show`}
-        >
+        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
           {flash.type === "danger" && (
             <i className="bi bi-exclamation-triangle me-2"></i>
           )}
@@ -124,45 +150,14 @@ export default function EditPurchaseOrderPage() {
         <div className="row">
           {/* Left Section */}
           <div className="col-md-8">
-            <div className="card">
-              <div className="card-header">
-                <h5 className="mb-0">
-                  <i className="bi bi-info-circle me-2"></i>
-                  Purchase Order Information
-                </h5>
-              </div>
+            {/* PO Info */}
+            <div className="card mb-4">
+              <div className="card-header">Purchase Order Information</div>
               <div className="card-body">
                 <div className="row">
-                  {/* PO Number (Read Only) */}
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">PO Number</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={purchaseOrder.po_number}
-                      readOnly
-                    />
-                    <div className="form-text">
-                      Purchase order number cannot be changed
-                    </div>
-                  </div>
-
-                  {/* Current Status (Read Only) */}
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">Current Status</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={purchaseOrder.status}
-                      readOnly
-                    />
-                  </div>
-
                   {/* Supplier */}
                   <div className="col-md-6 mb-3">
-                    <label className="form-label">
-                      Supplier <span className="text-danger">*</span>
-                    </label>
+                    <label className="form-label">Supplier *</label>
                     <select
                       className="form-select"
                       required
@@ -182,9 +177,7 @@ export default function EditPurchaseOrderPage() {
 
                   {/* Warehouse */}
                   <div className="col-md-6 mb-3">
-                    <label className="form-label">
-                      Delivery Warehouse <span className="text-danger">*</span>
-                    </label>
+                    <label className="form-label">Warehouse *</label>
                     <select
                       className="form-select"
                       required
@@ -204,25 +197,23 @@ export default function EditPurchaseOrderPage() {
 
                   {/* Dates */}
                   <div className="col-md-6 mb-3">
-                    <label className="form-label">Order Date *</label>
+                    <label className="form-label">PO Date *</label>
                     <input
                       type="date"
                       className="form-control"
-                      value={purchaseOrder.order_date}
-                      onChange={(e) =>
-                        handleChange("order_date", e.target.value)
-                      }
+                      value={purchaseOrder.po_date || ""}
+                      onChange={(e) => handleChange("po_date", e.target.value)}
                       required
                     />
                   </div>
                   <div className="col-md-6 mb-3">
-                    <label className="form-label">Expected Delivery Date *</label>
+                    <label className="form-label">Expected Delivery *</label>
                     <input
                       type="date"
                       className="form-control"
-                      value={purchaseOrder.delivery_date}
+                      value={purchaseOrder.expected_delivery_date || ""}
                       onChange={(e) =>
-                        handleChange("delivery_date", e.target.value)
+                        handleChange("expected_delivery_date", e.target.value)
                       }
                       required
                     />
@@ -241,55 +232,159 @@ export default function EditPurchaseOrderPage() {
                 </div>
               </div>
             </div>
+
+            {/* Items Editable Table */}
+            <div className="card">
+              <div className="card-header d-flex justify-content-between">
+                <h5 className="mb-0">Items</h5>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-success"
+                  onClick={addItemRow}
+                >
+                  <i className="bi bi-plus-circle me-2"></i>Add Item
+                </button>
+              </div>
+              <div className="card-body">
+                {!purchaseOrder.items?.length ? (
+                  <p className="text-muted">No items yet.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-bordered align-middle">
+                      <thead className="table-light">
+                        <tr>
+                          <th>Item</th>
+                          <th>Qty</th>
+                          <th>Price</th>
+                          <th>Disc %</th>
+                          <th>Tax %</th>
+                          <th>Remarks</th>
+                          <th>Total</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {purchaseOrder.items.map((row, i) => (
+                          <tr key={i}>
+                            <td>
+                              <select
+                                className="form-select"
+                                value={row.item_id}
+                                onChange={(e) =>
+                                  updateItemRow(i, "item_id", e.target.value)
+                                }
+                              >
+                                <option value="">Select</option>
+                                {items.map((it) => (
+                                  <option key={it.id} value={it.id}>
+                                    {it.item_name} ({it.item_code})
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                className="form-control"
+                                value={row.ordered_qty}
+                                onChange={(e) =>
+                                  updateItemRow(i, "ordered_qty", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                className="form-control"
+                                value={row.unit_price}
+                                onChange={(e) =>
+                                  updateItemRow(i, "unit_price", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                className="form-control"
+                                value={row.discount_percent}
+                                onChange={(e) =>
+                                  updateItemRow(i, "discount_percent", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                className="form-control"
+                                value={row.tax_percent}
+                                onChange={(e) =>
+                                  updateItemRow(i, "tax_percent", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={row.remarks || ""}
+                                onChange={(e) =>
+                                  updateItemRow(i, "remarks", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td>
+                              <strong>
+                                ₹{" "}
+                                {(
+                                  row.ordered_qty * row.unit_price -
+                                  (row.ordered_qty *
+                                    row.unit_price *
+                                    row.discount_percent) /
+                                    100 +
+                                  ((row.ordered_qty * row.unit_price -
+                                    (row.ordered_qty *
+                                      row.unit_price *
+                                      row.discount_percent) /
+                                      100) *
+                                    row.tax_percent) /
+                                    100
+                                ).toFixed(2)}
+                              </strong>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-danger"
+                                onClick={() => removeItemRow(i)}
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Right Section */}
           <div className="col-md-4">
             <div className="card">
-              <div className="card-header">
-                <h5 className="mb-0">
-                  <i className="bi bi-gear me-2"></i>Actions
-                </h5>
-              </div>
+              <div className="card-header">Actions</div>
               <div className="card-body">
-                <div className="alert alert-warning">
-                  <h6>
-                    <i className="bi bi-exclamation-triangle me-2"></i>Important
-                    Notes
-                  </h6>
-                  <ul className="mb-0 small">
-                    <li>Verify all supplier and delivery details</li>
-                    <li>Ensure dates are realistic</li>
-                    <li>Changes will be tracked for audit</li>
-                    <li>Status changes require separate action</li>
-                  </ul>
-                </div>
-
-                <hr />
-
                 <div className="d-grid gap-2">
                   <button type="submit" className="btn btn-warning">
-                    <i className="bi bi-check-circle me-2"></i>Update Purchase
-                    Order
+                    <i className="bi bi-check-circle me-2"></i>Update Order
                   </button>
                   <Link
                     href={`/purchase-orders/${purchaseOrder.id}`}
                     className="btn btn-outline-secondary"
                   >
-                    <i className="bi bi-x-circle me-2"></i>Cancel Changes
+                    <i className="bi bi-x-circle me-2"></i>Cancel
                   </Link>
-                </div>
-
-                <hr />
-
-                <div className="d-grid">
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger"
-                    onClick={handleDelete}
-                  >
-                    <i className="bi bi-trash me-2"></i>Delete Order
-                  </button>
                 </div>
               </div>
             </div>

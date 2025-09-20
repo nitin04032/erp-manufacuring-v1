@@ -25,7 +25,10 @@ export default function CreatePurchaseOrderPage() {
     total: 0,
   });
 
-  // Fetch dropdown data
+  // ✅ Flash messages
+  const [flash, setFlash] = useState({ type: "", message: "" });
+
+  // 🔹 Fetch dropdown data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -44,7 +47,7 @@ export default function CreatePurchaseOrderPage() {
     fetchData();
   }, []);
 
-  // Add Item Row
+  // 🔹 Add Item Row
   const addItemRow = () => {
     setPoData((prev) => ({
       ...prev,
@@ -62,30 +65,29 @@ export default function CreatePurchaseOrderPage() {
     }));
   };
 
-  // Remove Item Row
+  // 🔹 Remove Item Row
   const removeItemRow = (index) => {
     const newItems = [...poData.items];
     newItems.splice(index, 1);
     setPoData({ ...poData, items: newItems });
   };
 
-  // Update Item Row
+  // 🔹 Update Item Row
   const updateItemRow = (index, field, value) => {
     const newItems = [...poData.items];
     newItems[index][field] = value;
 
-    // Auto set unit price if item is selected
     if (field === "item_id") {
       const item = items.find((i) => i.id == value);
       if (item) {
-        newItems[index].unit_price = item.purchase_rate;
+        newItems[index].unit_price = item.purchase_rate || 0;
       }
     }
 
     setPoData({ ...poData, items: newItems });
   };
 
-  // Calculate totals whenever items change
+  // 🔹 Calculate totals
   useEffect(() => {
     let subtotal = 0;
     let totalDiscount = 0;
@@ -115,17 +117,50 @@ export default function CreatePurchaseOrderPage() {
     });
   }, [poData.items]);
 
-  // Submit Handler
-  const handleSubmit = (e) => {
+  // 🔹 Submit Handler
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (poData.items.length === 0) {
-      alert("Please add at least one item.");
+      setFlash({ type: "danger", message: "Please add at least one item." });
       return;
     }
 
-    console.log("Submit Data:", poData);
-    // TODO: call API POST /api/purchase-orders
+    try {
+      const res = await fetch("/api/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...poData,
+          subtotal: summary.subtotal,
+          discount_amount: summary.discount,
+          tax_amount: summary.tax,
+          total_amount: summary.total,
+        }),
+      });
+
+      if (res.ok) {
+        setFlash({ type: "success", message: "Purchase Order created successfully!" });
+
+        // Reset form
+        setPoData({
+          supplier_id: "",
+          warehouse_id: "",
+          po_date: new Date().toISOString().split("T")[0],
+          expected_delivery_date: "",
+          terms_and_conditions: "",
+          remarks: "",
+          status: "draft",
+          items: [],
+        });
+        setSummary({ subtotal: 0, discount: 0, tax: 0, total: 0 });
+      } else {
+        const err = await res.json();
+        setFlash({ type: "danger", message: err.error || "Failed to create purchase order." });
+      }
+    } catch (error) {
+      setFlash({ type: "danger", message: "Server error. Please try again later." });
+    }
   };
 
   return (
@@ -142,10 +177,24 @@ export default function CreatePurchaseOrderPage() {
         </div>
       </div>
 
+      {/* ✅ Flash Messages */}
+      {flash.message && (
+        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+          {flash.type === "success" && <i className="bi bi-check-circle me-2"></i>}
+          {flash.type === "danger" && <i className="bi bi-exclamation-triangle me-2"></i>}
+          {flash.message}
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setFlash({ type: "", message: "" })}
+          ></button>
+        </div>
+      )}
+
       {/* Form */}
       <form onSubmit={handleSubmit}>
+        {/* --- PO Details --- */}
         <div className="row">
-          {/* Left Section */}
           <div className="col-md-8">
             <div className="card mb-4">
               <div className="card-header">
@@ -193,7 +242,7 @@ export default function CreatePurchaseOrderPage() {
                     </select>
                   </div>
 
-                  {/* Dates */}
+                  {/* PO Date */}
                   <div className="col-md-6 mb-3">
                     <label className="form-label">PO Date *</label>
                     <input
@@ -207,6 +256,7 @@ export default function CreatePurchaseOrderPage() {
                     />
                   </div>
 
+                  {/* Expected Delivery */}
                   <div className="col-md-6 mb-3">
                     <label className="form-label">Expected Delivery Date</label>
                     <input
@@ -222,7 +272,7 @@ export default function CreatePurchaseOrderPage() {
                     />
                   </div>
 
-                  {/* T&C */}
+                  {/* Terms */}
                   <div className="col-12 mb-3">
                     <label className="form-label">Terms & Conditions</label>
                     <textarea
@@ -255,14 +305,13 @@ export default function CreatePurchaseOrderPage() {
             </div>
           </div>
 
-          {/* Right Section */}
+          {/* --- Summary --- */}
           <div className="col-md-4">
             <div className="card">
               <div className="card-header">
                 <h5 className="mb-0">Order Summary</h5>
               </div>
               <div className="card-body">
-                {/* Status */}
                 <div className="mb-3">
                   <label className="form-label">Status</label>
                   <select
@@ -300,7 +349,7 @@ export default function CreatePurchaseOrderPage() {
           </div>
         </div>
 
-        {/* Items */}
+        {/* --- Items --- */}
         <div className="row">
           <div className="col-12">
             <div className="card">
@@ -318,154 +367,158 @@ export default function CreatePurchaseOrderPage() {
                 {poData.items.length === 0 ? (
                   <p className="text-muted">No items added yet.</p>
                 ) : (
-                  poData.items.map((row, index) => {
-                    const item = items.find((i) => i.id == row.item_id);
-                    return (
-                      <div
-                        key={index}
-                        className="item-row border rounded p-3 mb-3 bg-light"
-                      >
-                        <div className="row">
-                          <div className="col-md-3 mb-2">
-                            <label className="form-label">Item *</label>
-                            <select
-                              className="form-select"
-                              value={row.item_id}
-                              onChange={(e) =>
-                                updateItemRow(index, "item_id", e.target.value)
-                              }
-                              required
-                            >
-                              <option value="">Select Item</option>
-                              {items.map((it) => (
-                                <option key={it.id} value={it.id}>
-                                  {it.item_name} ({it.item_code})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="col-md-2 mb-2">
-                            <label className="form-label">Qty *</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min="0"
-                              step="0.001"
-                              value={row.ordered_qty}
-                              onChange={(e) =>
-                                updateItemRow(
-                                  index,
-                                  "ordered_qty",
-                                  e.target.value
-                                )
-                              }
-                              required
-                            />
-                          </div>
-                          <div className="col-md-2 mb-2">
-                            <label className="form-label">Unit Price *</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min="0"
-                              step="0.01"
-                              value={row.unit_price}
-                              onChange={(e) =>
-                                updateItemRow(
-                                  index,
-                                  "unit_price",
-                                  e.target.value
-                                )
-                              }
-                              required
-                            />
-                          </div>
-                          <div className="col-md-1 mb-2">
-                            <label className="form-label">Disc %</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={row.discount_percent}
-                              onChange={(e) =>
-                                updateItemRow(
-                                  index,
-                                  "discount_percent",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="col-md-1 mb-2">
-                            <label className="form-label">Tax %</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={row.tax_percent}
-                              onChange={(e) =>
-                                updateItemRow(
-                                  index,
-                                  "tax_percent",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="col-md-2 mb-2">
-                            <label className="form-label">Line Total</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              readOnly
-                              value={
-                                "₹ " +
-                                (
-                                  (row.ordered_qty * row.unit_price -
-                                    (row.ordered_qty *
-                                      row.unit_price *
-                                      row.discount_percent) /
-                                      100) +
-                                  ((row.ordered_qty * row.unit_price -
-                                    (row.ordered_qty *
-                                      row.unit_price *
-                                      row.discount_percent) /
-                                      100) *
-                                    row.tax_percent) /
-                                    100
-                                ).toFixed(2)
-                              }
-                            />
-                          </div>
-                          <div className="col-md-1 mb-2">
-                            <label className="form-label">&nbsp;</label>
-                            <button
-                              type="button"
-                              className="btn btn-danger btn-sm w-100"
-                              onClick={() => removeItemRow(index)}
-                            >
-                              <i className="bi bi-trash"></i>
-                            </button>
-                          </div>
-                          <div className="col-12">
-                            <textarea
-                              className="form-control"
-                              rows="1"
-                              placeholder="Item remarks (optional)"
-                              value={row.remarks}
-                              onChange={(e) =>
-                                updateItemRow(index, "remarks", e.target.value)
-                              }
-                            ></textarea>
-                          </div>
+                  poData.items.map((row, index) => (
+                    <div
+                      key={index}
+                      className="item-row border rounded p-3 mb-3 bg-light"
+                    >
+                      <div className="row">
+                        {/* Item */}
+                        <div className="col-md-3 mb-2">
+                          <label className="form-label">Item *</label>
+                          <select
+                            className="form-select"
+                            value={row.item_id}
+                            onChange={(e) =>
+                              updateItemRow(index, "item_id", e.target.value)
+                            }
+                            required
+                          >
+                            <option value="">Select Item</option>
+                            {items.map((it) => (
+                              <option key={it.id} value={it.id}>
+                                {it.item_name} ({it.item_code})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Qty */}
+                        <div className="col-md-2 mb-2">
+                          <label className="form-label">Qty *</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="0"
+                            step="0.001"
+                            value={row.ordered_qty}
+                            onChange={(e) =>
+                              updateItemRow(index, "ordered_qty", e.target.value)
+                            }
+                            required
+                          />
+                        </div>
+
+                        {/* Unit Price */}
+                        <div className="col-md-2 mb-2">
+                          <label className="form-label">Unit Price *</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="0"
+                            step="0.01"
+                            value={row.unit_price}
+                            onChange={(e) =>
+                              updateItemRow(index, "unit_price", e.target.value)
+                            }
+                            required
+                          />
+                        </div>
+
+                        {/* Discount % */}
+                        <div className="col-md-1 mb-2">
+                          <label className="form-label">Disc %</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={row.discount_percent}
+                            onChange={(e) =>
+                              updateItemRow(
+                                index,
+                                "discount_percent",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+
+                        {/* Tax % */}
+                        <div className="col-md-1 mb-2">
+                          <label className="form-label">Tax %</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={row.tax_percent}
+                            onChange={(e) =>
+                              updateItemRow(
+                                index,
+                                "tax_percent",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+
+                        {/* Line Total */}
+                        <div className="col-md-2 mb-2">
+                          <label className="form-label">Line Total</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            readOnly
+                            value={
+                              "₹ " +
+                              (
+                                (row.ordered_qty * row.unit_price -
+                                  (row.ordered_qty *
+                                    row.unit_price *
+                                    row.discount_percent) /
+                                    100) +
+                                ((row.ordered_qty * row.unit_price -
+                                  (row.ordered_qty *
+                                    row.unit_price *
+                                    row.discount_percent) /
+                                    100) *
+                                  row.tax_percent) /
+                                  100
+                              ).toFixed(2)
+                            }
+                          />
+                        </div>
+
+                        {/* Remove */}
+                        <div className="col-md-1 mb-2">
+                          <label className="form-label">&nbsp;</label>
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm w-100"
+                            onClick={() => removeItemRow(index)}
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </div>
+
+                        {/* Remarks */}
+                        <div className="col-12">
+                          <textarea
+                            className="form-control"
+                            rows="1"
+                            placeholder="Item remarks (optional)"
+                            value={row.remarks}
+                            onChange={(e) =>
+                              updateItemRow(index, "remarks", e.target.value)
+                            }
+                          ></textarea>
                         </div>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
             </div>

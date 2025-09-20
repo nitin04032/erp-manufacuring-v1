@@ -1,43 +1,38 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 export default function PurchaseOrderDetailsPage() {
   const { id } = useParams();
-  const router = useRouter();
 
   const [purchaseOrder, setPurchaseOrder] = useState(null);
   const [flash, setFlash] = useState({ type: "", message: "" });
+  const [loading, setLoading] = useState(true);
 
-  // Fetch PO details
+  // ✅ Fetch PO details
   useEffect(() => {
     const fetchPO = async () => {
       try {
         const res = await fetch(`/api/purchase-orders/${id}`);
         if (res.ok) {
-          setPurchaseOrder(await res.json());
+          const data = await res.json();
+          setPurchaseOrder(data);
         } else {
-          setFlash({ type: "danger", message: "Purchase order not found" });
+          setFlash({ type: "danger", message: "Purchase Order not found" });
         }
       } catch (err) {
         setFlash({ type: "danger", message: "Error loading purchase order" });
+      } finally {
+        setLoading(false);
       }
     };
     fetchPO();
   }, [id]);
 
+  // ✅ Update Status
   const updateStatus = async (status) => {
-    const confirmMsg =
-      status === "sent"
-        ? "Send to Supplier?"
-        : status === "acknowledged"
-        ? "Mark as Acknowledged?"
-        : status === "cancelled"
-        ? "Cancel this order?"
-        : "Update status?";
-
-    if (!confirm(confirmMsg)) return;
+    if (!confirm(`Are you sure you want to mark this order as '${status}'?`)) return;
 
     try {
       const res = await fetch(`/api/purchase-orders/${id}/status`, {
@@ -45,20 +40,23 @@ export default function PurchaseOrderDetailsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+
       if (res.ok) {
         setFlash({ type: "success", message: "Status updated successfully" });
         setPurchaseOrder((prev) => ({ ...prev, status }));
       } else {
-        setFlash({ type: "danger", message: "Failed to update status" });
+        const err = await res.json();
+        setFlash({ type: "danger", message: err.error || "Failed to update status" });
       }
-    } catch (err) {
+    } catch (error) {
       setFlash({ type: "danger", message: "Server error" });
     }
   };
 
-  if (!purchaseOrder) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-4">Loading...</div>;
+  if (!purchaseOrder) return <div className="p-4">Purchase order not found.</div>;
 
-  // Status badge color mapping
+  // ✅ Status Badge Colors
   const statusClass = {
     draft: "secondary",
     sent: "info",
@@ -67,7 +65,6 @@ export default function PurchaseOrderDetailsPage() {
     completed: "success",
     cancelled: "danger",
   };
-  const badgeClass = statusClass[purchaseOrder.status] || "secondary";
 
   return (
     <div className="container-fluid">
@@ -75,14 +72,10 @@ export default function PurchaseOrderDetailsPage() {
       <div className="row">
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0">
-            <i className="bi bi-receipt text-primary"></i> Purchase Order:{" "}
-            {purchaseOrder.po_number}
+            <i className="bi bi-receipt text-primary"></i> Purchase Order #{purchaseOrder.id}
           </h1>
           <div>
-            <Link
-              href="/purchase-orders"
-              className="btn btn-outline-secondary me-2"
-            >
+            <Link href="/purchase-orders" className="btn btn-outline-secondary me-2">
               <i className="bi bi-arrow-left me-2"></i>Back to List
             </Link>
             <div className="btn-group">
@@ -96,20 +89,14 @@ export default function PurchaseOrderDetailsPage() {
               <ul className="dropdown-menu">
                 {purchaseOrder.status === "draft" && (
                   <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={() => updateStatus("sent")}
-                    >
+                    <button className="dropdown-item" onClick={() => updateStatus("sent")}>
                       <i className="bi bi-send me-2"></i>Send to Supplier
                     </button>
                   </li>
                 )}
                 {["sent", "acknowledged"].includes(purchaseOrder.status) && (
                   <li>
-                    <button
-                      className="dropdown-item"
-                      onClick={() => updateStatus("acknowledged")}
-                    >
+                    <button className="dropdown-item" onClick={() => updateStatus("acknowledged")}>
                       <i className="bi bi-check-circle me-2"></i>Mark Acknowledged
                     </button>
                   </li>
@@ -137,15 +124,9 @@ export default function PurchaseOrderDetailsPage() {
 
       {/* Flash Messages */}
       {flash.message && (
-        <div
-          className={`alert alert-${flash.type} alert-dismissible fade show`}
-        >
-          {flash.type === "success" && (
-            <i className="bi bi-check-circle me-2"></i>
-          )}
-          {flash.type === "danger" && (
-            <i className="bi bi-exclamation-triangle me-2"></i>
-          )}
+        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+          {flash.type === "success" && <i className="bi bi-check-circle me-2"></i>}
+          {flash.type === "danger" && <i className="bi bi-exclamation-triangle me-2"></i>}
           {flash.message}
           <button
             type="button"
@@ -155,116 +136,55 @@ export default function PurchaseOrderDetailsPage() {
         </div>
       )}
 
+      {/* PO Details */}
       <div className="row">
-        {/* PO Header */}
         <div className="col-md-8">
           <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Purchase Order Details</h5>
-              <span className={`badge bg-${badgeClass} fs-6`}>
+              <span className={`badge bg-${statusClass[purchaseOrder.status] || "secondary"} fs-6`}>
                 {purchaseOrder.status}
               </span>
             </div>
             <div className="card-body">
-              <div className="row">
-                {/* Supplier Info */}
-                <div className="col-md-6">
-                  <h6 className="text-muted">Supplier Information</h6>
-                  <p className="mb-1">
-                    <strong>{purchaseOrder.supplier_name}</strong>
-                  </p>
-                  {purchaseOrder.contact_person && (
-                    <p className="mb-1">
-                      Contact: {purchaseOrder.contact_person}
-                    </p>
-                  )}
-                  {purchaseOrder.email && (
-                    <p className="mb-1">Email: {purchaseOrder.email}</p>
-                  )}
-                  {purchaseOrder.phone && (
-                    <p className="mb-1">Phone: {purchaseOrder.phone}</p>
-                  )}
-                </div>
-
-                {/* Order Info */}
-                <div className="col-md-6">
-                  <h6 className="text-muted">Order Information</h6>
-                  <p className="mb-1">
-                    <strong>PO Number:</strong> {purchaseOrder.po_number}
-                  </p>
-                  <p className="mb-1">
-                    <strong>PO Date:</strong> {purchaseOrder.po_date}
-                  </p>
-                  {purchaseOrder.expected_delivery_date && (
-                    <p className="mb-1">
-                      <strong>Expected Delivery:</strong>{" "}
-                      {purchaseOrder.expected_delivery_date}
-                    </p>
-                  )}
-                  <p className="mb-1">
-                    <strong>Warehouse:</strong> {purchaseOrder.warehouse_name}
-                  </p>
-                </div>
-              </div>
-
+              <p><strong>Supplier:</strong> {purchaseOrder.supplier_name}</p>
+              <p><strong>Warehouse:</strong> {purchaseOrder.warehouse_name}</p>
+              <p><strong>PO Date:</strong> {purchaseOrder.po_date}</p>
+              {purchaseOrder.expected_delivery_date && (
+                <p><strong>Expected Delivery:</strong> {purchaseOrder.expected_delivery_date}</p>
+              )}
               {purchaseOrder.terms_and_conditions && (
                 <>
                   <hr />
-                  <h6 className="text-muted">Terms & Conditions</h6>
-                  <p>{purchaseOrder.terms_and_conditions}</p>
+                  <p><strong>Terms & Conditions:</strong> {purchaseOrder.terms_and_conditions}</p>
                 </>
               )}
-
               {purchaseOrder.remarks && (
                 <>
                   <hr />
-                  <h6 className="text-muted">Remarks</h6>
-                  <p>{purchaseOrder.remarks}</p>
+                  <p><strong>Remarks:</strong> {purchaseOrder.remarks}</p>
                 </>
               )}
             </div>
           </div>
         </div>
 
-        {/* PO Summary */}
+        {/* Order Summary */}
         <div className="col-md-4">
           <div className="card">
-            <div className="card-header">
-              <h5 className="mb-0">Order Summary</h5>
-            </div>
+            <div className="card-header"><h5 className="mb-0">Order Summary</h5></div>
             <div className="card-body">
-              <div className="d-flex justify-content-between mb-2">
-                <span>Subtotal:</span>
-                <span>₹ {purchaseOrder.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="d-flex justify-content-between mb-2">
-                <span>Discount:</span>
-                <span>₹ {purchaseOrder.discount_amount.toFixed(2)}</span>
-              </div>
-              <div className="d-flex justify-content-between mb-2">
-                <span>Tax:</span>
-                <span>₹ {purchaseOrder.tax_amount.toFixed(2)}</span>
-              </div>
+              <p><strong>Subtotal:</strong> ₹ {Number(purchaseOrder.subtotal || 0).toFixed(2)}</p>
+              <p><strong>Discount:</strong> ₹ {Number(purchaseOrder.discount_amount || 0).toFixed(2)}</p>
+              <p><strong>Tax:</strong> ₹ {Number(purchaseOrder.tax_amount || 0).toFixed(2)}</p>
               <hr />
-              <div className="d-flex justify-content-between">
-                <strong>Total:</strong>
-                <strong>₹ {purchaseOrder.total_amount.toFixed(2)}</strong>
-              </div>
-              <hr />
-              <div className="small text-muted">
-                <p className="mb-1">
-                  <strong>Created:</strong> {purchaseOrder.created_at}
-                </p>
-                <p className="mb-0">
-                  <strong>Updated:</strong> {purchaseOrder.updated_at}
-                </p>
-              </div>
+              <h5>Total: ₹ {Number(purchaseOrder.total_amount || 0).toFixed(2)}</h5>
             </div>
           </div>
         </div>
       </div>
 
-      {/* PO Items */}
+      {/* Items */}
       <div className="row mt-4">
         <div className="col-12">
           <div className="card">
@@ -278,12 +198,7 @@ export default function PurchaseOrderDetailsPage() {
             </div>
             <div className="card-body">
               {!purchaseOrder.items?.length ? (
-                <div className="text-center py-4">
-                  <i className="bi bi-box display-4 text-muted"></i>
-                  <p className="text-muted mt-3">
-                    No items found in this purchase order.
-                  </p>
-                </div>
+                <p className="text-muted">No items in this purchase order.</p>
               ) : (
                 <div className="table-responsive">
                   <table className="table table-hover">
@@ -300,79 +215,52 @@ export default function PurchaseOrderDetailsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {purchaseOrder.items.map((item, idx) => (
-                        <>
-                          <tr key={idx}>
-                            <td>
-                              <div>
-                                <strong>{item.item_name}</strong>
-                                <br />
-                                <small className="text-muted">
-                                  {item.item_code}
-                                </small>
-                              </div>
-                            </td>
-                            <td>
-                              {item.ordered_qty} {item.uom}
-                            </td>
-                            <td>
-                              {item.received_qty > 0 ? (
-                                <span className="text-success">
-                                  {item.received_qty}
-                                </span>
-                              ) : (
-                                <span className="text-muted">0</span>
-                              )}{" "}
-                              {item.uom}
-                            </td>
-                            <td>
-                              {item.pending_qty > 0 ? (
-                                <span className="text-warning">
-                                  {item.pending_qty}
-                                </span>
-                              ) : (
-                                <span className="text-success">0</span>
-                              )}{" "}
-                              {item.uom}
-                            </td>
-                            <td>₹ {item.unit_price.toFixed(2)}</td>
-                            <td>
-                              {item.discount_amount > 0 ? (
-                                <>
-                                  ₹ {item.discount_amount.toFixed(2)}{" "}
-                                  <small className="text-muted">
-                                    ({item.discount_percent}%)
-                                  </small>
-                                </>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                            </td>
-                            <td>
-                              {item.tax_amount > 0 ? (
-                                <>
-                                  ₹ {item.tax_amount.toFixed(2)}{" "}
-                                  <small className="text-muted">
-                                    ({item.tax_percent}%)
-                                  </small>
-                                </>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                            </td>
-                            <td>
-                              <strong>₹ {item.line_total.toFixed(2)}</strong>
-                            </td>
-                          </tr>
-                          {item.remarks && (
-                            <tr>
-                              <td colSpan="8" className="small text-muted">
-                                <em>Remarks: {item.remarks}</em>
+                      {purchaseOrder.items.map((item, i) => {
+                        const qty = Number(item.ordered_qty) || 0;
+                        const price = Number(item.unit_price) || 0;
+                        const discountPercent = Number(item.discount_percent) || 0;
+                        const taxPercent = Number(item.tax_percent) || 0;
+
+                        const lineAmount = qty * price;
+                        const discountAmount = (lineAmount * discountPercent) / 100;
+                        const taxableAmount = lineAmount - discountAmount;
+                        const taxAmount = (taxableAmount * taxPercent) / 100;
+                        const lineTotal = taxableAmount + taxAmount;
+                        const pendingQty = qty - (item.received_qty || 0);
+
+                        return (
+                          <>
+                            <tr key={i}>
+                              <td>
+                                <strong>{item.item_name}</strong><br />
+                                <small className="text-muted">{item.item_code}</small>
                               </td>
+                              <td>{qty} {item.uom}</td>
+                              <td>{item.received_qty || 0} {item.uom}</td>
+                              <td>{pendingQty > 0 ? pendingQty : 0} {item.uom}</td>
+                              <td>₹ {price.toFixed(2)}</td>
+                              <td>
+                                {discountPercent > 0
+                                  ? `₹ ${discountAmount.toFixed(2)} (${discountPercent}%)`
+                                  : "-"}
+                              </td>
+                              <td>
+                                {taxPercent > 0
+                                  ? `₹ ${taxAmount.toFixed(2)} (${taxPercent}%)`
+                                  : "-"}
+                              </td>
+                              <td><strong>₹ {lineTotal.toFixed(2)}</strong></td>
                             </tr>
-                          )}
-                        </>
-                      ))}
+                            {item.remarks && (
+                              <tr>
+                                <td colSpan="8" className="small text-muted">
+                                  <em>Remarks: {item.remarks}</em>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

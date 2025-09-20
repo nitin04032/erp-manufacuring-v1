@@ -16,25 +16,46 @@ export default function PurchaseOrdersPage() {
 
   // Fetch Purchase Orders + Suppliers
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [poRes, supRes] = await Promise.all([
-          fetch("/api/purchase-orders"),
-          fetch("/api/suppliers"),
-        ]);
-
-        if (poRes.ok) {
-          setPurchaseOrders(await poRes.json());
-        }
-        if (supRes.ok) {
-          setSuppliers(await supRes.json());
-        }
-      } catch (error) {
-        setFlash({ type: "danger", message: "Failed to load data." });
-      }
-    };
     fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const [poRes, supRes] = await Promise.all([
+        fetch("/api/purchase-orders"),
+        fetch("/api/suppliers"),
+      ]);
+
+      if (poRes.ok) {
+        setPurchaseOrders(await poRes.json());
+      }
+      if (supRes.ok) {
+        setSuppliers(await supRes.json());
+      }
+    } catch (error) {
+      setFlash({ type: "danger", message: "Failed to load data." });
+    }
+  };
+
+  // ✅ Delete Purchase Order
+  const handleDelete = async (id) => {
+    if (!confirm("Are you sure you want to delete this Purchase Order?")) return;
+
+    try {
+      const res = await fetch(`/api/purchase-orders/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setFlash({ type: "success", message: "Purchase Order deleted successfully!" });
+        setPurchaseOrders((prev) => prev.filter((po) => po.id !== id));
+      } else {
+        setFlash({ type: "danger", message: "Failed to delete Purchase Order." });
+      }
+    } catch (err) {
+      setFlash({ type: "danger", message: "Server error while deleting order." });
+    }
+  };
 
   // Apply filters
   const filteredOrders = purchaseOrders.filter((po) => {
@@ -138,10 +159,7 @@ export default function PurchaseOrdersPage() {
 
                 {/* Reset */}
                 <div className="col-md-3 d-flex align-items-end gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                  >
+                  <button type="button" className="btn btn-outline-primary">
                     <i className="bi bi-funnel me-2"></i> Filter
                   </button>
                   <button
@@ -181,8 +199,12 @@ export default function PurchaseOrdersPage() {
                   <p className="text-muted">
                     Create your first purchase order to get started.
                   </p>
-                  <Link href="/purchase-orders/create" className="btn btn-primary">
-                    <i className="bi bi-plus-circle me-2"></i>Create Purchase Order
+                  <Link
+                    href="/purchase-orders/create"
+                    className="btn btn-primary"
+                  >
+                    <i className="bi bi-plus-circle me-2"></i>Create Purchase
+                    Order
                   </Link>
                 </div>
               ) : (
@@ -243,6 +265,14 @@ export default function PurchaseOrdersPage() {
                                   <i className="bi bi-pencil"></i>
                                 </Link>
                               )}
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDelete(po.id)}
+                                title="Delete"
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
                             </div>
                           </td>
                         </tr>
