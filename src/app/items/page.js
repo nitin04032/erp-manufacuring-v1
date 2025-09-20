@@ -6,7 +6,7 @@ export default function ItemsPage() {
   const [items, setItems] = useState([]);
   const [flash, setFlash] = useState({ type: "", message: "" });
 
-  // Fetch items from API
+  // 🔹 Fetch items from API
   useEffect(() => {
     const fetchItems = async () => {
       try {
@@ -24,6 +24,27 @@ export default function ItemsPage() {
     fetchItems();
   }, []);
 
+  // 🔹 Delete handler
+  const handleDelete = async (id) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+
+    try {
+      const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setItems(items.filter((x) => x.id !== id));
+        setFlash({ type: "success", message: "Item deleted successfully!" });
+      } else {
+        const errorData = await res.json();
+        setFlash({
+          type: "danger",
+          message: errorData.error || "Failed to delete item.",
+        });
+      }
+    } catch {
+      setFlash({ type: "danger", message: "Server error while deleting." });
+    }
+  };
+
   return (
     <div className="container-fluid">
       {/* Header */}
@@ -40,9 +61,15 @@ export default function ItemsPage() {
 
       {/* Flash Messages */}
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.type === "success" && <i className="bi bi-check-circle me-2"></i>}
-          {flash.type === "danger" && <i className="bi bi-exclamation-triangle me-2"></i>}
+        <div
+          className={`alert alert-${flash.type} alert-dismissible fade show`}
+        >
+          {flash.type === "success" && (
+            <i className="bi bi-check-circle me-2"></i>
+          )}
+          {flash.type === "danger" && (
+            <i className="bi bi-exclamation-triangle me-2"></i>
+          )}
           {flash.message}
           <button
             type="button"
@@ -93,10 +120,13 @@ export default function ItemsPage() {
                           <td>
                             <span
                               className={`badge bg-${
-                                item.status === "active" ? "success" : "secondary"
+                                item.status === "active"
+                                  ? "success"
+                                  : "secondary"
                               }`}
                             >
-                              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                              {item.status.charAt(0).toUpperCase() +
+                                item.status.slice(1)}
                             </span>
                           </td>
                           <td>
@@ -115,6 +145,13 @@ export default function ItemsPage() {
                               >
                                 <i className="bi bi-pencil"></i>
                               </Link>
+                              <button
+                                className="btn btn-outline-danger"
+                                title="Delete"
+                                onClick={() => handleDelete(item.id)}
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
                             </div>
                           </td>
                         </tr>

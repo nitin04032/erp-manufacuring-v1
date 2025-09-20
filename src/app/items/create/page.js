@@ -6,19 +6,24 @@ import { useRouter } from "next/navigation";
 export default function CreateItemPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    item_name: "",
     item_code: "",
-    description: "",
-    unit: "",
-    category: "",
+    item_name: "",
+    item_type: "raw_material",
+    item_category: "",
+    uom: "pcs",
+    hsn_code: "",
+    gst_rate: 0,
+    purchase_rate: 0,
+    sale_rate: 0,
+    minimum_stock: 0,
+    maximum_stock: 0,
     reorder_level: 0,
-    standard_rate: 0,
     status: "active",
   });
 
   const [flash, setFlash] = useState({ type: "", message: "" });
 
-  // Handle input changes
+  // ✅ Handle input
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -27,7 +32,7 @@ export default function CreateItemPage() {
     }));
   };
 
-  // Submit form
+  // ✅ Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -39,9 +44,7 @@ export default function CreateItemPage() {
 
       if (res.ok) {
         setFlash({ type: "success", message: "Item created successfully!" });
-        setTimeout(() => {
-          router.push("/items");
-        }, 1500);
+        setTimeout(() => router.push("/items"), 1200);
       } else {
         const errorData = await res.json();
         setFlash({
@@ -49,8 +52,8 @@ export default function CreateItemPage() {
           message: errorData.error || "Failed to create item.",
         });
       }
-    } catch (error) {
-      setFlash({ type: "danger", message: "Error while creating item." });
+    } catch {
+      setFlash({ type: "danger", message: "Server error while creating item." });
     }
   };
 
@@ -83,7 +86,7 @@ export default function CreateItemPage() {
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="needs-validation">
+      <form onSubmit={handleSubmit}>
         <div className="row">
           <div className="col-md-8">
             <div className="card">
@@ -92,31 +95,12 @@ export default function CreateItemPage() {
               </div>
               <div className="card-body">
                 <div className="row">
-                  {/* Item Name */}
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="item_name" className="form-label">
-                      Item Name <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="item_name"
-                      id="item_name"
-                      className="form-control"
-                      value={formData.item_name}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
                   {/* Item Code */}
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="item_code" className="form-label">
-                      Item Code <span className="text-danger">*</span>
-                    </label>
+                    <label className="form-label">Item Code *</label>
                     <input
                       type="text"
                       name="item_code"
-                      id="item_code"
                       className="form-control"
                       value={formData.item_code}
                       onChange={handleChange}
@@ -124,35 +108,57 @@ export default function CreateItemPage() {
                     />
                   </div>
 
-                  {/* Description */}
-                  <div className="col-12 mb-3">
-                    <label htmlFor="description" className="form-label">
-                      Description
-                    </label>
-                    <textarea
-                      name="description"
-                      id="description"
+                  {/* Item Name */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Item Name *</label>
+                    <input
+                      type="text"
+                      name="item_name"
                       className="form-control"
-                      rows="3"
-                      value={formData.description}
+                      value={formData.item_name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+
+                  {/* Item Type */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Item Type *</label>
+                    <select
+                      name="item_type"
+                      className="form-select"
+                      value={formData.item_type}
+                      onChange={handleChange}
+                    >
+                      <option value="raw_material">Raw Material</option>
+                      <option value="semi_finished">Semi Finished</option>
+                      <option value="finished_goods">Finished Goods</option>
+                      <option value="consumable">Consumable</option>
+                      <option value="service">Service</option>
+                    </select>
+                  </div>
+
+                  {/* Category */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Category</label>
+                    <input
+                      type="text"
+                      name="item_category"
+                      className="form-control"
+                      value={formData.item_category}
                       onChange={handleChange}
                     />
                   </div>
 
-                  {/* Unit */}
+                  {/* UOM */}
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="unit" className="form-label">
-                      Unit <span className="text-danger">*</span>
-                    </label>
+                    <label className="form-label">Unit (UOM) *</label>
                     <select
-                      name="unit"
-                      id="unit"
+                      name="uom"
                       className="form-select"
-                      value={formData.unit}
+                      value={formData.uom}
                       onChange={handleChange}
-                      required
                     >
-                      <option value="">Select Unit</option>
                       <option value="pcs">Pieces</option>
                       <option value="kg">Kilogram</option>
                       <option value="ltr">Liter</option>
@@ -161,50 +167,88 @@ export default function CreateItemPage() {
                     </select>
                   </div>
 
-                  {/* Category */}
+                  {/* HSN Code */}
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="category" className="form-label">
-                      Category
-                    </label>
+                    <label className="form-label">HSN Code</label>
                     <input
                       type="text"
-                      name="category"
-                      id="category"
+                      name="hsn_code"
                       className="form-control"
-                      value={formData.category}
+                      value={formData.hsn_code}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  {/* GST Rate */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">GST Rate (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="gst_rate"
+                      className="form-control"
+                      value={formData.gst_rate}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  {/* Purchase Rate */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Purchase Rate</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="purchase_rate"
+                      className="form-control"
+                      value={formData.purchase_rate}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  {/* Sale Rate */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Sale Rate</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="sale_rate"
+                      className="form-control"
+                      value={formData.sale_rate}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  {/* Min / Max Stock */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Minimum Stock</label>
+                    <input
+                      type="number"
+                      name="minimum_stock"
+                      className="form-control"
+                      value={formData.minimum_stock}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Maximum Stock</label>
+                    <input
+                      type="number"
+                      name="maximum_stock"
+                      className="form-control"
+                      value={formData.maximum_stock}
                       onChange={handleChange}
                     />
                   </div>
 
                   {/* Reorder Level */}
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="reorder_level" className="form-label">
-                      Reorder Level
-                    </label>
+                    <label className="form-label">Reorder Level</label>
                     <input
                       type="number"
                       name="reorder_level"
-                      id="reorder_level"
                       className="form-control"
-                      min="0"
                       value={formData.reorder_level}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  {/* Standard Rate */}
-                  <div className="col-md-6 mb-3">
-                    <label htmlFor="standard_rate" className="form-label">
-                      Standard Rate
-                    </label>
-                    <input
-                      type="number"
-                      name="standard_rate"
-                      id="standard_rate"
-                      className="form-control"
-                      min="0"
-                      step="0.01"
-                      value={formData.standard_rate}
                       onChange={handleChange}
                     />
                   </div>
@@ -220,23 +264,15 @@ export default function CreateItemPage() {
                 <h5 className="mb-0">Status</h5>
               </div>
               <div className="card-body">
-                <div className="mb-3">
-                  <label htmlFor="status" className="form-label">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    id="status"
-                    className="form-select"
-                    value={formData.status}
-                    onChange={handleChange}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-
-                <hr />
+                <select
+                  name="status"
+                  className="form-select mb-3"
+                  value={formData.status}
+                  onChange={handleChange}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
 
                 <div className="d-grid gap-2">
                   <button type="submit" className="btn btn-primary">
