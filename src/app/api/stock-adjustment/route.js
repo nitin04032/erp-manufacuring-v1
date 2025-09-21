@@ -11,7 +11,10 @@ export async function POST(request) {
     }
 
     // ✅ Warehouse ID निकालना (location_id से)
-    const [loc] = await db.query(`SELECT warehouse_id FROM locations WHERE id = ?`, [location_id]);
+    const [loc] = await db.query(
+      `SELECT warehouse_id FROM locations WHERE id = ?`,
+      [location_id]
+    );
     if (loc.length === 0) {
       return Response.json({ error: "Invalid location" }, { status: 400 });
     }
@@ -19,7 +22,10 @@ export async function POST(request) {
 
     // ✅ Last balance निकालना
     const [last] = await db.query(
-      `SELECT balance_qty FROM stock_ledger WHERE item_id=? AND warehouse_id=? ORDER BY id DESC LIMIT 1`,
+      `SELECT balance_qty 
+       FROM stock_ledger 
+       WHERE item_id=? AND warehouse_id=? 
+       ORDER BY id DESC LIMIT 1`,
       [item_id, warehouse_id]
     );
     const prevBalance = last.length ? Number(last[0].balance_qty) : 0;
@@ -39,18 +45,18 @@ export async function POST(request) {
         item_id,
         warehouse_id,
         location_id,
-        adjustment_type === "in" ? "purchase" : "sale", // या "adjustment"
-        "Adjustment", // reference_type
-        null, // reference_id
+        "adjustment", // हमेशा adjustment type
+        "Adjustment",
+        null,
         adjustment_qty,
         newBalance,
         remarks,
       ]
     );
 
-    return Response.json({ message: "Stock adjustment recorded successfully" });
+    return Response.json({ message: "✅ Stock adjustment recorded successfully" });
   } catch (error) {
     console.error("❌ POST Stock Adjustment Error:", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message || "Server error" }, { status: 500 });
   }
 }

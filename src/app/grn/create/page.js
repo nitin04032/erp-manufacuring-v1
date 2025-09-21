@@ -17,7 +17,7 @@ export default function CreateGRNPage() {
     status: "draft",
   });
 
-  // Fetch suppliers + purchase orders
+  // Fetch suppliers + purchase orders (only those without GRN)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -43,11 +43,7 @@ export default function CreateGRNPage() {
       const res = await fetch(`/api/purchase-orders/${po_id}`);
       if (res.ok) {
         const po = await res.json();
-
-        // ✅ Auto-set supplier from PO
         setForm((prev) => ({ ...prev, supplier_id: po.supplier_id }));
-
-        // ✅ Load items with ordered qty
         setGrnItems(
           po.items.map((item) => ({
             item_id: item.item_id,
@@ -55,7 +51,7 @@ export default function CreateGRNPage() {
             item_code: item.item_code,
             uom: item.uom,
             ordered_qty: item.ordered_qty,
-            received_qty: item.ordered_qty, // default full receive
+            received_qty: item.ordered_qty,
             remarks: "",
           }))
         );
@@ -77,8 +73,24 @@ export default function CreateGRNPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!form.purchase_order_id) {
-      return setFlash({ type: "danger", message: "Select Purchase Order first." });
+      return setFlash({ type: "danger", message: "❌ Purchase Order select करना ज़रूरी है." });
+    }
+    if (!form.grn_date) {
+      return setFlash({ type: "danger", message: "❌ GRN Date required है." });
+    }
+    if (grnItems.length === 0) {
+      return setFlash({ type: "danger", message: "❌ कम से कम 1 Item required है." });
+    }
+
+    for (let row of grnItems) {
+      if (Number(row.received_qty) <= 0) {
+        return setFlash({ type: "danger", message: `❌ Item ${row.item_name} की Qty 0 से ज्यादा होनी चाहिए.` });
+      }
+      if (Number(row.received_qty) > Number(row.ordered_qty)) {
+        return setFlash({ type: "danger", message: `❌ Item ${row.item_name} की Qty Ordered Qty से ज्यादा नहीं हो सकती.` });
+      }
     }
 
     try {
@@ -88,8 +100,9 @@ export default function CreateGRNPage() {
         body: JSON.stringify({ ...form, items: grnItems }),
       });
 
+      const data = await res.json();
       if (res.ok) {
-        setFlash({ type: "success", message: "✅ GRN created successfully!" });
+        setFlash({ type: "success", message: `✅ GRN Created: ${data.receipt_number}` });
         setForm({
           supplier_id: "",
           purchase_order_id: "",
@@ -100,21 +113,20 @@ export default function CreateGRNPage() {
         });
         setGrnItems([]);
       } else {
-        setFlash({ type: "danger", message: "❌ Failed to create GRN." });
+        setFlash({ type: "danger", message: data.error || "❌ Failed to create GRN." });
       }
     } catch (err) {
-      setFlash({ type: "danger", message: "Server error while creating GRN." });
+      setFlash({ type: "danger", message: "❌ Server error while creating GRN." });
     }
   };
 
-  // ✅ Auto Totals
+  // Totals
   const totalItems = grnItems.length;
   const totalOrdered = grnItems.reduce((sum, row) => sum + Number(row.ordered_qty || 0), 0);
   const totalReceived = grnItems.reduce((sum, row) => sum + Number(row.received_qty || 0), 0);
 
   return (
     <div className="container-fluid">
-      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">
           <i className="bi bi-box-arrow-in-down text-primary"></i> Create GRN
@@ -124,11 +136,8 @@ export default function CreateGRNPage() {
         </Link>
       </div>
 
-      {/* Flash */}
       {flash.message && (
         <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.type === "success" && <i className="bi bi-check-circle me-2"></i>}
-          {flash.type === "danger" && <i className="bi bi-exclamation-triangle me-2"></i>}
           {flash.message}
           <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
         </div>
@@ -136,23 +145,14 @@ export default function CreateGRNPage() {
 
       <form onSubmit={handleSubmit}>
         <div className="row">
-          {/* Left Side - Header */}
           <div className="col-md-8">
             <div className="card shadow-sm mb-4">
               <div className="card-header bg-light fw-bold">GRN Details</div>
               <div className="card-body">
                 <div className="row g-3">
-                  {/* Supplier */}
                   <div className="col-md-6">
                     <label className="form-label">Supplier *</label>
-                    <select
-                      id="supplier_id"
-                      className="form-select"
-                      value={form.supplier_id}
-                      onChange={handleChange}
-                      required
-                      disabled // auto-filled
-                    >
+                    <select id="supplier_id" className="form-select" value={form.supplier_id} onChange={handleChange} disabled>
                       <option value="">Select Supplier</option>
                       {suppliers.map((s) => (
                         <option key={s.id} value={s.id}>
@@ -162,16 +162,9 @@ export default function CreateGRNPage() {
                     </select>
                   </div>
 
-                  {/* Purchase Order */}
                   <div className="col-md-6">
                     <label className="form-label">Purchase Order *</label>
-                    <select
-                      id="purchase_order_id"
-                      className="form-select"
-                      value={form.purchase_order_id}
-                      onChange={(e) => handlePOChange(e.target.value)}
-                      required
-                    >
+                    <select id="purchase_order_id" className="form-select" value={form.purchase_order_id} onChange={(e) => handlePOChange(e.target.value)} required>
                       <option value="">Select Purchase Order</option>
                       {purchaseOrders.map((po) => (
                         <option key={po.id} value={po.id}>
@@ -181,48 +174,25 @@ export default function CreateGRNPage() {
                     </select>
                   </div>
 
-                  {/* GRN Date */}
                   <div className="col-md-6">
                     <label className="form-label">GRN Date *</label>
-                    <input
-                      type="date"
-                      id="grn_date"
-                      className="form-control"
-                      value={form.grn_date}
-                      onChange={handleChange}
-                      required
-                    />
+                    <input type="date" id="grn_date" className="form-control" value={form.grn_date} onChange={handleChange} required />
                   </div>
 
-                  {/* Invoice Number */}
                   <div className="col-md-6">
                     <label className="form-label">Invoice Number</label>
-                    <input
-                      type="text"
-                      id="invoice_number"
-                      className="form-control"
-                      value={form.invoice_number}
-                      onChange={handleChange}
-                    />
+                    <input type="text" id="invoice_number" className="form-control" value={form.invoice_number} onChange={handleChange} />
                   </div>
 
-                  {/* Remarks */}
                   <div className="col-12">
                     <label className="form-label">Remarks</label>
-                    <textarea
-                      id="remarks"
-                      className="form-control"
-                      rows="2"
-                      value={form.remarks}
-                      onChange={handleChange}
-                    ></textarea>
+                    <textarea id="remarks" className="form-control" rows="2" value={form.remarks} onChange={handleChange}></textarea>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Side - Summary */}
           <div className="col-md-4">
             <div className="card shadow-sm">
               <div className="card-header bg-light fw-bold">Summary</div>
@@ -231,16 +201,6 @@ export default function CreateGRNPage() {
                 <p><strong>Ordered Qty:</strong> {totalOrdered}</p>
                 <p><strong>Received Qty:</strong> {totalReceived}</p>
                 <hr />
-                <label className="form-label">Status</label>
-                <select
-                  id="status"
-                  className="form-select mb-3"
-                  value={form.status}
-                  onChange={handleChange}
-                >
-                  <option value="draft">Draft</option>
-                  <option value="submitted">Submitted</option>
-                </select>
                 <button type="submit" className="btn btn-primary w-100 mb-2">
                   <i className="bi bi-check-circle me-2"></i> Save GRN
                 </button>
@@ -252,7 +212,6 @@ export default function CreateGRNPage() {
           </div>
         </div>
 
-        {/* Items Section */}
         <div className="card shadow-sm mt-4">
           <div className="card-header bg-light fw-bold">Received Items</div>
           <div className="card-body">
@@ -276,24 +235,11 @@ export default function CreateGRNPage() {
                         <td>{row.item_name} ({row.item_code})</td>
                         <td>{row.ordered_qty}</td>
                         <td>
-                          <input
-                            type="number"
-                            min="0"
-                            max={row.ordered_qty}
-                            className="form-control border-primary"
-                            value={row.received_qty}
-                            onChange={(e) => handleItemChange(i, "received_qty", e.target.value)}
-                            required
-                          />
+                          <input type="number" min="0" max={row.ordered_qty} className="form-control border-primary" value={row.received_qty} onChange={(e) => handleItemChange(i, "received_qty", e.target.value)} required />
                         </td>
                         <td>{row.uom}</td>
                         <td>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={row.remarks}
-                            onChange={(e) => handleItemChange(i, "remarks", e.target.value)}
-                          />
+                          <input type="text" className="form-control" value={row.remarks} onChange={(e) => handleItemChange(i, "remarks", e.target.value)} />
                         </td>
                       </tr>
                     ))}

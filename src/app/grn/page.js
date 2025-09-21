@@ -35,8 +35,7 @@ export default function GRNPage() {
 
       if (res.ok) {
         setFlash({ type: "success", message: "GRN deleted successfully!" });
-        // Refresh list after delete
-        fetchData();
+        fetchData(); // refresh list
       } else {
         const err = await res.json();
         setFlash({ type: "danger", message: err.error || "Failed to delete GRN" });
@@ -110,10 +109,10 @@ export default function GRNPage() {
                     <tbody>
                       {grns.map((grn) => (
                         <tr key={grn.id}>
-                          <td><strong>{grn.grn_number}</strong></td>
+                          <td><strong>{grn.receipt_number}</strong></td>
                           <td>{grn.po_number}</td>
                           <td>{grn.supplier_name}</td>
-                          <td>{grn.grn_date}</td>
+                          <td>{new Date(grn.receipt_date).toLocaleDateString()}</td>
                           <td>{grn.items?.length || 0}</td>
                           <td>
                             <span
