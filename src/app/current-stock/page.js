@@ -136,13 +136,13 @@ export default function CurrentStockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentStock.map((stock) => (
-                        <tr key={stock.id}>
+                      {currentStock.map((stock, index) => (
+                        <tr key={`${stock.id}-${stock.warehouse_name}-${index}`}>
                           <td>
                             <strong>{stock.item_code}</strong>
                           </td>
                           <td>{stock.item_name}</td>
-                          <td>{stock.location_name}</td>
+                          <td>{stock.location_name || "-"}</td>
                           <td>{stock.warehouse_name}</td>
                           <td>
                             <strong
@@ -155,7 +155,7 @@ export default function CurrentStockPage() {
                               {Number(stock.current_stock).toFixed(2)}
                             </strong>
                           </td>
-                          <td>{stock.unit}</td>
+                          <td>{stock.unit || "-"}</td>
                           <td>{Number(stock.reorder_level).toFixed(2)}</td>
                           <td>
                             {stock.current_stock <= 0 ? (

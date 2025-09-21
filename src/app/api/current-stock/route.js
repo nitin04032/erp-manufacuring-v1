@@ -15,7 +15,6 @@ export async function GET(request) {
         i.uom AS unit,
         i.reorder_level,
         w.warehouse_name,
-        l.location_name,
         IFNULL(SUM(
           CASE 
             WHEN sl.transaction_type IN ('IN','purchase','production','adjustment') THEN sl.qty
@@ -26,7 +25,6 @@ export async function GET(request) {
       FROM items i
       JOIN stock_ledger sl ON sl.item_id = i.id
       JOIN warehouses w ON sl.warehouse_id = w.id
-      LEFT JOIN locations l ON sl.location_id = l.id
       WHERE 1=1
     `;
 
@@ -34,8 +32,8 @@ export async function GET(request) {
 
     // 🔹 Search filter
     if (search) {
-      query += ` AND (i.item_code LIKE ? OR i.item_name LIKE ? OR w.warehouse_name LIKE ? OR l.location_name LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+      query += ` AND (i.item_code LIKE ? OR i.item_name LIKE ? OR w.warehouse_name LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     // 🔹 Warehouse filter
@@ -44,7 +42,7 @@ export async function GET(request) {
       params.push(warehouseId);
     }
 
-    query += ` GROUP BY i.id, w.id, l.id ORDER BY i.item_name`;
+    query += ` GROUP BY i.id, w.id ORDER BY i.item_name`;
 
     const [rows] = await db.query(query, params);
     return Response.json(rows);

@@ -4,38 +4,35 @@ import Link from "next/link";
 
 export default function StockAdjustmentPage() {
   const [formData, setFormData] = useState({
+    warehouse_id: "",
     item_id: "",
-    location_id: "",
-    adjustment_type: "",
-    adjustment_qty: "",
-    remarks: "",
+    adjustment_type: "IN",
+    qty: "",
+    reason: "",
   });
 
   const [flash, setFlash] = useState({ type: "", message: "" });
   const [items, setItems] = useState([]);
-  const [locations, setLocations] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
 
-  // Items aur Locations ko API se fetch karna
+  // Items + Warehouses load karo
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [itemsRes, locationsRes] = await Promise.all([
+        const [itemsRes, warehousesRes] = await Promise.all([
           fetch("/api/items"),
-          fetch("/api/locations"),
+          fetch("/api/warehouses"),
         ]);
 
-        if (!itemsRes.ok || !locationsRes.ok) {
+        if (!itemsRes.ok || !warehousesRes.ok) {
           throw new Error("Failed to fetch data");
         }
 
-        const itemsData = await itemsRes.json();
-        const locationsData = await locationsRes.json();
-
-        setItems(itemsData);
-        setLocations(locationsData);
+        setItems(await itemsRes.json());
+        setWarehouses(await warehousesRes.json());
       } catch (error) {
         console.error("Error loading data:", error);
-        setFlash({ type: "danger", message: "Failed to load items/locations." });
+        setFlash({ type: "danger", message: "Failed to load items/warehouses." });
       }
     };
 
@@ -49,29 +46,25 @@ export default function StockAdjustmentPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.item_id || !formData.location_id || !formData.adjustment_type || !formData.adjustment_qty || !formData.remarks) {
+    if (!formData.item_id || !formData.warehouse_id || !formData.adjustment_type || !formData.qty) {
       setFlash({ type: "danger", message: "Please fill all required fields." });
       return;
     }
 
     try {
-      const res = await fetch("/api/stock-adjustment", {
+      const res = await fetch("/api/stock-adjustments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        setFlash({ type: "success", message: "Stock adjustment processed successfully!" });
-        setFormData({
-          item_id: "",
-          location_id: "",
-          adjustment_type: "",
-          adjustment_qty: "",
-          remarks: "",
-        });
+        setFlash({ type: "success", message: `✅ Adjustment Done: ${data.adjustment_number}` });
+        setFormData({ warehouse_id: "", item_id: "", adjustment_type: "IN", qty: "", reason: "" });
       } else {
-        setFlash({ type: "danger", message: "Error processing adjustment." });
+        setFlash({ type: "danger", message: data.error || "Error processing adjustment." });
       }
     } catch (err) {
       console.error("Error:", err);
@@ -87,26 +80,17 @@ export default function StockAdjustmentPage() {
           <h1 className="h3 mb-0">
             <i className="bi bi-arrow-up-down text-primary"></i> Stock Adjustment
           </h1>
-          <Link href="/stock-ledger" className="btn btn-outline-secondary">
-            <i className="bi bi-arrow-left me-2"></i> Back to Ledger
+          <Link href="/current-stock" className="btn btn-outline-secondary">
+            <i className="bi bi-arrow-left me-2"></i> Back to Stock
           </Link>
         </div>
       </div>
 
       {/* Flash Messages */}
       {flash.message && (
-        <div
-          className={`alert alert-${flash.type} alert-dismissible fade show`}
-          role="alert"
-        >
-          {flash.type === "success" && <i className="bi bi-check-circle me-2"></i>}
-          {flash.type === "danger" && <i className="bi bi-exclamation-triangle me-2"></i>}
+        <div className={`alert alert-${flash.type} alert-dismissible fade show`} role="alert">
           {flash.message}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setFlash({ type: "", message: "" })}
-          ></button>
+          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
         </div>
       )}
 
@@ -121,6 +105,25 @@ export default function StockAdjustmentPage() {
               </div>
               <div className="card-body">
                 <div className="row">
+                  {/* Warehouse */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Warehouse *</label>
+                    <select
+                      name="warehouse_id"
+                      value={formData.warehouse_id}
+                      onChange={handleChange}
+                      className="form-select"
+                      required
+                    >
+                      <option value="">Select Warehouse</option>
+                      {warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.warehouse_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Item */}
                   <div className="col-md-6 mb-3">
                     <label className="form-label">Item *</label>
@@ -140,25 +143,6 @@ export default function StockAdjustmentPage() {
                     </select>
                   </div>
 
-                  {/* Location */}
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">Location *</label>
-                    <select
-                      name="location_id"
-                      value={formData.location_id}
-                      onChange={handleChange}
-                      className="form-select"
-                      required
-                    >
-                      <option value="">Select Location</option>
-                      {locations.map((loc) => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.location_code} - {loc.location_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
                   {/* Adjustment Type */}
                   <div className="col-md-6 mb-3">
                     <label className="form-label">Adjustment Type *</label>
@@ -169,9 +153,8 @@ export default function StockAdjustmentPage() {
                       className="form-select"
                       required
                     >
-                      <option value="">Select Type</option>
-                      <option value="in">Stock In (Add)</option>
-                      <option value="out">Stock Out (Reduce)</option>
+                      <option value="IN">Stock IN (Add)</option>
+                      <option value="OUT">Stock OUT (Reduce)</option>
                     </select>
                   </div>
 
@@ -180,8 +163,8 @@ export default function StockAdjustmentPage() {
                     <label className="form-label">Quantity *</label>
                     <input
                       type="number"
-                      name="adjustment_qty"
-                      value={formData.adjustment_qty}
+                      name="qty"
+                      value={formData.qty}
                       onChange={handleChange}
                       className="form-control"
                       min="0.01"
@@ -192,15 +175,14 @@ export default function StockAdjustmentPage() {
 
                   {/* Remarks */}
                   <div className="col-12 mb-3">
-                    <label className="form-label">Remarks *</label>
+                    <label className="form-label">Remarks</label>
                     <textarea
-                      name="remarks"
-                      value={formData.remarks}
+                      name="reason"
+                      value={formData.reason}
                       onChange={handleChange}
                       className="form-control"
                       rows="3"
                       placeholder="Reason for adjustment..."
-                      required
                     ></textarea>
                   </div>
                 </div>
@@ -220,14 +202,8 @@ export default function StockAdjustmentPage() {
                     <i className="bi bi-info-circle me-2"></i>Stock Adjustment Guide
                   </h6>
                   <ul className="mb-0 small">
-                    <li>
-                      <strong>Stock In:</strong> Increases inventory (found items,
-                      corrections)
-                    </li>
-                    <li>
-                      <strong>Stock Out:</strong> Reduces inventory (damage, theft,
-                      corrections)
-                    </li>
+                    <li><strong>Stock IN:</strong> Increases inventory (found items, corrections)</li>
+                    <li><strong>Stock OUT:</strong> Reduces inventory (damage, theft, corrections)</li>
                     <li>Always provide clear remarks for audit purposes</li>
                   </ul>
                 </div>
@@ -238,7 +214,7 @@ export default function StockAdjustmentPage() {
                   <button type="submit" className="btn btn-primary">
                     <i className="bi bi-check-circle me-2"></i>Process Adjustment
                   </button>
-                  <Link href="/stock-ledger" className="btn btn-outline-secondary">
+                  <Link href="/current-stock" className="btn btn-outline-secondary">
                     <i className="bi bi-x-circle me-2"></i>Cancel
                   </Link>
                 </div>
