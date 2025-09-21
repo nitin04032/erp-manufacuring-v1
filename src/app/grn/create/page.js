@@ -6,10 +6,7 @@ export default function CreateGRNPage() {
   const [flash, setFlash] = useState({ type: "", message: "" });
   const [suppliers, setSuppliers] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [items, setItems] = useState([]);
-  const [grnItems, setGrnItems] = useState([
-    { item_id: "", ordered_qty: 0, received_qty: "", remarks: "" },
-  ]);
+  const [grnItems, setGrnItems] = useState([]);
 
   const [form, setForm] = useState({
     supplier_id: "",
@@ -20,18 +17,16 @@ export default function CreateGRNPage() {
     status: "draft",
   });
 
-  // Fetch suppliers, POs, items
+  // Fetch suppliers + purchase orders
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [supRes, poRes, itemRes] = await Promise.all([
+        const [supRes, poRes] = await Promise.all([
           fetch("/api/suppliers"),
           fetch("/api/purchase-orders"),
-          fetch("/api/items"),
         ]);
         if (supRes.ok) setSuppliers(await supRes.json());
         if (poRes.ok) setPurchaseOrders(await poRes.json());
-        if (itemRes.ok) setItems(await itemRes.json());
       } catch (err) {
         console.error("Error fetching data", err);
       }
@@ -39,38 +34,51 @@ export default function CreateGRNPage() {
     fetchData();
   }, []);
 
-  // Handle form input change
+  // Load items from PO
+  const handlePOChange = async (po_id) => {
+    setForm({ ...form, purchase_order_id: po_id });
+    if (!po_id) return setGrnItems([]);
+
+    try {
+      const res = await fetch(`/api/purchase-orders/${po_id}`);
+      if (res.ok) {
+        const po = await res.json();
+
+        // ✅ Auto-set supplier from PO
+        setForm((prev) => ({ ...prev, supplier_id: po.supplier_id }));
+
+        // ✅ Load items with ordered qty
+        setGrnItems(
+          po.items.map((item) => ({
+            item_id: item.item_id,
+            item_name: item.item_name,
+            item_code: item.item_code,
+            uom: item.uom,
+            ordered_qty: item.ordered_qty,
+            received_qty: item.ordered_qty, // default full receive
+            remarks: "",
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Error loading PO items:", err);
+    }
+  };
+
+  const handleItemChange = (i, field, value) => {
+    const updated = [...grnItems];
+    updated[i][field] = value;
+    setGrnItems(updated);
+  };
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
-  // Handle GRN item row change
-  const handleItemChange = (index, field, value) => {
-    const updatedItems = [...grnItems];
-    updatedItems[index][field] = value;
-    setGrnItems(updatedItems);
-  };
-
-  // Add new GRN item row
-  const addItemRow = () => {
-    setGrnItems([
-      ...grnItems,
-      { item_id: "", ordered_qty: 0, received_qty: "", remarks: "" },
-    ]);
-  };
-
-  // Remove GRN item row
-  const removeItemRow = (index) => {
-    setGrnItems(grnItems.filter((_, i) => i !== index));
-  };
-
-  // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (grnItems.length === 0) {
-      setFlash({ type: "danger", message: "Please add at least one item." });
-      return;
+    if (!form.purchase_order_id) {
+      return setFlash({ type: "danger", message: "Select Purchase Order first." });
     }
 
     try {
@@ -81,7 +89,7 @@ export default function CreateGRNPage() {
       });
 
       if (res.ok) {
-        setFlash({ type: "success", message: "GRN created successfully!" });
+        setFlash({ type: "success", message: "✅ GRN created successfully!" });
         setForm({
           supplier_id: "",
           purchase_order_id: "",
@@ -90,64 +98,52 @@ export default function CreateGRNPage() {
           remarks: "",
           status: "draft",
         });
-        setGrnItems([
-          { item_id: "", ordered_qty: 0, received_qty: "", remarks: "" },
-        ]);
+        setGrnItems([]);
       } else {
-        setFlash({ type: "danger", message: "Failed to create GRN." });
+        setFlash({ type: "danger", message: "❌ Failed to create GRN." });
       }
     } catch (err) {
-      setFlash({ type: "danger", message: "Error while creating GRN." });
+      setFlash({ type: "danger", message: "Server error while creating GRN." });
     }
   };
+
+  // ✅ Auto Totals
+  const totalItems = grnItems.length;
+  const totalOrdered = grnItems.reduce((sum, row) => sum + Number(row.ordered_qty || 0), 0);
+  const totalReceived = grnItems.reduce((sum, row) => sum + Number(row.received_qty || 0), 0);
 
   return (
     <div className="container-fluid">
       {/* Header */}
-      <div className="row">
-        <div className="col-12 d-flex justify-content-between align-items-center mb-4">
-          <h1 className="h3 mb-0">
-            <i className="bi bi-box-arrow-in-down text-primary"></i> Create GRN
-          </h1>
-          <Link href="/grn" className="btn btn-outline-secondary">
-            <i className="bi bi-arrow-left me-2"></i>Back to List
-          </Link>
-        </div>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="h3">
+          <i className="bi bi-box-arrow-in-down text-primary"></i> Create GRN
+        </h1>
+        <Link href="/grn" className="btn btn-outline-secondary">
+          <i className="bi bi-arrow-left me-2"></i> Back to List
+        </Link>
       </div>
 
-      {/* Flash Messages */}
+      {/* Flash */}
       {flash.message && (
-        <div
-          className={`alert alert-${flash.type} alert-dismissible fade show`}
-          role="alert"
-        >
-          {flash.type === "success" && (
-            <i className="bi bi-check-circle me-2"></i>
-          )}
-          {flash.type === "danger" && (
-            <i className="bi bi-exclamation-triangle me-2"></i>
-          )}
+        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+          {flash.type === "success" && <i className="bi bi-check-circle me-2"></i>}
+          {flash.type === "danger" && <i className="bi bi-exclamation-triangle me-2"></i>}
           {flash.message}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setFlash({ type: "", message: "" })}
-          ></button>
+          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
         </div>
       )}
 
       <form onSubmit={handleSubmit}>
         <div className="row">
-          {/* GRN Header */}
+          {/* Left Side - Header */}
           <div className="col-md-8">
-            <div className="card mb-4">
-              <div className="card-header">
-                <h5 className="mb-0">GRN Details</h5>
-              </div>
+            <div className="card shadow-sm mb-4">
+              <div className="card-header bg-light fw-bold">GRN Details</div>
               <div className="card-body">
-                <div className="row">
+                <div className="row g-3">
                   {/* Supplier */}
-                  <div className="col-md-6 mb-3">
+                  <div className="col-md-6">
                     <label className="form-label">Supplier *</label>
                     <select
                       id="supplier_id"
@@ -155,6 +151,7 @@ export default function CreateGRNPage() {
                       value={form.supplier_id}
                       onChange={handleChange}
                       required
+                      disabled // auto-filled
                     >
                       <option value="">Select Supplier</option>
                       {suppliers.map((s) => (
@@ -166,13 +163,13 @@ export default function CreateGRNPage() {
                   </div>
 
                   {/* Purchase Order */}
-                  <div className="col-md-6 mb-3">
+                  <div className="col-md-6">
                     <label className="form-label">Purchase Order *</label>
                     <select
                       id="purchase_order_id"
                       className="form-select"
                       value={form.purchase_order_id}
-                      onChange={handleChange}
+                      onChange={(e) => handlePOChange(e.target.value)}
                       required
                     >
                       <option value="">Select Purchase Order</option>
@@ -185,7 +182,7 @@ export default function CreateGRNPage() {
                   </div>
 
                   {/* GRN Date */}
-                  <div className="col-md-6 mb-3">
+                  <div className="col-md-6">
                     <label className="form-label">GRN Date *</label>
                     <input
                       type="date"
@@ -198,7 +195,7 @@ export default function CreateGRNPage() {
                   </div>
 
                   {/* Invoice Number */}
-                  <div className="col-md-6 mb-3">
+                  <div className="col-md-6">
                     <label className="form-label">Invoice Number</label>
                     <input
                       type="text"
@@ -210,7 +207,7 @@ export default function CreateGRNPage() {
                   </div>
 
                   {/* Remarks */}
-                  <div className="col-12 mb-3">
+                  <div className="col-12">
                     <label className="form-label">Remarks</label>
                     <textarea
                       id="remarks"
@@ -218,7 +215,6 @@ export default function CreateGRNPage() {
                       rows="2"
                       value={form.remarks}
                       onChange={handleChange}
-                      placeholder="Any additional remarks"
                     ></textarea>
                   </div>
                 </div>
@@ -226,136 +222,85 @@ export default function CreateGRNPage() {
             </div>
           </div>
 
-          {/* Summary */}
+          {/* Right Side - Summary */}
           <div className="col-md-4">
-            <div className="card">
-              <div className="card-header">
-                <h5 className="mb-0">Summary</h5>
-              </div>
+            <div className="card shadow-sm">
+              <div className="card-header bg-light fw-bold">Summary</div>
               <div className="card-body">
-                <div className="mb-3">
-                  <label className="form-label">Status</label>
-                  <select
-                    id="status"
-                    className="form-select"
-                    value={form.status}
-                    onChange={handleChange}
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="submitted">Submitted</option>
-                  </select>
-                </div>
+                <p><strong>Total Items:</strong> {totalItems}</p>
+                <p><strong>Ordered Qty:</strong> {totalOrdered}</p>
+                <p><strong>Received Qty:</strong> {totalReceived}</p>
                 <hr />
-                <div className="d-grid gap-2">
-                  <button type="submit" className="btn btn-primary">
-                    <i className="bi bi-check-circle me-2"></i>Create GRN
-                  </button>
-                  <Link href="/grn" className="btn btn-outline-secondary">
-                    <i className="bi bi-x-circle me-2"></i>Cancel
-                  </Link>
-                </div>
+                <label className="form-label">Status</label>
+                <select
+                  id="status"
+                  className="form-select mb-3"
+                  value={form.status}
+                  onChange={handleChange}
+                >
+                  <option value="draft">Draft</option>
+                  <option value="submitted">Submitted</option>
+                </select>
+                <button type="submit" className="btn btn-primary w-100 mb-2">
+                  <i className="bi bi-check-circle me-2"></i> Save GRN
+                </button>
+                <Link href="/grn" className="btn btn-outline-secondary w-100">
+                  <i className="bi bi-x-circle me-2"></i> Cancel
+                </Link>
               </div>
             </div>
           </div>
         </div>
 
         {/* Items Section */}
-        <div className="row mt-4">
-          <div className="col-12">
-            <div className="card">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">Received Items</h5>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-success"
-                  onClick={addItemRow}
-                >
-                  <i className="bi bi-plus-circle me-2"></i>Add Item
-                </button>
+        <div className="card shadow-sm mt-4">
+          <div className="card-header bg-light fw-bold">Received Items</div>
+          <div className="card-body">
+            {!grnItems.length ? (
+              <p className="text-muted">Select a Purchase Order to load items.</p>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Ordered</th>
+                      <th>Received</th>
+                      <th>UOM</th>
+                      <th>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {grnItems.map((row, i) => (
+                      <tr key={i}>
+                        <td>{row.item_name} ({row.item_code})</td>
+                        <td>{row.ordered_qty}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            max={row.ordered_qty}
+                            className="form-control border-primary"
+                            value={row.received_qty}
+                            onChange={(e) => handleItemChange(i, "received_qty", e.target.value)}
+                            required
+                          />
+                        </td>
+                        <td>{row.uom}</td>
+                        <td>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={row.remarks}
+                            onChange={(e) => handleItemChange(i, "remarks", e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="card-body">
-                {grnItems.map((row, i) => (
-                  <div
-                    key={i}
-                    className="grn-item-row border rounded p-3 mb-3 bg-light"
-                  >
-                    <div className="row">
-                      {/* Item */}
-                      <div className="col-md-4 mb-2">
-                        <label className="form-label">Item *</label>
-                        <select
-                          className="form-select"
-                          value={row.item_id}
-                          onChange={(e) =>
-                            handleItemChange(i, "item_id", e.target.value)
-                          }
-                          required
-                        >
-                          <option value="">Select Item</option>
-                          {items.map((it) => (
-                            <option key={it.id} value={it.id}>
-                              {it.item_name} ({it.item_code})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Ordered Qty */}
-                      <div className="col-md-3 mb-2">
-                        <label className="form-label">Ordered Qty</label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          value={row.ordered_qty}
-                          readOnly
-                        />
-                      </div>
-
-                      {/* Received Qty */}
-                      <div className="col-md-3 mb-2">
-                        <label className="form-label">Received Qty *</label>
-                        <input
-                          type="number"
-                          step="0.001"
-                          min="0"
-                          className="form-control"
-                          value={row.received_qty}
-                          onChange={(e) =>
-                            handleItemChange(i, "received_qty", e.target.value)
-                          }
-                          required
-                        />
-                      </div>
-
-                      {/* Remove Btn */}
-                      <div className="col-md-2 mb-2">
-                        <label className="form-label">&nbsp;</label>
-                        <button
-                          type="button"
-                          className="btn btn-danger w-100"
-                          onClick={() => removeItemRow(i)}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
-                      </div>
-
-                      {/* Remarks */}
-                      <div className="col-12">
-                        <textarea
-                          className="form-control mt-2"
-                          rows="1"
-                          placeholder="Item remarks (optional)"
-                          value={row.remarks}
-                          onChange={(e) =>
-                            handleItemChange(i, "remarks", e.target.value)
-                          }
-                        ></textarea>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </form>
