@@ -1,18 +1,17 @@
 import { db } from "@/lib/db";
 
 // =========================
-// ✅ GET - QC List
+// ✅ GET - QC List with items_count
 // =========================
 export async function GET() {
   try {
     const [rows] = await db.query(`
-      SELECT qc.id, qc.status, qc.remarks, qc.created_at,
-             grn.receipt_number, grn.receipt_date,
-             s.supplier_name
+      SELECT 
+        qc.id, qc.qc_number, qc.qc_date, qc.inspector, qc.status, qc.remarks,
+        COUNT(qci.id) AS items_count
       FROM quality_checks qc
-      JOIN purchase_receipts grn ON qc.receipt_id = grn.id
-      JOIN purchase_orders po ON grn.po_id = po.id
-      JOIN suppliers s ON po.supplier_id = s.id
+      LEFT JOIN quality_check_items qci ON qc.id = qci.qc_id
+      GROUP BY qc.id
       ORDER BY qc.id DESC
     `);
 
@@ -24,72 +23,51 @@ export async function GET() {
 }
 
 // =========================
-// ✅ POST - Create QC Entry (with multiple items)
+// ✅ POST - Create QC (header + items)
 // =========================
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { receipt_id, status, remarks, items } = body;
+    const { qc_number, qc_date, reference_type, inspector, remarks, status, items } = body;
 
-    if (!receipt_id || !status || !items || items.length === 0) {
+    // 1️⃣ Validation
+    if (
+      !qc_number ||
+      !qc_date ||
+      !reference_type ||
+      !inspector ||
+      !status ||
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
       return Response.json({ error: "❌ All fields are required" }, { status: 400 });
     }
 
-    // 🔹 Save QC Master
-    const [qcResult] = await db.query(
-      `INSERT INTO quality_checks (receipt_id, item_id, checked_qty, status, remarks)
-       VALUES (?, NULL, 0, ?, ?)`,
-      [receipt_id, status, remarks || null]
+    // 2️⃣ Insert QC Header (quality_checks table)
+    const [result] = await db.query(
+      `INSERT INTO quality_checks (qc_number, qc_date, receipt_id, item_id, checked_qty, status, remarks, created_at, inspector)
+       VALUES (?, ?, NULL, NULL, 0, ?, ?, NOW(), ?)`,
+      [qc_number, qc_date, status, remarks || null, inspector]
     );
 
-    const qc_id = qcResult.insertId;
+    const qc_id = result.insertId;
 
-    // 🔹 Loop through QC Items
-    for (const row of items) {
-      const { item_id, qty, result, remarks: itemRemarks } = row;
+    // 3️⃣ Insert QC Items (quality_check_items table)
+    for (const item of items) {
+      if (!item.item_id || !item.qty) continue;
 
       await db.query(
         `INSERT INTO quality_check_items (qc_id, item_id, qty, result, remarks)
          VALUES (?, ?, ?, ?, ?)`,
-        [qc_id, item_id, qty, result || "pending", itemRemarks || null]
+        [qc_id, item.item_id, item.qty, item.result || "pending", item.remarks || null]
       );
-
-      // 🔹 If item result = pass → update stock ledger
-      if (result === "pass") {
-        // Last Balance निकालो
-        const [last] = await db.query(
-          `SELECT balance_qty FROM stock_ledger 
-           WHERE item_id=? 
-           ORDER BY id DESC LIMIT 1`,
-          [item_id]
-        );
-        const prevBalance = last.length ? Number(last[0].balance_qty) : 0;
-        const newBalance = prevBalance + Number(qty);
-
-        // Insert Stock Ledger
-        await db.query(
-          `INSERT INTO stock_ledger 
-           (item_id, warehouse_id, transaction_type, reference_type, reference_id, transaction_ref, transaction_id, qty, balance_qty, remarks, created_at) 
-           SELECT pri.item_id, po.warehouse_id, 'IN', 'QC', ?, ?, ?, ?, ?, ?, NOW()
-           FROM purchase_receipts pr
-           JOIN purchase_orders po ON pr.po_id = po.id
-           JOIN purchase_receipt_items pri ON pr.id = pri.receipt_id AND pri.item_id = ?
-           WHERE pr.id = ?`,
-          [
-            qc_id,
-            "QC-" + qc_id,
-            Date.now(),
-            qty,
-            newBalance,
-            "QC Passed",
-            item_id,
-            receipt_id,
-          ]
-        );
-      }
     }
 
-    return Response.json({ message: "✅ QC processed successfully", qc_id });
+    return Response.json({
+      message: "✅ QC created successfully",
+      qc_id,
+      qc_number,
+    });
   } catch (error) {
     console.error("❌ QC POST Error:", error);
     return Response.json({ error: error.message }, { status: 500 });
