@@ -61,8 +61,8 @@ export default function ProductionOrderDetail() {
                 </tr>
               </thead>
               <tbody>
-                {order.components.map((c) => (
-                  <tr key={c.id}>
+                {order.components.map((c, i) => (
+                  <tr key={c.id || i}>
                     <td>{c.item_code}</td>
                     <td>{c.item_name}</td>
                     <td>{c.planned_qty}</td>

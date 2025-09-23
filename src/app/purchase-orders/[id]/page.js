@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import React from "react"; // ✅ Needed for <React.Fragment>
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -229,8 +230,8 @@ export default function PurchaseOrderDetailsPage() {
                         const pendingQty = qty - (item.received_qty || 0);
 
                         return (
-                          <>
-                            <tr key={i}>
+                          <React.Fragment key={item.id || i}>
+                            <tr>
                               <td>
                                 <strong>{item.item_name}</strong><br />
                                 <small className="text-muted">{item.item_code}</small>
@@ -252,13 +253,13 @@ export default function PurchaseOrderDetailsPage() {
                               <td><strong>₹ {lineTotal.toFixed(2)}</strong></td>
                             </tr>
                             {item.remarks && (
-                              <tr>
+                              <tr className="table-light">
                                 <td colSpan="8" className="small text-muted">
                                   <em>Remarks: {item.remarks}</em>
                                 </td>
                               </tr>
                             )}
-                          </>
+                          </React.Fragment>
                         );
                       })}
                     </tbody>

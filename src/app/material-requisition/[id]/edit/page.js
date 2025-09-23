@@ -31,30 +31,12 @@ export default function EditRequisition() {
   function removeRow(i) { setRows(prev=>prev.filter((_,idx)=>idx!==i)); }
   function handleRowChange(i, field, val) { setRows(prev=> { const c = [...prev]; c[i][field]=val; return c; }); }
 
-  function validate() {
-    if (!requisition.requested_by || !requisition.requested_by.trim()) { setFlash({type:"danger", msg:"Requested by required"}); return false; }
-    if (new Date(requisition.requisition_date) > new Date()) { setFlash({type:"danger", msg:"Date cannot be in the future"}); return false; }
-    if (rows.length===0) { setFlash({type:"danger", msg:"Add at least one item"}); return false; }
-    const itemIds = rows.map(r=>r.item_id);
-    if (itemIds.some(id=>!id)) { setFlash({type:"danger", msg:"Select item for each row"}); return false; }
-    if (new Set(itemIds).size !== itemIds.length) { setFlash({type:"danger", msg:"Duplicate items not allowed"}); return false; }
-    for (const r of rows) {
-      if (isNaN(Number(r.qty)) || Number(r.qty) <= 0) { setFlash({type:"danger", msg:"Each item must have qty > 0"}); return false; }
-    }
-    return true;
-  }
-
   async function submit(e) {
     e.preventDefault();
     setFlash(null);
-    if (!validate()) return;
     setSaving(true);
     try {
-      const payload = {
-        status: requisition.status,
-        remarks: requisition.remarks,
-        items: rows
-      };
+      const payload = { status: requisition.status, remarks: requisition.remarks, items: rows };
       const res = await fetch(`/api/material-requisition/${id}`, {
         method: "PUT",
         headers: {"Content-Type":"application/json"},
@@ -76,7 +58,16 @@ export default function EditRequisition() {
   }
 
   if (!requisition) return <div className="container py-5">Loading...</div>;
-  if (requisition.status === "approved") return <div className="container py-5">Approved requisitions cannot be edited.</div>;
+  if (requisition.status === "approved") {
+    return (
+      <div className="container py-5">
+        <div className="alert alert-info">
+          <i className="bi bi-lock"></i> This requisition is already <strong>approved</strong> and cannot be edited.
+        </div>
+        <Link href={`/material-requisition/${id}`} className="btn btn-primary">Back to Detail</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid">

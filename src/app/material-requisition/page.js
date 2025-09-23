@@ -2,6 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+function formatDate(d) {
+  return new Date(d).toLocaleDateString("en-GB");
+}
+
 export default function MaterialRequisitionList() {
   const [requisitions, setRequisitions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +49,16 @@ export default function MaterialRequisitionList() {
     setPage(1);
   }
 
+  async function handleDelete(id) {
+    if (!confirm("Delete this requisition?")) return;
+    const res = await fetch(`/api/material-requisition/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      fetchRequisitions();
+    } else {
+      alert("Failed to delete");
+    }
+  }
+
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -54,6 +68,7 @@ export default function MaterialRequisitionList() {
         </Link>
       </div>
 
+      {/* Filters */}
       <div className="card mb-4">
         <div className="card-body">
           <form className="row g-2" onSubmit={(e) => { e.preventDefault(); setPage(1); fetchRequisitions(); }}>
@@ -77,6 +92,7 @@ export default function MaterialRequisitionList() {
         </div>
       </div>
 
+      {/* Table */}
       <div className="card">
         <div className="card-body">
           {loading ? (
@@ -104,11 +120,11 @@ export default function MaterialRequisitionList() {
                   </thead>
                   <tbody>
                     {requisitions.map(r => (
-                      <tr key={r.id} className={r.status === "draft" ? "table-secondary" : ""}>
+                      <tr key={r.id}>
                         <td><strong>{r.requisition_no}</strong></td>
                         <td>{r.production_order_no || "-"}</td>
-                        <td>{r.requested_by}</td>
-                        <td>{new Date(r.requisition_date).toLocaleDateString()}</td>
+                        <td>{r.requested_by_name || r.requested_by}</td>
+                        <td>{formatDate(r.requisition_date)}</td>
                         <td>
                           <span className={`badge bg-${r.status === "draft" ? "secondary" : r.status === "submitted" ? "info" : r.status === "approved" ? "success" : "danger"}`}>
                             {r.status}
@@ -117,7 +133,12 @@ export default function MaterialRequisitionList() {
                         <td>
                           <div className="btn-group btn-group-sm">
                             <Link href={`/material-requisition/${r.id}`} className="btn btn-outline-primary"><i className="bi bi-eye"></i></Link>
-                            {r.status === "draft" && <Link href={`/material-requisition/${r.id}/edit`} className="btn btn-outline-secondary"><i className="bi bi-pencil"></i></Link>}
+                            {r.status === "draft" && (
+                              <>
+                                <Link href={`/material-requisition/${r.id}/edit`} className="btn btn-outline-secondary"><i className="bi bi-pencil"></i></Link>
+                                <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(r.id)}><i className="bi bi-trash"></i></button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
