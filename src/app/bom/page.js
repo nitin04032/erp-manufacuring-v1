@@ -4,27 +4,50 @@ import Link from "next/link";
 
 export default function BOMPage() {
   const [boms, setBoms] = useState([]);
-  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [flash, setFlash] = useState({ type: "", message: "" });
+  const [deleteId, setDeleteId] = useState(null);
 
-  // Load BOMs + items
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [bomRes, itemRes] = await Promise.all([
-          fetch("/api/bom"),
-          fetch("/api/items"),
-        ]);
-        setBoms(await bomRes.json());
-        setItems(await itemRes.json());
-      } catch (err) {
-        console.error("Error:", err);
-      } finally {
-        setLoading(false);
+  // Load BOMs
+  const fetchData = async () => {
+    try {
+      const res = await fetch("/api/bom");
+      if (res.ok) {
+        setBoms(await res.json());
       }
-    };
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
+
+  // Delete BOM
+  const handleDelete = async () => {
+    if (!deleteId) return;
+
+    try {
+      const res = await fetch(`/api/bom/${deleteId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setFlash({ type: "success", message: "🗑️ BOM deleted successfully!" });
+        setBoms(boms.filter((bom) => bom.id !== deleteId));
+      } else {
+        const err = await res.json();
+        setFlash({ type: "danger", message: err.error || "Delete failed" });
+      }
+    } catch {
+      setFlash({ type: "danger", message: "Server error while deleting BOM" });
+    } finally {
+      setDeleteId(null);
+    }
+  };
 
   return (
     <div className="container-fluid">
@@ -34,11 +57,26 @@ export default function BOMPage() {
           <h1 className="h3 mb-0">
             <i className="bi bi-diagram-3 text-primary"></i> Bill of Materials (BOM)
           </h1>
-          <button className="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBOMModal">
+          <Link href="/bom/create" className="btn btn-primary">
             <i className="bi bi-plus-circle me-2"></i>Create BOM
-          </button>
+          </Link>
         </div>
       </div>
+
+      {/* Flash Messages */}
+      {flash.message && (
+        <div
+          className={`alert alert-${flash.type} alert-dismissible fade show`}
+          role="alert"
+        >
+          {flash.message}
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setFlash({ type: "", message: "" })}
+          ></button>
+        </div>
+      )}
 
       {/* BOM List */}
       <div className="row">
@@ -51,10 +89,12 @@ export default function BOMPage() {
                 <div className="text-center py-5">
                   <i className="bi bi-diagram-3 fs-1 text-muted"></i>
                   <h5 className="mt-3 text-muted">No BOMs Created Yet</h5>
-                  <p className="text-muted">Create your first Bill of Materials</p>
-                  <button className="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBOMModal">
+                  <p className="text-muted">
+                    Create your first Bill of Materials
+                  </p>
+                  <Link href="/bom/create" className="btn btn-primary">
                     <i className="bi bi-plus-circle me-2"></i>Create First BOM
-                  </button>
+                  </Link>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -72,23 +112,48 @@ export default function BOMPage() {
                     <tbody>
                       {boms.map((bom) => (
                         <tr key={bom.id}>
-                          <td>{bom.product_name}</td>
+                          <td>
+                            {bom.fg_name} ({bom.fg_code})
+                          </td>
                           <td>{bom.version}</td>
                           <td>
-                            <span className={`badge bg-${bom.status === "active" ? "success" : "secondary"}`}>
-                              {bom.status}
+                            <span
+                              className={`badge bg-${
+                                bom.is_active ? "success" : "secondary"
+                              }`}
+                            >
+                              {bom.is_active ? "Active" : "Inactive"}
                             </span>
                           </td>
-                          <td>{bom.components.length}</td>
-                          <td>{new Date(bom.created_at).toLocaleDateString()}</td>
+                          <td>{bom.components_count}</td>
+                          <td>
+                            {new Date(bom.created_at).toLocaleDateString()}
+                          </td>
                           <td>
                             <div className="btn-group btn-group-sm">
-                              <Link href={`/bom/${bom.id}`} className="btn btn-outline-primary" title="View">
+                              <Link
+                                href={`/bom/${bom.id}`}
+                                className="btn btn-outline-primary"
+                                title="View"
+                              >
                                 <i className="bi bi-eye"></i>
                               </Link>
-                              <Link href={`/bom/${bom.id}/edit`} className="btn btn-outline-secondary" title="Edit">
+                              <Link
+                                href={`/bom/${bom.id}/edit`}
+                                className="btn btn-outline-secondary"
+                                title="Edit"
+                              >
                                 <i className="bi bi-pencil"></i>
                               </Link>
+                              <button
+                                className="btn btn-outline-danger"
+                                title="Delete"
+                                data-bs-toggle="modal"
+                                data-bs-target="#deleteConfirmModal"
+                                onClick={() => setDeleteId(bom.id)}
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -102,7 +167,48 @@ export default function BOMPage() {
         </div>
       </div>
 
-      {/* TODO: Modal for Create BOM (React Form) */}
+      {/* Delete Confirmation Modal */}
+      <div
+        className="modal fade"
+        id="deleteConfirmModal"
+        tabIndex="-1"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header bg-danger text-white">
+              <h5 className="modal-title">Confirm Delete</h5>
+              <button
+                type="button"
+                className="btn-close btn-close-white"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
+            </div>
+            <div className="modal-body">
+              Are you sure you want to delete this BOM? This action cannot be
+              undone.
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                data-bs-dismiss="modal"
+                onClick={handleDelete}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

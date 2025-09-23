@@ -33,7 +33,7 @@ export default function RootLayout({ children }) {
         <link href="/assets/css/app.css" rel="stylesheet" />
       </head>
       <body>
-        {/* Navbar (client component) */}
+        {/* Navbar */}
         <Navbar />
 
         {/* Main Content */}
@@ -46,14 +46,20 @@ export default function RootLayout({ children }) {
           </div>
         </footer>
 
-        {/* Bootstrap 5 JS */}
-        <Script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" />
+        {/* ✅ Bootstrap JS Bundle (with Popper) */}
+        <Script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+          strategy="afterInteractive"
+        />
 
         {/* GSAP */}
-        <Script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" />
+        <Script
+          src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"
+          strategy="afterInteractive"
+        />
 
         {/* Custom JS */}
-        <Script src="/assets/js/app.js" />
+        <Script src="/assets/js/app.js" strategy="afterInteractive" />
       </body>
     </html>
   );
