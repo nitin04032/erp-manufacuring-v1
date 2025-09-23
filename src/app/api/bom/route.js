@@ -9,6 +9,7 @@ export async function GET() {
       SELECT 
         b.id, 
         b.bom_number,
+        b.item_id,         -- ✅ add this for linking to FG item later
         b.version, 
         b.is_active, 
         b.remarks,

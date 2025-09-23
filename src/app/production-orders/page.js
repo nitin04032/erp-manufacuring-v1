@@ -6,6 +6,7 @@ export default function ProductionOrders() {
   const [orders, setOrders] = useState([]);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchOrders();
@@ -13,13 +14,33 @@ export default function ProductionOrders() {
 
   const fetchOrders = async () => {
     try {
+      setLoading(true);
       const res = await fetch(
         `/api/production-orders?status=${status}&search=${search}`
       );
-      const data = await res.json();
-      setOrders(data);
+      if (res.ok) {
+        setOrders(await res.json());
+      }
     } catch (err) {
-      console.error("Error fetching orders", err);
+      console.error("❌ Error fetching orders", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Are you sure you want to delete this order?")) return;
+    try {
+      const res = await fetch(`/api/production-orders/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        alert("✅ Order deleted");
+        fetchOrders();
+      } else {
+        const err = await res.json();
+        alert("❌ " + (err.error || "Failed to delete"));
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -59,6 +80,7 @@ export default function ProductionOrders() {
                 <option value="planned">Planned</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
             <div className="col-md-4">
@@ -96,13 +118,13 @@ export default function ProductionOrders() {
       {/* Orders Table */}
       <div className="card border-0 shadow-sm">
         <div className="card-body">
-          {orders.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-5">Loading...</div>
+          ) : orders.length === 0 ? (
             <div className="text-center py-5">
               <i className="bi bi-gear fs-1 text-muted"></i>
               <h4 className="mt-3 text-muted">No production orders found</h4>
-              <p className="text-muted">
-                Start by creating your first production order
-              </p>
+              <p className="text-muted">Start by creating your first production order</p>
               <Link href="/production-orders/create" className="btn btn-primary">
                 <i className="bi bi-plus-circle me-2"></i>Create Production Order
               </Link>
@@ -126,17 +148,23 @@ export default function ProductionOrders() {
                   {orders.map((order) => (
                     <tr key={order.id}>
                       <td>
-                        <strong>{order.production_order_no}</strong>
+                        <strong>{order.order_number}</strong>
                       </td>
                       <td>
-                        <strong>{order.item_code}</strong>
+                        <strong>{order.fg_code}</strong>
                         <br />
-                        <small className="text-muted">{order.item_name}</small>
+                        <small className="text-muted">{order.fg_name}</small>
                       </td>
-                      <td>{order.warehouse_name}</td>
-                      <td>{order.planned_qty.toFixed(2)}</td>
+                      <td>{order.warehouse_name || "-"}</td>
                       <td>
-                        {new Date(order.planned_start_date).toLocaleDateString()}
+                        {order.order_qty && !isNaN(order.order_qty)
+                          ? Number(order.order_qty).toFixed(2)
+                          : "-"}
+                      </td>
+                      <td>
+                        {order.planned_start_date
+                          ? new Date(order.planned_start_date).toLocaleDateString()
+                          : "-"}
                       </td>
                       <td>
                         {order.planned_end_date
@@ -152,7 +180,9 @@ export default function ProductionOrders() {
                               ? "info"
                               : order.status === "in_progress"
                               ? "warning"
-                              : "success"
+                              : order.status === "completed"
+                              ? "success"
+                              : "danger"
                           }`}
                         >
                           {order.status.replace("_", " ")}
@@ -174,6 +204,13 @@ export default function ProductionOrders() {
                           >
                             <i className="bi bi-pencil"></i>
                           </Link>
+                          <button
+                            onClick={() => handleDelete(order.id)}
+                            className="btn btn-outline-danger"
+                            title="Delete"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
                         </div>
                       </td>
                     </tr>

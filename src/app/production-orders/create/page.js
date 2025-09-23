@@ -3,33 +3,45 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function CreateProductionOrder() {
-  const [items, setItems] = useState([]);
+  const [boms, setBoms] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [form, setForm] = useState({
-    item_id: "",
+    bom_id: "",
+    fg_item_id: "",
     warehouse_id: "",
-    planned_qty: "",
+    order_qty: "",
     planned_start_date: "",
     planned_end_date: "",
     remarks: "",
   });
 
+  // Fetch BOMs and Warehouses
   useEffect(() => {
-    // Fetch items & warehouses
     const fetchData = async () => {
       try {
-        const [itemsRes, whRes] = await Promise.all([
-          fetch("/api/items"),
+        const [bomRes, whRes] = await Promise.all([
+          fetch("/api/bom"),
           fetch("/api/warehouses"),
         ]);
-        setItems(await itemsRes.json());
-        setWarehouses(await whRes.json());
+        if (bomRes.ok) setBoms(await bomRes.json());
+        if (whRes.ok) setWarehouses(await whRes.json());
       } catch (err) {
         console.error("Error:", err);
       }
     };
     fetchData();
   }, []);
+
+  // When BOM changes, update fg_item_id automatically
+  const handleBomChange = (e) => {
+    const bomId = e.target.value;
+    setForm({ ...form, bom_id: bomId });
+
+    const selectedBom = boms.find((b) => b.id == bomId);
+    if (selectedBom) {
+      setForm((prev) => ({ ...prev, fg_item_id: selectedBom.item_id }));
+    }
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -43,11 +55,13 @@ export default function CreateProductionOrder() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+
       if (res.ok) {
         alert("✅ Production Order Created");
-        window.location.href = "/production-orders"; // redirect after create
+        window.location.href = "/production-orders";
       } else {
-        alert("❌ Error creating order");
+        const err = await res.json();
+        alert("❌ " + (err.error || "Error creating order"));
       }
     } catch (err) {
       console.error(err);
@@ -72,7 +86,6 @@ export default function CreateProductionOrder() {
       {/* Form */}
       <form onSubmit={handleSubmit}>
         <div className="row">
-          {/* Left: Form fields */}
           <div className="col-md-8">
             <div className="card border-0 shadow-sm">
               <div className="card-header">
@@ -80,23 +93,38 @@ export default function CreateProductionOrder() {
               </div>
               <div className="card-body">
                 <div className="row">
-                  {/* Product */}
+                  {/* BOM */}
                   <div className="col-md-6 mb-3">
-                    <label className="form-label">Product to Manufacture *</label>
+                    <label className="form-label">Select BOM *</label>
                     <select
-                      name="item_id"
+                      name="bom_id"
                       className="form-select"
-                      value={form.item_id}
-                      onChange={handleChange}
+                      value={form.bom_id}
+                      onChange={handleBomChange}
                       required
                     >
-                      <option value="">Select Product</option>
-                      {items.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.item_code} - {item.item_name}
+                      <option value="">Select BOM</option>
+                      {boms.map((bom) => (
+                        <option key={bom.id} value={bom.id}>
+                          {bom.bom_number} - {bom.fg_name} ({bom.fg_code})
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* FG Product (auto from BOM) */}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Finished Product</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={
+                        form.fg_item_id
+                          ? boms.find((b) => b.item_id == form.fg_item_id)?.fg_name
+                          : ""
+                      }
+                      disabled
+                    />
                   </div>
 
                   {/* Warehouse */}
@@ -118,14 +146,14 @@ export default function CreateProductionOrder() {
                     </select>
                   </div>
 
-                  {/* Planned Quantity */}
+                  {/* Order Quantity */}
                   <div className="col-md-6 mb-3">
-                    <label className="form-label">Planned Quantity *</label>
+                    <label className="form-label">Order Quantity *</label>
                     <input
                       type="number"
-                      name="planned_qty"
+                      name="order_qty"
                       className="form-control"
-                      value={form.planned_qty}
+                      value={form.order_qty}
                       onChange={handleChange}
                       min="1"
                       step="0.01"
@@ -173,7 +201,7 @@ export default function CreateProductionOrder() {
             </div>
           </div>
 
-          {/* Right: Instructions */}
+          {/* Right Panel */}
           <div className="col-md-4">
             <div className="card border-0 shadow-sm">
               <div className="card-header">
@@ -185,7 +213,7 @@ export default function CreateProductionOrder() {
                     <i className="bi bi-info-circle me-2"></i>Production Planning
                   </h6>
                   <ul>
-                    <li>Select the finished product to manufacture</li>
+                    <li>Select a BOM (finished product is auto-selected)</li>
                     <li>Choose the production warehouse</li>
                     <li>Set realistic start and end dates</li>
                     <li>Ensure raw materials are available</li>
