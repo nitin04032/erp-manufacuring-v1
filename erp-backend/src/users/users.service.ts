@@ -18,10 +18,7 @@ export type UserRow = {
 @Injectable()
 export class UsersService {
   async findById(id: number): Promise<UserRow | null> {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT * FROM users WHERE id = ?',
-      [id],
-    );
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM users WHERE id = ?', [id]);
     return (rows as UserRow[])[0] || null;
   }
 
@@ -82,7 +79,7 @@ export class UsersService {
       role: string;
       is_active: number;
       password_hash: string;
-    }>
+    }>,
   ) {
     const fields: string[] = [];
     const params: (string | number)[] = [];

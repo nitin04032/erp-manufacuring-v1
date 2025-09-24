@@ -1,19 +1,8 @@
 // src/auth/auth.controller.ts
 import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-
-class RegisterDto {
-  username: string;
-  email: string;
-  password: string;
-  full_name: string;
-  role?: string;
-}
-
-class LoginDto {
-  usernameOrEmail: string;
-  password: string;
-}
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -24,8 +13,9 @@ export class AuthController {
     try {
       const user = await this.authService.register(body);
       return { message: 'User registered', user };
-    } catch (err) {
-      throw new HttpException({ error: err.message }, HttpStatus.BAD_REQUEST);
+    } catch (err: any) {
+      const message = err?.message || 'Failed to register user';
+      throw new HttpException({ error: message }, HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -35,8 +25,9 @@ export class AuthController {
       const { usernameOrEmail, password } = body;
       const res = await this.authService.login(usernameOrEmail, password);
       return res;
-    } catch (err) {
-      throw new HttpException({ error: err.message || 'Unauthorized' }, HttpStatus.UNAUTHORIZED);
+    } catch (err: any) {
+      const message = err?.message || 'Unauthorized';
+      throw new HttpException({ error: message }, HttpStatus.UNAUTHORIZED);
     }
   }
 }
