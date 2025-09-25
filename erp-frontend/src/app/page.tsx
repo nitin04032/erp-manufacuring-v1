@@ -28,7 +28,7 @@ export default function LoginPage() {
         const data = await res.json();
         localStorage.setItem("token", data.access_token); // ✅ Save JWT
         setFlash({ type: "success", message: "Login successful!" });
-        window.location.href = "/dashboard";
+        window.location.href = "/system";
       } else {
         const data = await res.json();
         setFlash({ type: "danger", message: data.error || "Login failed." });

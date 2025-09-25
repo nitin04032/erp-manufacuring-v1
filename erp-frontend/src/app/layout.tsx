@@ -1,13 +1,13 @@
 import "./globals.css";
 import Script from "next/script";
-import Navbar from "./navbar"; // client navbar component
+import LayoutContent from "./layout-content"; // 👈 alag client component import
 
 export const metadata = {
   title: "My ERP System",
   description: "Manufacturing ERP built with Next.js",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -33,18 +33,8 @@ export default function RootLayout({ children }) {
         <link href="/assets/css/app.css" rel="stylesheet" />
       </head>
       <body>
-        {/* Navbar */}
-        <Navbar />
-
-        {/* Main Content */}
-        <main className="container-fluid mt-4">{children}</main>
-
-        {/* Footer */}
-        <footer className="bg-light mt-5 py-3 border-top">
-          <div className="container text-center small text-muted">
-            &copy; {new Date().getFullYear()} My ERP System — Version 1.0.0
-          </div>
-        </footer>
+        {/* 👇 Ye client component ke andar children pass karenge */}
+        <LayoutContent>{children}</LayoutContent>
 
         {/* ✅ Bootstrap JS Bundle (with Popper) */}
         <Script
