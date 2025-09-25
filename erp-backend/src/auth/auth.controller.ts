@@ -1,4 +1,3 @@
-// src/auth/auth.controller.ts
 import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -14,8 +13,9 @@ export class AuthController {
       const user = await this.authService.register(body);
       return { message: 'User registered', user };
     } catch (err: any) {
-      const message = err?.message || 'Failed to register user';
-      throw new HttpException({ error: message }, HttpStatus.BAD_REQUEST);
+      // class-validator errors might be arrays; make a readable message
+      const message = err?.response?.message || err?.message || 'Failed to register user';
+      throw new HttpException({ error: Array.isArray(message) ? message.join(', ') : message }, HttpStatus.BAD_REQUEST);
     }
   }
 
