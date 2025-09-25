@@ -20,6 +20,7 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "@next/swc-win32-x64-msvc": "^15.5.3"
+    "@next/swc-win32-x64-msvc": "^15.5.3",
+    "typescript": "5.9.2"
   }
 }

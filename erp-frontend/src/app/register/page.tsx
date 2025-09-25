@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import React from "react";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -19,7 +20,7 @@ export default function RegisterPage() {
 
   const [flash, setFlash] = useState({ type: "", message: "" });
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (form.password !== form.confirm) {
@@ -32,11 +33,18 @@ export default function RegisterPage() {
     }
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch("http://localhost:4000/auth/register", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          username: form.name,
+          email: form.email,
+          password: form.password,
+          full_name: form.name,
+          role: form.role,
+        }),
         headers: { "Content-Type": "application/json" },
       });
+
       if (res.ok) {
         setFlash({ type: "success", message: "Account created successfully!" });
         setForm({
@@ -49,7 +57,10 @@ export default function RegisterPage() {
         });
       } else {
         const data = await res.json();
-        setFlash({ type: "danger", message: data.message || "Registration failed." });
+        setFlash({
+          type: "danger",
+          message: data.error || "Registration failed.",
+        });
       }
     } catch (error) {
       setFlash({ type: "danger", message: "Server error. Try again later." });
@@ -70,13 +81,9 @@ export default function RegisterPage() {
 
               {/* Flash Messages */}
               {flash.message && (
-                <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-                  {flash.type === "danger" && (
-                    <i className="bi bi-exclamation-triangle me-2"></i>
-                  )}
-                  {flash.type === "success" && (
-                    <i className="bi bi-check-circle me-2"></i>
-                  )}
+                <div
+                  className={`alert alert-${flash.type} alert-dismissible fade show`}
+                >
                   {flash.message}
                   <button
                     type="button"
@@ -90,7 +97,9 @@ export default function RegisterPage() {
               <form onSubmit={handleSubmit} noValidate>
                 <div className="row">
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="name" className="form-label">Full Name *</label>
+                    <label htmlFor="name" className="form-label">
+                      Full Name *
+                    </label>
                     <div className="input-group">
                       <span className="input-group-text">
                         <i className="bi bi-person"></i>
@@ -102,13 +111,17 @@ export default function RegisterPage() {
                         placeholder="Enter full name"
                         required
                         value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, name: e.target.value })
+                        }
                       />
                     </div>
                   </div>
 
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="email" className="form-label">Email Address *</label>
+                    <label htmlFor="email" className="form-label">
+                      Email Address *
+                    </label>
                     <div className="input-group">
                       <span className="input-group-text">
                         <i className="bi bi-envelope"></i>
@@ -120,7 +133,9 @@ export default function RegisterPage() {
                         placeholder="Enter email address"
                         required
                         value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, email: e.target.value })
+                        }
                       />
                     </div>
                   </div>
@@ -128,7 +143,9 @@ export default function RegisterPage() {
 
                 <div className="row">
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="password" className="form-label">Password *</label>
+                    <label htmlFor="password" className="form-label">
+                      Password *
+                    </label>
                     <div className="input-group">
                       <span className="input-group-text">
                         <i className="bi bi-lock"></i>
@@ -141,20 +158,31 @@ export default function RegisterPage() {
                         required
                         minLength={6}
                         value={form.password}
-                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, password: e.target.value })
+                        }
                       />
                       <button
                         type="button"
                         className="btn btn-outline-secondary"
-                        onClick={() => setShow({ ...show, password: !show.password })}
+                        onClick={() =>
+                          setShow({ ...show, password: !show.password })
+                        }
                       >
-                        <i className={`bi ${show.password ? "bi-eye-slash" : "bi-eye"}`} id="icon_pass"></i>
+                        <i
+                          className={`bi ${
+                            show.password ? "bi-eye-slash" : "bi-eye"
+                          }`}
+                          id="icon_pass"
+                        ></i>
                       </button>
                     </div>
                   </div>
 
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="confirm" className="form-label">Confirm Password *</label>
+                    <label htmlFor="confirm" className="form-label">
+                      Confirm Password *
+                    </label>
                     <div className="input-group">
                       <span className="input-group-text">
                         <i className="bi bi-lock-fill"></i>
@@ -166,21 +194,32 @@ export default function RegisterPage() {
                         placeholder="Re-enter password"
                         required
                         value={form.confirm}
-                        onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, confirm: e.target.value })
+                        }
                       />
                       <button
                         type="button"
                         className="btn btn-outline-secondary"
-                        onClick={() => setShow({ ...show, confirm: !show.confirm })}
+                        onClick={() =>
+                          setShow({ ...show, confirm: !show.confirm })
+                        }
                       >
-                        <i className={`bi ${show.confirm ? "bi-eye-slash" : "bi-eye"}`} id="icon_confirm"></i>
+                        <i
+                          className={`bi ${
+                            show.confirm ? "bi-eye-slash" : "bi-eye"
+                          }`}
+                          id="icon_confirm"
+                        ></i>
                       </button>
                     </div>
                   </div>
                 </div>
 
                 <div className="mb-3">
-                  <label htmlFor="role" className="form-label">Role</label>
+                  <label htmlFor="role" className="form-label">
+                    Role
+                  </label>
                   <select
                     id="role"
                     className="form-select"
@@ -199,11 +238,20 @@ export default function RegisterPage() {
                     id="terms"
                     className="form-check-input"
                     checked={form.terms}
-                    onChange={(e) => setForm({ ...form, terms: e.target.checked })}
+                    onChange={(e) =>
+                      setForm({ ...form, terms: e.target.checked })
+                    }
                   />
                   <label className="form-check-label small" htmlFor="terms">
-                    I agree to the <a href="#" className="text-decoration-none">Terms of Service</a> and{" "}
-                    <a href="#" className="text-decoration-none">Privacy Policy</a> *
+                    I agree to the{" "}
+                    <a href="#" className="text-decoration-none">
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a href="#" className="text-decoration-none">
+                      Privacy Policy
+                    </a>{" "}
+                    *
                   </label>
                 </div>
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import React from "react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -8,7 +9,7 @@ export default function LoginPage() {
   const [flash, setFlash] = useState({ type: "", message: "" });
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -17,20 +18,20 @@ export default function LoginPage() {
     }
 
     try {
-      // Example API call (replace with Supabase or your API route)
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("http://localhost:4000/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ usernameOrEmail: email, password }),
         headers: { "Content-Type": "application/json" },
       });
 
       if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem("token", data.access_token); // ✅ Save JWT
         setFlash({ type: "success", message: "Login successful!" });
-        // redirect dashboard
         window.location.href = "/dashboard";
       } else {
         const data = await res.json();
-        setFlash({ type: "danger", message: data.message || "Login failed." });
+        setFlash({ type: "danger", message: data.error || "Login failed." });
       }
     } catch (error) {
       setFlash({ type: "danger", message: "Server error. Try again later." });
@@ -48,7 +49,6 @@ export default function LoginPage() {
               <p className="text-muted">Sign in to continue</p>
             </div>
 
-            {/* Flash Messages */}
             {flash.message && (
               <div
                 className={`alert alert-${flash.type} alert-dismissible fade show`}
@@ -69,7 +69,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Login Form */}
             <form onSubmit={handleSubmit} noValidate>
               <div className="mb-3">
                 <label htmlFor="email" className="form-label fw-semibold">
@@ -113,26 +112,12 @@ export default function LoginPage() {
                     className="btn btn-outline-secondary"
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
+                    <i
+                      className={`bi ${
+                        showPassword ? "bi-eye-slash" : "bi-eye"
+                      }`}
+                    ></i>
                   </button>
-                </div>
-                <div className="d-flex justify-content-between mt-2">
-                  <div>
-                    <input
-                      type="checkbox"
-                      id="remember"
-                      className="form-check-input"
-                    />
-                    <label className="form-check-label small" htmlFor="remember">
-                      Remember me
-                    </label>
-                  </div>
-                  <Link
-                    href="/forgot-password"
-                    className="small text-decoration-none"
-                  >
-                    Forgot Password?
-                  </Link>
                 </div>
               </div>
 
@@ -144,23 +129,11 @@ export default function LoginPage() {
             </form>
 
             <hr className="my-4" />
-
-            {/* Create Account */}
             <div className="text-center">
               <p className="text-muted mb-2">Don't have an account?</p>
               <Link href="/register" className="btn btn-outline-primary">
                 <i className="bi bi-person-plus me-2"></i>Create Account
               </Link>
-            </div>
-
-            {/* Demo Credentials */}
-            <div className="mt-4 p-3 bg-light border rounded-3">
-              <h6 className="text-muted mb-2">Demo Credentials:</h6>
-              <small className="text-muted">
-                <strong>Email:</strong> admin@erp.com
-                <br />
-                <strong>Password:</strong> admin123
-              </small>
             </div>
           </div>
         </div>

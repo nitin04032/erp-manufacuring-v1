@@ -5,11 +5,16 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // ✅ Global validation for DTOs
+  // ✅ Global validation
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000; // 👈 default backend 4000
-  await app.listen(port);
-  console.log(`🚀 Backend running on http://localhost:${port}`);
+  // ✅ Enable CORS
+  app.enableCors({
+    origin: "http://localhost:3000", // frontend URL
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+  });
+
+  await app.listen(process.env.PORT ?? 4000);
 }
 bootstrap();
