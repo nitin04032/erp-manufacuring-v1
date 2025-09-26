@@ -6,8 +6,10 @@ import Navbar from "./navbar";
 export default function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // Agar login ya register page hai → Navbar hide
-  const hideNavbar = ["/", "/register"].includes(pathname);
+  // 👇 Yaha future me aur bhi paths daal sakte ho jisme Navbar hide hoga
+  const noNavbarPaths = ["/", "/register", "/forgot-password", "/reset-password", "/login"];
+
+  const hideNavbar = noNavbarPaths.includes(pathname);
 
   return (
     <>
