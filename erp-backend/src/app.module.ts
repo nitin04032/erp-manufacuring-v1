@@ -1,29 +1,35 @@
-// erp-backend/src/app.module.ts (UPDATED)
-
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config'; // Import karein
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { SystemModule } from './system/system.module';
 // ... other modules
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: 'localhost', // Isko .env file mein daalna aage seekhenge
-      port: 3306,
-      username: 'root',   // Isko bhi
-      password: '',       // Isko bhi
-      database: 'your_erp_database_name', // Apne database ka naam yahan likhein
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true, // Development ke liye theek hai, production mein false rakhein
+    // ConfigModule ko sabse pehle import karein
+    ConfigModule.forRoot({
+      isGlobal: true, // Taaki har module mein available ho
+    }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'mysql',
+        host: configService.get<string>('DB_HOST') ?? 'localhost',
+        port: parseInt(configService.get<string>('DB_PORT') ?? '3306', 10),
+        username: configService.get<string>('DB_USERNAME') ?? 'root',
+        password: configService.get<string>('DB_PASSWORD') ?? '',
+        database: configService.get<string>('DB_DATABASE') ?? 'erp',
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: true, // Production mein isko false kar dein
+      }),
     }),
     AuthModule,
     UsersModule,
-    SystemModule,// ... other modules
+    // ... other modules
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -52,7 +52,7 @@ export class AuthService {
 
     // ✅ Return safe user object
     return {
-      id: res.insertId,
+      id: (res as any).id,
       username,
       email,
       full_name,

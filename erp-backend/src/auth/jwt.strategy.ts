@@ -1,26 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, ExtractJwt } from 'passport-jwt';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config'; // Import karein
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(private readonly configService: ConfigService) { // Inject karein
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'default_secret',
+  // Hardcoded secret ko .env variable se replace karein
+  secretOrKey: configService.get<string>('JWT_SECRET') ?? 'default_secret',
     });
   }
 
-  // ✅ Correct method name (was valivdate → validate)
   async validate(payload: any) {
-    return {
-      userId: payload.sub,
-      username: payload.username,
-      role: payload.role,
-    };
+    // ab payload mein wohi info hogi jo aapne login ke time di thi
+    return { userId: payload.sub, email: payload.email, role: payload.role };
   }
 }

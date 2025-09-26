@@ -10,23 +10,22 @@ export default function WarehousesPage() {
 
   // Fetch warehouses
   useEffect(() => {
+    const fetchWarehouses = async () => {
+        try {
+            // YEH SAHI HAI - backend se connect karein
+            const response = await fetch('http://localhost:3001/warehouses'); // Assume backend is on port 3001
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            setWarehouses(data);
+        } catch (error) {
+            console.error("Failed to fetch warehouses:", error);
+            // Optionally, show an error message to the user
+        }
+    };
     fetchWarehouses();
-  }, []);
-
-  const fetchWarehouses = async () => {
-    try {
-      const res = await fetch("/api/warehouses");
-      if (res.ok) {
-        const data = await res.json();
-        setWarehouses(data);
-      } else {
-        setWarehouses([]);
-      }
-    } catch (error) {
-      setWarehouses([]);
-    }
-  };
-
+}, []);
   // ✅ Delete warehouse
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this warehouse?")) return;
