@@ -1,7 +1,7 @@
 "use client";
+
 import { useState } from "react";
 import Link from "next/link";
-import React from "react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -18,22 +18,28 @@ export default function LoginPage() {
     }
 
     try {
-      const res = await fetch("http://localhost:4000/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ usernameOrEmail: email, password }),
-        headers: { "Content-Type": "application/json" },
-      });
+      console.log("API_URL from env:", process.env.NEXT_PUBLIC_API_URL);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+        {
+          method: "POST",
+          body: JSON.stringify({ usernameOrEmail: email, password }),
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem("token", data.access_token); // ✅ Save JWT
         setFlash({ type: "success", message: "Login successful!" });
-        window.location.href = "/system";
+        window.location.href = "/system"; // ✅ redirect
       } else {
         const data = await res.json();
         setFlash({ type: "danger", message: data.error || "Login failed." });
       }
     } catch (error) {
+      console.error("Login error:", error);
       setFlash({ type: "danger", message: "Server error. Try again later." });
     }
   };
@@ -54,12 +60,6 @@ export default function LoginPage() {
                 className={`alert alert-${flash.type} alert-dismissible fade show`}
                 role="alert"
               >
-                {flash.type === "danger" && (
-                  <i className="bi bi-exclamation-triangle me-2"></i>
-                )}
-                {flash.type === "success" && (
-                  <i className="bi bi-check-circle me-2"></i>
-                )}
                 {flash.message}
                 <button
                   type="button"

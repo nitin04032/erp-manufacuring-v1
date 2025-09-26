@@ -8,13 +8,18 @@ async function bootstrap() {
   // ✅ Global validation
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
-  // ✅ Enable CORS
+  // ✅ Enable CORS (localhost + LAN IPs allowed)
   app.enableCors({
-    origin: "http://localhost:3000", // frontend URL
+    origin: [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://192.168.0.113:3000", // allow LAN IPs in dev
+    ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 4000);
+  // ✅ Listen on 0.0.0.0 for LAN access
+  await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
 }
 bootstrap();
