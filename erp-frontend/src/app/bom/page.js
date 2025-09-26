@@ -12,7 +12,7 @@ export default function BOMPage() {
   const fetchData = async () => {
     try {
       const res = await fetch("/api/bom");
-      if (res.ok) {
+      if (res.ok) { 
         setBoms(await res.json());
       }
     } catch (err) {
