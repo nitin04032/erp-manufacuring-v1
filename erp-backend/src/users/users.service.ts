@@ -1,78 +1,57 @@
-// erp-backend/src/users/users.service.ts (UPDATED)
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { RegisterDto } from '../auth/dto/register.dto';
 
 @Injectable()
 export class UsersService {
+  // Find user by username (returns full User including password_hash)
+  async findByUsername(username: string): Promise<User | undefined> {
+    if (!username) return undefined;
+    const user = await this.usersRepository.findOne({ where: { username } });
+    return user ?? undefined;
+  }
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
   ) {}
 
-  // Pehle aap raw query use kar rahe the
-  // async findAll() {
-  //   const [rows] = await db.pool.query('SELECT id, email, role FROM users');
-  //   return rows;
-  // }
+  async create(payload: { username: string; email: string; full_name: string; role?: string; password_hash: string }): Promise<Omit<User, 'password_hash'>> {
+    const existingUser = await this.usersRepository.findOne({ where: { email: payload.email } });
+    if (existingUser) {
+      throw new ConflictException('Email already exists');
+    }
 
-  // Ab TypeORM use karein
-  async findAll(): Promise<User[]> {
-    return this.usersRepository.find({ select: ['id', 'email', 'username', 'role', 'full_name', 'last_login'] });
+    const newUser = this.usersRepository.create(payload as any);
+    const savedUser = await this.usersRepository.save(newUser);
+
+    // Remove password_hash from response
+    const { password_hash, ...result } = savedUser as any;
+    return result;
   }
 
-  // Backwards-compatible alias used in controllers
-  listAll(): Promise<User[]> {
-    return this.findAll();
+  // Backwards-compatible alias used by some callers
+  async createUser(payload: { username: string; email: string; full_name: string; role?: string; password_hash: string }) {
+    const user = await this.create(payload);
+    // Return the created user object (without password_hash)
+    return user;
   }
 
-  findOne(email: string): Promise<User | null> {
-    return this.usersRepository.findOneBy({ email });
+  // Yeh function sirf auth ke liye istemal hota hai, isliye ismein password_hash return karna aacha hai.
+  async findOne(email: string): Promise<User | undefined> {
+    const user = await this.usersRepository.findOne({ where: { email } });
+    return user ?? undefined;
   }
 
-  findById(id: number): Promise<User | null> {
-    return this.usersRepository.findOneBy({ id });
-  }
-
-  findByUsername(username: string): Promise<User | null> {
-    if (!username) return Promise.resolve(null);
-    return this.usersRepository.findOneBy({ username });
-  }
-
-  findByEmail(email: string): Promise<User | null> {
-    if (!email) return Promise.resolve(null);
-    return this.usersRepository.findOneBy({ email });
-  }
-
-  async createUser(payload: {
-    username?: string;
-    email: string;
-    password_hash: string;
-    full_name?: string;
-    role?: string;
-  }): Promise<User> {
-    const user = this.usersRepository.create({
-      username: payload.username,
-      email: payload.email,
-      password_hash: payload.password_hash,
-      full_name: payload.full_name,
-      role: payload.role || 'user',
-    } as any);
-
-    const saved = await this.usersRepository.save(user as any);
-    return saved as User;
+  async findByEmail(email: string): Promise<User | undefined> {
+    if (!email) return undefined;
+    const user = await this.usersRepository.findOne({ where: { email } });
+    return user ?? undefined;
   }
 
   async updateLastLogin(id: number): Promise<void> {
-    await this.usersRepository.update(id, { last_login: new Date() } as any);
-  }
-
-  async updateUser(id: number, body: Partial<User>): Promise<void> {
-    await this.usersRepository.update(id, body as any);
-  }
-
-  async deleteById(id: number): Promise<void> {
-    await this.usersRepository.delete(id);
+    if (!id) return;
+    await this.usersRepository.update(id, { last_login: new Date() });
   }
 }

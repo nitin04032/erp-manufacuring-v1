@@ -30,11 +30,13 @@ export class AuthService {
       throw new BadRequestException('Password must be at least 6 characters');
     }
 
-    if (await this.usersService.findByUsername(username)) {
+    const existingByUsername = await this.usersService.findByUsername(username);
+    if (existingByUsername) {
       throw new BadRequestException('Username already taken');
     }
 
-    if (await this.usersService.findByEmail(email)) {
+    const existingByEmail = await this.usersService.findByEmail(email);
+    if (existingByEmail) {
       throw new BadRequestException('Email already registered');
     }
 
@@ -42,7 +44,7 @@ export class AuthService {
     const password_hash = await bcrypt.hash(password, 10);
 
     // ✅ Save user
-    const res = await this.usersService.createUser({
+    const created = await this.usersService.createUser({
       username,
       email,
       password_hash,
@@ -50,23 +52,23 @@ export class AuthService {
       role,
     });
 
-    // ✅ Return safe user object
+    // created is returned without password_hash by UsersService.create
     return {
-      id: (res as any).id,
-      username,
-      email,
-      full_name,
-      role: role || 'user',
+      id: (created as any).id,
+      username: (created as any).username,
+      email: (created as any).email,
+      full_name: (created as any).full_name,
+      role: (created as any).role || 'user',
     };
   }
 
   // 🔹 Validate credentials (for login)
   async validateUser(usernameOrEmail: string, pass: string) {
-    let user = await this.usersService.findByUsername(usernameOrEmail);
-    if (!user) user = await this.usersService.findByEmail(usernameOrEmail);
-    if (!user) return null;
+  let user = await this.usersService.findByUsername(usernameOrEmail);
+  if (!user) user = await this.usersService.findByEmail(usernameOrEmail);
+  if (!user) return null;
 
-    const match = await bcrypt.compare(pass, user.password_hash || '');
+  const match = await bcrypt.compare(pass, (user as any).password_hash || '');
     if (!match) return null;
 
     // Remove password_hash before returning
@@ -88,7 +90,7 @@ export class AuthService {
     const token = this.jwtService.sign(payload);
 
     // ✅ Track last login
-    await this.usersService.updateLastLogin((user as any).id);
+  await this.usersService.updateLastLogin((user as any).id);
 
     return { access_token: token, user };
   }
