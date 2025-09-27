@@ -1,22 +1,25 @@
+// erp-backend/src/app.module.ts
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config'; // Import karein
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
-// ... other modules
 
 @Module({
   imports: [
-    // ConfigModule ko sabse pehle import karein
+    // Step 1: Configure ConfigModule to be global
     ConfigModule.forRoot({
-      isGlobal: true, // Taaki har module mein available ho
+      isGlobal: true, // Makes ConfigService available everywhere
     }),
+
+    // Step 2: Configure TypeORM for the database connection
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
+      imports: [ConfigModule], // Import ConfigModule to use its service
+      inject: [ConfigService],  // Inject ConfigService into the factory
       useFactory: (configService: ConfigService) => ({
         type: 'mysql',
         host: configService.get<string>('DB_HOST') ?? 'localhost',
@@ -25,13 +28,14 @@ import { SuppliersModule } from './suppliers/suppliers.module';
         password: configService.get<string>('DB_PASSWORD') ?? '',
         database: configService.get<string>('DB_DATABASE') ?? 'erp',
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Production mein isko false kar dein
+        synchronize: true, // IMPORTANT: Set to false in production!
       }),
     }),
+
+    // Step 3: Import all your application's feature modules
     AuthModule,
     UsersModule,
     SuppliersModule,
-    // ... other modules
   ],
   controllers: [AppController],
   providers: [AppService],

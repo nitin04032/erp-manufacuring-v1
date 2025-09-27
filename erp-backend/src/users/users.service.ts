@@ -1,57 +1,92 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+// NAYA AUR SAAF CODE
+
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { User } from './user.entity';
-import { RegisterDto } from '../auth/dto/register.dto';
 
 @Injectable()
 export class UsersService {
-  // Find user by username (returns full User including password_hash)
-  async findByUsername(username: string): Promise<User | undefined> {
-    if (!username) return undefined;
-    const user = await this.usersRepository.findOne({ where: { username } });
-    return user ?? undefined;
-  }
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
   ) {}
 
-  async create(payload: { username: string; email: string; full_name: string; role?: string; password_hash: string }): Promise<Omit<User, 'password_hash'>> {
-    const existingUser = await this.usersRepository.findOne({ where: { email: payload.email } });
-    if (existingUser) {
-      throw new ConflictException('Email already exists');
+  /**
+   * Ek naya user banata hai.
+   */
+  async create(payload: Omit<User, 'id' | 'last_login'>): Promise<Omit<User, 'password_hash'>> {
+    const existing = await this.usersRepository.findOne({
+      where: [{ email: payload.email }, { username: payload.username }],
+    });
+
+    if (existing) {
+      throw new ConflictException('Username or email already exists');
     }
 
-    const newUser = this.usersRepository.create(payload as any);
+    const newUser = this.usersRepository.create(payload);
     const savedUser = await this.usersRepository.save(newUser);
 
-    // Remove password_hash from response
-    const { password_hash, ...result } = savedUser as any;
+    const { password_hash, ...result } = savedUser;
     return result;
   }
 
-  // Backwards-compatible alias used by some callers
-  async createUser(payload: { username: string; email: string; full_name: string; role?: string; password_hash: string }) {
-    const user = await this.create(payload);
-    // Return the created user object (without password_hash)
-    return user;
-  }
-
-  // Yeh function sirf auth ke liye istemal hota hai, isliye ismein password_hash return karna aacha hai.
-  async findOne(email: string): Promise<User | undefined> {
-    const user = await this.usersRepository.findOne({ where: { email } });
+  /**
+   * User ko ID, username, ya email se dhoondhta hai.
+   * Yeh function password hash ke saath pura user object return karta hai (authentication ke liye zaroori).
+   */
+  async findOne(identifier: string): Promise<User | undefined> {
+    const user = await this.usersRepository.findOne({
+      where: [{ username: identifier }, { email: identifier }],
+    });
     return user ?? undefined;
   }
-
-  async findByEmail(email: string): Promise<User | undefined> {
-    if (!email) return undefined;
-    const user = await this.usersRepository.findOne({ where: { email } });
-    return user ?? undefined;
+  
+  /**
+   * User ko ID se dhoondhta hai (password hash ke bina).
+   * Yeh public requests ke liye safe hai.
+   */
+  async findById(id: number): Promise<Omit<User, 'password_hash'>> {
+      const user = await this.usersRepository.findOne({ where: { id } });
+      if (!user) {
+          throw new NotFoundException(`User with ID ${id} not found`);
+      }
+      const { password_hash, ...safeUser } = user;
+      return safeUser;
   }
 
+  /**
+   * Sabhi users ki list deta hai (password hash ke bina).
+   */
+  async listAll(): Promise<Omit<User, 'password_hash'>[]> {
+    return this.usersRepository.find({
+        select: ['id', 'email', 'username', 'full_name', 'role', 'last_login'],
+    });
+  }
+
+  /**
+   * User ka last login time update karta hai.
+   */
   async updateLastLogin(id: number): Promise<void> {
-    if (!id) return;
     await this.usersRepository.update(id, { last_login: new Date() });
+  }
+
+  /**
+   * User ko update karta hai.
+   */
+  async updateUser(id: number, updates: Partial<User>): Promise<void> {
+    // Password update karne se rokein is function se
+    delete updates.password_hash;
+    await this.usersRepository.update(id, updates);
+  }
+
+  /**
+   * User ko delete karta hai.
+   */
+  async deleteById(id: number): Promise<void> {
+    const result = await this.usersRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
   }
 }
