@@ -1,158 +1,185 @@
+// FINAL CORRECTED CODE (erp-frontend/src/app/login/page.tsx)
+
 'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useUserStore } from '../store/user'; // Adjust the import path to your Zustand store
+import { useUserStore } from '../store/user';
+
+// MUI Imports
+import {
+  Container, Box, TextField, Button, Typography, CircularProgress, Alert, Paper,
+  InputAdornment, IconButton, Divider
+} from '@mui/material';
+
+// MUI Icons Imports
+import SettingsIcon from '@mui/icons-material/Settings';
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import LoginIcon from '@mui/icons-material/Login';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 export default function LoginPage() {
-  // --- STATE MANAGEMENT ---
-  // Local state for form inputs and UI notifications
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [notification, setNotification] = useState({ type: '', message: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-
-  // --- HOOKS ---
-  // Next.js router for client-side navigation
   const router = useRouter();
-  // Global state and actions from Zustand store
   const { setToken, isAuth } = useUserStore();
 
-  // --- SIDE EFFECTS ---
-  // Effect to redirect if the user is already authenticated
   useEffect(() => {
     if (isAuth) {
-      router.push('/dashboard'); // Redirect to dashboard if already logged in
+      router.push('/dashboard');
     }
   }, [isAuth, router]);
 
-  // --- HANDLERS ---
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setNotification({ type: '', message: '' }); // Reset notification on new submission
-
-    // Basic validation
+    setError(null);
     if (!email || !password) {
-      setNotification({ type: 'danger', message: 'Please enter both email and password.' });
+      setError('Please enter both email and password.');
       return;
     }
-
+    setLoading(true);
     try {
-      // Fetch data from the backend API
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }), // Backend expects {email, password}
+        body: JSON.stringify({ usernameOrEmail: email, password }),
       });
-
       const data = await response.json();
-
       if (!response.ok) {
-        // Use error message from API or a default one
-        throw new Error(data.message || 'Login failed. Please check your credentials.');
+        throw new Error(data.message || 'Login failed.');
       }
-      
-      // On successful login, update global state and redirect
       if (data.access_token) {
-        setToken(data.access_token); // Save token to Zustand store
-        router.push('/dashboard'); // Redirect to the user dashboard
+        setToken(data.access_token);
+        router.push('/dashboard');
       } else {
-        throw new Error('Token not found in the server response.');
+        throw new Error('Token not found in response.');
       }
-
     } catch (err: any) {
-      // Display any errors to the user
-      setNotification({ type: 'danger', message: err.message });
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // --- RENDER ---
   return (
-    <div className="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light bg-gradient">
-      <div className="col-md-6 col-lg-4">
-        <div className="card shadow-lg border-0 rounded-4">
-          <div className="card-body p-5">
-            <div className="text-center mb-4">
-              <i className="bi bi-gear-fill display-1 text-primary mb-3"></i>
-              <h3 className="card-title fw-bold">Manufacturing ERP</h3>
-              <p className="text-muted">Sign in to continue</p>
-            </div>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(to right, #f8f9fa, #e9ecef)',
+      }}
+    >
+      <Paper
+        elevation={6}
+        sx={{
+          p: { xs: 3, sm: 5 },
+          borderRadius: 4,
+          width: { xs: '90%', sm: 450 },
+        }}
+      >
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <SettingsIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+          <Typography component="h1" variant="h5" fontWeight="bold">
+            Manufacturing ERP
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Sign in to continue
+          </Typography>
+        </Box>
 
-            {/* Notification Alert */}
-            {notification.message && (
-              <div className={`alert alert-${notification.type} alert-dismissible fade show`} role="alert">
-                {notification.message}
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setNotification({ type: '', message: '' })}
-                ></button>
-              </div>
-            )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-            <form onSubmit={handleSubmit} noValidate>
-              {/* Email Input */}
-              <div className="mb-3">
-                <label htmlFor="email" className="form-label fw-semibold">Email Address</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-envelope"></i></span>
-                  <input
-                    type="email"
-                    id="email"
-                    className="form-control"
-                    placeholder="Enter email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-              </div>
+        <Box component="form" onSubmit={handleSubmit} noValidate>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email or Username"
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockIcon color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            size="large"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
+            startIcon={!loading ? <LoginIcon /> : null}
+          >
+            {loading ? <CircularProgress size={26} color="inherit" /> : 'Sign In'}
+          </Button>
+        </Box>
 
-              {/* Password Input */}
-              <div className="mb-4">
-                <label htmlFor="password" className="form-label fw-semibold">Password</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-lock"></i></span>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="password"
-                    className="form-control"
-                    placeholder="Enter password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-                  </button>
-                </div>
-              </div>
+        <Divider sx={{ my: 3 }}>
+          <Typography variant="body2" color="text.secondary">OR</Typography>
+        </Divider>
 
-              {/* Submit Button */}
-              <div className="d-grid">
-                <button type="submit" className="btn btn-primary btn-lg">
-                  <i className="bi bi-box-arrow-in-right me-2"></i> Sign In
-                </button>
-              </div>
-            </form>
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Don't have an account?
+          </Typography>
+          
+          {/* ## MUKHYA SUDHAAR YAHAN HAI (KEY FIX IS HERE) ## */}
+          <Button
+            component={Link}
+            href="/register"
+            fullWidth
+            variant="outlined"
+            startIcon={<PersonAddIcon />}
+          >
+            Create Account
+          </Button>
 
-            <hr className="my-4" />
-
-            {/* Link to Register Page */}
-            <div className="text-center">
-              <p className="text-muted mb-2">Don't have an account?</p>
-              <Link href="/register" className="btn btn-outline-primary">
-                <i className="bi bi-person-plus me-2"></i>Create Account
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Paper>
+    </Box>
   );
 }

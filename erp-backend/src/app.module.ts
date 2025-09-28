@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
+import { DashboardModule } from './dashboard/dashboard.module'; // Naye module ko import karein
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
     AuthModule,
     UsersModule,
     SuppliersModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
