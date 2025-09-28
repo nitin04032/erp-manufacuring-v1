@@ -1,55 +1,38 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SuppliersService } from '../suppliers/suppliers.service';
+import { ItemsService } from '../items/items.service';
 import { WarehousesService } from '../warehouses/warehouses.service';
-// import { ItemsService } from '../items/items.service'; // Jab items module bana loge
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
 export class DashboardController {
   constructor(
     private readonly suppliersService: SuppliersService,
+    private readonly itemsService: ItemsService,
     private readonly warehousesService: WarehousesService,
-    // private readonly itemsService: ItemsService,
   ) {}
 
   @Get('summary')
   async getDashboardSummary() {
-    // ✅ Stats from services
-    const supplierCount = await this.suppliersService.count();
-    const warehouseCount = await this.warehousesService.count();
-    const itemCount = 0; // await this.itemsService.count(); // (baad me hook karo)
+    // --- Fetch all counts in parallel for better performance ---
+    const [supplierCount, itemCount, warehouseCount] = await Promise.all([
+      this.suppliersService.count(),
+      this.itemsService.count(),
+      this.warehousesService.count(),
+    ]);
 
-    // ✅ Status counts (for purchase orders etc. — abhi dummy)
-    const statusCounts = {
-      pending: 5,
-      approved: 10,
-      ordered: 8,
-      received: 3,
-      cancelled: 2,
-    };
-
-    // ✅ Recent activities (abhi static, baad me DB driven karenge)
-    const recentActivities = [
-      {
-        title: 'New Supplier Added',
-        description: 'Shree Ram Steels added.',
-        date: new Date().toISOString(),
-        status: 'approved',
-      },
-      {
-        title: 'New Warehouse Created',
-        description: 'Delhi Main Warehouse created.',
-        date: new Date().toISOString(),
-        status: 'active',
-      },
-    ];
+    // TODO: Replace these with real data from their respective services later
+    const statusCounts = { pending: 0, approved: 0, ordered: 0, received: 0, cancelled: 0 };
+    const recentActivities = [];
 
     return {
       stats: {
         suppliers: supplierCount,
         items: itemCount,
         warehouses: warehouseCount,
+        // TODO: Add purchase_orders count later
+        purchase_orders: 0, 
       },
       statusCounts,
       recentActivities,

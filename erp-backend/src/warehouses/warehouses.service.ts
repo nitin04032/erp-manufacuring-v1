@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Warehouse } from './warehouse.entity';
@@ -9,40 +13,52 @@ import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 export class WarehousesService {
   constructor(
     @InjectRepository(Warehouse)
-    private readonly warehouseRepo: Repository<Warehouse>,
+    private readonly warehouseRepository: Repository<Warehouse>,
   ) {}
 
   async create(dto: CreateWarehouseDto): Promise<Warehouse> {
-    const exists = await this.warehouseRepo.findOne({ where: { code: dto.code } });
-    if (exists) {
-      throw new ConflictException('Warehouse code already exists');
+    // ✅ Check for duplicates before saving to prevent errors
+    const existingWarehouse = await this.warehouseRepository.findOne({
+      where: { code: dto.code },
+    });
+
+    if (existingWarehouse) {
+      throw new ConflictException('Warehouse with this code already exists');
     }
-    const warehouse = this.warehouseRepo.create({ ...dto, is_active: dto.is_active ?? true });
-    return this.warehouseRepo.save(warehouse);
+
+    const warehouse = this.warehouseRepository.create(dto);
+    return this.warehouseRepository.save(warehouse);
   }
 
   findAll(): Promise<Warehouse[]> {
-    return this.warehouseRepo.find({ order: { name: 'ASC' } });
+    // ✅ Sort by the correct 'name' field
+    return this.warehouseRepository.find({ order: { name: 'ASC' } });
   }
 
   async findOne(id: number): Promise<Warehouse> {
-    const wh = await this.warehouseRepo.findOneBy({ id });
-    if (!wh) throw new NotFoundException(`Warehouse with ID ${id} not found`);
-    return wh;
+    const warehouse = await this.warehouseRepository.findOneBy({ id });
+    if (!warehouse) {
+      throw new NotFoundException(`Warehouse with ID #${id} not found`);
+    }
+    return warehouse;
   }
 
   async update(id: number, dto: UpdateWarehouseDto): Promise<Warehouse> {
-    const wh = await this.warehouseRepo.preload({ id, ...dto });
-    if (!wh) throw new NotFoundException(`Warehouse with ID ${id} not found`);
-    return this.warehouseRepo.save(wh);
+    const warehouse = await this.warehouseRepository.preload({ id, ...dto });
+    if (!warehouse) {
+      throw new NotFoundException(`Warehouse with ID #${id} not found`);
+    }
+    return this.warehouseRepository.save(warehouse);
   }
 
   async remove(id: number): Promise<void> {
-    const res = await this.warehouseRepo.delete(id);
-    if (res.affected === 0) throw new NotFoundException(`Warehouse with ID ${id} not found`);
+    const result = await this.warehouseRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Warehouse with ID #${id} not found`);
+    }
   }
 
   count(): Promise<number> {
-    return this.warehouseRepo.count();
+    return this.warehouseRepository.count();
   }
 }
