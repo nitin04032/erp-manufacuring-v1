@@ -22,8 +22,13 @@ export class AuthController {
   @Post('login')
   async login(@Body() body: LoginDto) {
     try {
-      const { usernameOrEmail, password } = body;
-      const res = await this.authService.login(usernameOrEmail, password);
+      // Validate credentials and get the user object
+      const user = await this.authService.validateUser(body.usernameOrEmail, body.password);
+      if (!user) {
+        throw new HttpException({ error: 'Invalid credentials' }, HttpStatus.UNAUTHORIZED);
+      }
+      // Pass the user object (without password_hash) to login
+      const res = await this.authService.login(user);
       return res;
     } catch (err: any) {
       const message = err?.message || 'Unauthorized';
