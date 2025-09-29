@@ -38,7 +38,7 @@ import { DispatchModule } from './dispatch/dispatch.module';
       }),
     }),
 
-    // Step 3: Import all your application's feature modules
+    // Step 3: Import all your application's feature module
     AuthModule,
     UsersModule,
     SuppliersModule,
