@@ -13,6 +13,7 @@ import { ItemsModule } from './items/items.module';
 import { WarehousesModule } from './warehouses/warehouses.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { GrnModule } from './grn/grn.module';
+import { DispatchModule } from './dispatch/dispatch.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { GrnModule } from './grn/grn.module';
     WarehousesModule,
     PurchaseOrdersModule,
     GrnModule,
+    DispatchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
