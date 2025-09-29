@@ -17,8 +17,14 @@ export class SuppliersService {
     return this.suppliersRepository.save(newSupplier);
   }
 
-  async count (): Promise<Supplier[]> {
+  // ✅ Yeh method suppliers list karega
+  async findAll(): Promise<Supplier[]> {
     return this.suppliersRepository.find();
+  }
+
+  // ✅ Yeh method sirf total number of suppliers count karega
+  async count(): Promise<number> {
+    return this.suppliersRepository.count();
   }
 
   async findOne(id: number): Promise<Supplier> {
