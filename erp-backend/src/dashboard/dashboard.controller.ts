@@ -4,8 +4,9 @@ import { SuppliersService } from '../suppliers/suppliers.service';
 import { ItemsService } from '../items/items.service';
 import { WarehousesService } from '../warehouses/warehouses.service';
 import { PurchaseOrdersService } from '../purchase-orders/purchase-orders.service';
-import { GrnService } from '../grn/grn.service'; // 👈 Import the Service
-import { DispatchService } from '../dispatch/dispatch.service'; // 👈 Import the Service
+import { GrnService } from '../grn/grn.service';
+import { DispatchService } from '../dispatch/dispatch.service';
+import { FgrService } from '../fgr/fgr.service'; // 1. Import the new FgrService
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
@@ -15,9 +16,9 @@ export class DashboardController {
     private readonly itemsService: ItemsService,
     private readonly warehousesService: WarehousesService,
     private readonly purchaseOrdersService: PurchaseOrdersService,
-    // ✅ FIX 1: Inject Services, not Modules
     private readonly grnService: GrnService,
     private readonly dispatchService: DispatchService,
+    private readonly fgrService: FgrService, // 2. Inject the FgrService
   ) {}
 
   @Get('summary')
@@ -29,8 +30,9 @@ export class DashboardController {
       poCount,
       statusCounts,
       recentActivities,
-      grnCount,       // 👈 Add variable for GRN count
-      dispatchCount,  // 👈 Add variable for Dispatch count
+      grnCount,
+      dispatchCount,
+      fgrCount, // 3. Add a variable for the FGR count
     ] = await Promise.all([
       this.suppliersService.count(),
       this.itemsService.count(),
@@ -38,9 +40,9 @@ export class DashboardController {
       this.purchaseOrdersService.count(),
       this.purchaseOrdersService.getStatusCounts(),
       this.purchaseOrdersService.getRecent(),
-      // ✅ FIX 2: Add the service calls to Promise.all
       this.grnService.count(),
       this.dispatchService.count(),
+      this.fgrService.count(), // 4. Call the fgrService.count() method
     ]);
 
     return {
@@ -49,9 +51,9 @@ export class DashboardController {
         items: itemCount,
         warehouses: warehouseCount,
         purchase_orders: poCount,
-        // ✅ FIX 3: Add the new counts to the return object
         grn: grnCount,
         dispatch_orders: dispatchCount,
+        fgr: fgrCount, // 5. Add the fgrCount to the response
       },
       statusCounts,
       recentActivities,

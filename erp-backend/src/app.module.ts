@@ -14,6 +14,7 @@ import { WarehousesModule } from './warehouses/warehouses.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { GrnModule } from './grn/grn.module';
 import { DispatchModule } from './dispatch/dispatch.module';
+import { FgrModule } from './fgr/fgr.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { DispatchModule } from './dispatch/dispatch.module';
     PurchaseOrdersModule,
     GrnModule,
     DispatchModule,
+    FgrModule,
   ],
   controllers: [AppController],
   providers: [AppService],
