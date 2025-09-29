@@ -4,20 +4,35 @@ import { Repository } from 'typeorm';
 import { DispatchOrder } from './dispatch.entity';
 import { CreateDispatchDto } from './dto/create-dispatch.dto';
 import { UpdateDispatchDto } from './dto/update-dispatch.dto';
+import { StocksService } from '../stocks/stocks.service';
 
 @Injectable()
 export class DispatchService {
   constructor(
     @InjectRepository(DispatchOrder)
     private repo: Repository<DispatchOrder>,
+    private stocksService: StocksService,
   ) {}
 
   async create(dto: CreateDispatchDto): Promise<DispatchOrder> {
     const dispatch = this.repo.create({
       ...dto,
       dispatch_date: new Date(dto.dispatch_date),
+      // Assuming your entity can store items as JSON or has a separate relation
     });
-    return this.repo.save(dispatch);
+
+    const savedDispatch = await this.repo.save(dispatch);
+
+    // After saving the dispatch, decrease the stock for each item
+    for (const item of dto.items) {
+      await this.stocksService.decreaseStock(
+        item.item_code,
+        dto.warehouse_name,
+        item.dispatched_qty,
+      );
+    }
+
+    return savedDispatch;
   }
 
   findAll(): Promise<DispatchOrder[]> {
@@ -31,14 +46,15 @@ export class DispatchService {
   }
 
   async update(id: number, dto: UpdateDispatchDto): Promise<DispatchOrder> {
-    const existing = await this.repo.findOne({ where: { id } });
-    if (!existing) throw new NotFoundException(`Dispatch order #${id} not found`);
-
+    // Note: A real-world update is complex. It might need to reverse old stock
+    // changes before applying new ones, especially if quantities change.
+    const existing = await this.findOne(id);
     Object.assign(existing, dto);
     return this.repo.save(existing);
   }
 
   async remove(id: number): Promise<void> {
+    // Note: A real-world delete should reverse the stock subtractions (i.e., add the stock back).
     const res = await this.repo.delete(id);
     if (res.affected === 0) throw new NotFoundException(`Dispatch order #${id} not found`);
   }
