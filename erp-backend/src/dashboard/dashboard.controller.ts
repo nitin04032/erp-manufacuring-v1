@@ -6,7 +6,8 @@ import { WarehousesService } from '../warehouses/warehouses.service';
 import { PurchaseOrdersService } from '../purchase-orders/purchase-orders.service';
 import { GrnService } from '../grn/grn.service';
 import { DispatchService } from '../dispatch/dispatch.service';
-import { FgrService } from '../fgr/fgr.service'; // 1. Import the new FgrService
+import { FgrService } from '../fgr/fgr.service';
+import { StocksService } from '../stocks/stocks.service';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
@@ -18,31 +19,39 @@ export class DashboardController {
     private readonly purchaseOrdersService: PurchaseOrdersService,
     private readonly grnService: GrnService,
     private readonly dispatchService: DispatchService,
-    private readonly fgrService: FgrService, // 2. Inject the FgrService
+    private readonly fgrService: FgrService,
+    private readonly stocksService: StocksService,
   ) {}
 
   @Get('summary')
   async getDashboardSummary() {
     const [
+      // Core Stats
       supplierCount,
       itemCount,
       warehouseCount,
       poCount,
-      statusCounts,
-      recentActivities,
       grnCount,
       dispatchCount,
-      fgrCount, // 3. Add a variable for the FGR count
+      fgrCount,
+      
+      // Detailed Summaries
+      poStatusSummary,
+      recentPurchaseOrders,
+      totalStockValue,
+      lowStockItems,
     ] = await Promise.all([
       this.suppliersService.count(),
       this.itemsService.count(),
       this.warehousesService.count(),
       this.purchaseOrdersService.count(),
-      this.purchaseOrdersService.getStatusCounts(),
-      this.purchaseOrdersService.getRecent(),
       this.grnService.count(),
       this.dispatchService.count(),
-      this.fgrService.count(), // 4. Call the fgrService.count() method
+      this.fgrService.count(),
+      this.purchaseOrdersService.getStatusCounts(),
+      this.purchaseOrdersService.getRecent(),
+      this.stocksService.getTotalStockValue(),
+      this.stocksService.getLowStockItems(),
     ]);
 
     return {
@@ -53,10 +62,14 @@ export class DashboardController {
         purchase_orders: poCount,
         grn: grnCount,
         dispatch_orders: dispatchCount,
-        fgr: fgrCount, // 5. Add the fgrCount to the response
+        fgr: fgrCount,
       },
-      statusCounts,
-      recentActivities,
+      stockSummary: {
+        totalValue: totalStockValue,
+        lowStockItems: lowStockItems,
+      },
+      poStatusSummary: poStatusSummary,
+      recentPurchaseOrders: recentPurchaseOrders,
     };
   }
 }

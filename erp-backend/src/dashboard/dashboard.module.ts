@@ -6,9 +6,9 @@ import { ItemsModule } from '../items/items.module';
 import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module';
 import { GrnModule } from '../grn/grn.module';
 import { DispatchModule } from '../dispatch/dispatch.module';
-import { FgrModule } from '../fgr/fgr.module'; // 👈 1. Import FgrModule
+import { FgrModule } from '../fgr/fgr.module';
+import { StocksModule } from '../stocks/stocks.module'; // 👈 Import StocksModule
 import { AuthModule } from '../auth/auth.module';
-import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -18,9 +18,9 @@ import { UsersModule } from '../users/users.module';
     PurchaseOrdersModule,
     GrnModule,
     DispatchModule,
-    FgrModule, // 👈 2. Add FgrModule to the imports array
+    FgrModule,
+    StocksModule, // 👈 Add StocksModule here
     AuthModule,
-    UsersModule,
   ],
   controllers: [DashboardController],
 })
