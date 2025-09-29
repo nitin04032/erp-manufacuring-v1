@@ -17,7 +17,7 @@ export class SuppliersService {
     return this.suppliersRepository.save(newSupplier);
   }
 
-  findAll(): Promise<Supplier[]> {
+  async count (): Promise<Supplier[]> {
     return this.suppliersRepository.find();
   }
 
