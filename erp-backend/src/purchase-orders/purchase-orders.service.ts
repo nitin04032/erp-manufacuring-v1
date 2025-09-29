@@ -15,47 +15,83 @@ export class PurchaseOrdersService {
     private supplierRepo: Repository<Supplier>,
   ) {}
 
+  // --- Standard CRUD Methods ---
+
   async create(dto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     const supplier = await this.supplierRepo.findOneBy({ id: dto.supplierId });
-    if (!supplier) throw new NotFoundException(`Supplier #${dto.supplierId} not found`);
+    if (!supplier) throw new NotFoundException(`Supplier with ID ${dto.supplierId} not found`);
 
     const po = this.repo.create({
       ...dto,
       supplier,
       order_date: new Date(dto.order_date),
-      // ✅ FIX 1: Changed null to undefined
       expected_date: dto.expected_date ? new Date(dto.expected_date) : undefined,
     });
     return this.repo.save(po);
   }
 
-  // ✅ FIX 2: Added [] to the return type
   findAll(): Promise<PurchaseOrder[]> {
     return this.repo.find({ order: { order_date: 'DESC' } });
   }
 
   async findOne(id: number): Promise<PurchaseOrder> {
     const po = await this.repo.findOne({ where: { id } });
-    if (!po) throw new NotFoundException(`Purchase Order #${id} not found`);
+    if (!po) throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     return po;
   }
 
   async update(id: number, dto: UpdatePurchaseOrderDto): Promise<PurchaseOrder> {
-    // Note: For update, you might need a more detailed implementation
-    // to handle relationships and partial data correctly, but this is okay for now.
-    const existing = await this.repo.findOne({ where: { id } });
-    if (!existing) throw new NotFoundException(`Purchase Order #${id} not found`);
-
+    const existing = await this.findOne(id); // Re-uses findOne to ensure it exists
     Object.assign(existing, dto);
     return this.repo.save(existing);
   }
 
   async remove(id: number): Promise<void> {
-    const res = await this.repo.delete(id);
-    if (res.affected === 0) throw new NotFoundException(`Purchase Order #${id} not found`);
+    const result = await this.repo.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+    }
   }
 
   count(): Promise<number> {
     return this.repo.count();
+  }
+
+  // --- Dashboard-Specific Methods ---
+
+  /**
+   * Gets the count of purchase orders for each status.
+   */
+  async getStatusCounts(): Promise<Record<string, number>> {
+    const counts = await this.repo
+      .createQueryBuilder('po')
+      .select('po.status', 'status')
+      .addSelect('COUNT(po.id)', 'count')
+      .groupBy('po.status')
+      .getRawMany();
+
+    // Initialize a default object to ensure all statuses are present in the response
+    const formattedCounts = { pending: 0, approved: 0, ordered: 0, received: 0, cancelled: 0 };
+    
+    // Populate with real data from the database
+    counts.forEach(item => {
+      if (formattedCounts.hasOwnProperty(item.status)) {
+        formattedCounts[item.status] = parseInt(item.count, 10);
+      }
+    });
+
+    return formattedCounts;
+  }
+
+  /**
+   * Gets the most recent purchase orders.
+   */
+  async getRecent(limit: number = 5): Promise<PurchaseOrder[]> {
+    return this.repo.find({
+      order: {
+        created_at: 'DESC', // Sort by creation date, newest first
+      },
+      take: limit, // Get only the top 'limit' records
+    });
   }
 }

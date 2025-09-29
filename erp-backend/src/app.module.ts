@@ -12,6 +12,7 @@ import { DashboardModule } from './dashboard/dashboard.module'; // Naye module k
 import { ItemsModule } from './items/items.module';
 import { WarehousesModule } from './warehouses/warehouses.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
+import { GrnModule } from './grn/grn.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
     ItemsModule,
     WarehousesModule,
     PurchaseOrdersModule,
+    GrnModule,
   ],
   controllers: [AppController],
   providers: [AppService],
