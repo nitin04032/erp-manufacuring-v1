@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { DashboardModule } from './dashboard/dashboard.module'; // Naye module ko import karein
+import { ItemsModule } from './items/items.module';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { DashboardModule } from './dashboard/dashboard.module'; // Naye module k
         password: configService.get<string>('DB_PASSWORD') ?? '',
         database: configService.get<string>('DB_DATABASE') ?? 'erp',
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // IMPORTANT: Set to false in production!
+        synchronize: false, // IMPORTANT: Set to false in production!
       }),
     }),
 
@@ -38,6 +39,7 @@ import { DashboardModule } from './dashboard/dashboard.module'; // Naye module k
     UsersModule,
     SuppliersModule,
     DashboardModule,
+    ItemsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
