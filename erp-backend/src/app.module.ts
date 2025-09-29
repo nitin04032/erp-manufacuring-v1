@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { DashboardModule } from './dashboard/dashboard.module'; // Naye module ko import karein
 import { ItemsModule } from './items/items.module';
+import { WarehousesModule } from './warehouses/warehouses.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ItemsModule } from './items/items.module';
     SuppliersModule,
     DashboardModule,
     ItemsModule,
+    WarehousesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

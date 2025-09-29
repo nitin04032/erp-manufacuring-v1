@@ -35,6 +35,7 @@ interface DashboardData {
 export default function DashboardPage() {
   // Step 1: useApi hook se live data fetch karein
   const { data, loading, error } = useApi<DashboardData>('/dashboard/summary');
+  
 
   // Step 2: Loading state handle karein
   if (loading) {
