@@ -5,36 +5,27 @@ import { FinishedGoodsReceipt } from './fgr.entity';
 import { CreateFgrDto } from './dto/create-fgr.dto';
 import { UpdateFgrDto } from './dto/update-fgr.dto';
 import { StocksService } from '../stocks/stocks.service';
-import { ProductionOrder } from '../production-orders/production-order.entity';
 
 @Injectable()
 export class FgrService {
   constructor(
     @InjectRepository(FinishedGoodsReceipt)
     private repo: Repository<FinishedGoodsReceipt>,
-    @InjectRepository(ProductionOrder)
-    private productionOrderRepo: Repository<ProductionOrder>,
+    // The ProductionOrderRepository is removed as there is no formal relationship
     private stocksService: StocksService,
   ) {}
 
   async create(dto: CreateFgrDto): Promise<FinishedGoodsReceipt> {
-    // 1. Find the related Production Order
-    const productionOrder = await this.productionOrderRepo.findOneBy({ id: dto.productionOrderId });
-    if (!productionOrder) {
-      throw new NotFoundException(`Production Order #${dto.productionOrderId} not found`);
-    }
-
-    // 2. Create the FGR instance
+    // 1. Create the FGR instance directly from the DTO
     const fgr = this.repo.create({
       ...dto,
-      productionOrder, // Link the full entity object
       receipt_date: new Date(dto.receipt_date),
     });
     
-    // 3. Save the new FGR to the database
+    // 2. Save the new FGR to the database
     const savedFgr = await this.repo.save(fgr);
 
-    // 4. After saving, update the stock for the finished good
+    // 3. After saving, update the stock for the finished good
     await this.stocksService.increaseStock(
       dto.item_code,
       dto.warehouse_name,
@@ -47,14 +38,12 @@ export class FgrService {
   }
 
   findAll(): Promise<FinishedGoodsReceipt[]> {
-    return this.repo.find({ 
-      relations: ['productionOrder'],
-      order: { receipt_date: 'DESC' } 
-    });
+    // Removed `relations` as there is no formal relationship defined
+    return this.repo.find({ order: { receipt_date: 'DESC' } });
   }
 
   async findOne(id: number): Promise<FinishedGoodsReceipt> {
-    const rec = await this.repo.findOne({ where: { id }, relations: ['productionOrder'] });
+    const rec = await this.repo.findOne({ where: { id } });
     if (!rec) throw new NotFoundException(`FGR #${id} not found`);
     return rec;
   }
