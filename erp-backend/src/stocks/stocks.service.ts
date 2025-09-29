@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Stock } from './stock.entity';
@@ -14,22 +14,24 @@ export class StocksService {
 
   async increaseStock(item_code: string, warehouse_name: string, qty: number, uom: string, item_name: string): Promise<Stock> {
     let stock = await this.repo.findOne({ where: { item_code, warehouse_name } });
+    
     if (!stock) {
       stock = this.repo.create({ item_code, warehouse_name, quantity: qty, uom, item_name });
     } else {
-      stock.quantity = Number(stock.quantity) + Number(qty); // Ensure numbers are treated correctly
+      stock.quantity = Number(stock.quantity) + Number(qty); // Use explicit Number casting for safety
     }
     return this.repo.save(stock);
   }
 
   async decreaseStock(item_code: string, warehouse_name: string, qty: number): Promise<Stock> {
     const stock = await this.repo.findOne({ where: { item_code, warehouse_name } });
+    
     if (!stock) {
       throw new NotFoundException(`Stock not found for item ${item_code} in warehouse ${warehouse_name}`);
     }
 
     if (stock.quantity < qty) {
-      throw new Error(`Insufficient stock for item ${item_code}. Available: ${stock.quantity}, Required: ${qty}`);
+      throw new BadRequestException(`Insufficient stock for item ${item_code}. Available: ${stock.quantity}, Required: ${qty}`);
     }
 
     stock.quantity -= qty;
@@ -73,7 +75,7 @@ export class StocksService {
   async getTotalStockValue(): Promise<number> {
     const result = await this.repo
       .createQueryBuilder('stock')
-      .leftJoin('stock.item', 'item') // Use leftJoin if you only need item's properties for calculation
+      .leftJoin('stock.item', 'item')
       .select('SUM(stock.quantity * item.unit_price)', 'totalValue')
       .getRawOne();
     
