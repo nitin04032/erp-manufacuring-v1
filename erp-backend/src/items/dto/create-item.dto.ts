@@ -27,18 +27,18 @@ export class CreateItemDto {
   category?: string;
 
   @IsOptional()
-  @Type(() => Number)
+  @Type(() => Number) // Transforms incoming data to a number before validation
   @IsNumber()
   @Min(0)
   reorder_level?: number;
 
   @IsOptional()
-  @Type(() => Number)
+  @Type(() => Number) // Transforms incoming data to a number before validation
   @IsNumber()
   @Min(0)
   standard_rate?: number;
 
   @IsOptional()
-  @IsIn(['active', 'inactive'])
+  @IsIn(['active', 'inactive']) // Ensures the value is one of these
   status?: 'active' | 'inactive';
 }
