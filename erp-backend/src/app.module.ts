@@ -11,6 +11,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { DashboardModule } from './dashboard/dashboard.module'; // Naye module ko import karein
 import { ItemsModule } from './items/items.module';
 import { WarehousesModule } from './warehouses/warehouses.module';
+import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { WarehousesModule } from './warehouses/warehouses.module';
     DashboardModule,
     ItemsModule,
     WarehousesModule,
+    PurchaseOrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

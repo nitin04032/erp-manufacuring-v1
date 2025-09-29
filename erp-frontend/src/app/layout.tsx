@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* Custom CSS */}
-        <link href="/assets/css/app.css" rel="stylesheet" />
+        {/* <link href="/assets/css/app.css" rel="stylesheet" /> */}
       </head>
       <body>
         {/* 👇 Ye client component ke andar children pass karenge */}
@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* Custom JS */}
-        <Script src="/assets/js/app.js" strategy="afterInteractive" />
+        {/* <Script src="/assets/js/app.js" strategy="afterInteractive" /> */}
       </body>
     </html>
   );
