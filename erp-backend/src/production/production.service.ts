@@ -6,7 +6,7 @@ import { ProductionOrderItem } from './production-order-item.entity';
 import { CreateProductionOrderDto } from './dto/create-production-order.dto';
 import { UpdateProductionOrderDto } from './dto/update-production-order.dto';
 import { CompleteProductionOrderDto } from './dto/complete-production-order.dto';
-import { v4 as uuidv4 } from 'uuid';
+import { InventoryService } from '../inventory/inventory.service'; // <-- नया इम्पोर्ट जोड़ा गया
 
 @Injectable()
 export class ProductionService {
@@ -16,10 +16,10 @@ export class ProductionService {
     @InjectRepository(ProductionOrderItem)
     private poItemRepo: Repository<ProductionOrderItem>,
     private dataSource: DataSource,
+    private inventoryService: InventoryService, // <-- InventoryService को यहाँ जोड़ा गया
   ) {}
 
   private generateOrderNumber(): string {
-    // e.g. PO-YYYYMMDD-XXXX
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -65,14 +65,12 @@ export class ProductionService {
       throw new BadRequestException('Cannot update an order in progress or completed');
     }
 
-    // simple header updates
     po.fg_item_id = dto.fg_item_id ?? po.fg_item_id;
     po.quantity = dto.quantity ?? po.quantity;
     po.warehouse_id = dto.warehouse_id ?? po.warehouse_id;
     po.remarks = dto.remarks ?? po.remarks;
 
     if (dto.items) {
-      // Replace items (for simplicity): delete existing and add new
       await this.poItemRepo.delete({ production_order_id: id });
       po.items = dto.items.map((it) =>
         this.poItemRepo.create({
@@ -107,12 +105,8 @@ export class ProductionService {
   }
 
   /**
-   * Complete the production order:
-   * - Create FG Receipt (increase FG stock)
-   * - Mark raw materials consumed (decrease stock)
-   * - Update PO status to completed
-   *
-   * NOTE: Inventory / stock ledger calls are marked as TODO - call your inventory service here.
+   * Complete the production order by calling InventoryService
+   * to atomically update stock and create ledger entries.
    */
   async complete(id: number, dto: CompleteProductionOrderDto) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -122,38 +116,56 @@ export class ProductionService {
     try {
       const po = await queryRunner.manager.findOne(ProductionOrder, { where: { id } });
       if (!po) throw new NotFoundException('Production order not found');
-
       if (po.status === 'completed') throw new BadRequestException('Already completed');
 
-      // load items
       const items = await queryRunner.manager.find(ProductionOrderItem, {
         where: { production_order_id: id },
       });
 
-      // TODO: Validate stock availability for each raw material item
-      // For each item: reduce stock (create stock ledger entry)
-      // call: inventoryService.decreaseStock(item_id, qty, { reference: 'production', reference_id: id })
-      // Also update 'issued_qty' in production_order_items
-
+      // 1) Validate availability for each raw material
       for (const item of items) {
-        // We use issued_qty = required_qty (assuming full issue)
-        item.issued_qty = Number(item.required_qty);
-        await queryRunner.manager.save(item);
-
-        // Example placeholder:
-        // await inventoryService.decreaseStock(item.item_id, item.required_qty, { transactionQueryRunner: queryRunner, reference_type:'production', reference_id: id });
+        await this.inventoryService.checkAvailability(item.item_id, po.warehouse_id, Number(item.required_qty), queryRunner);
       }
 
-      // Create FG receipt: increase FG stock
-      // await inventoryService.increaseStock(po.fg_item_id, dto.produced_qty, { transactionQueryRunner: queryRunner, reference_type:'production_fg_receipt', reference_id: id, warehouse_id: dto.warehouse_id || po.warehouse_id });
+      // 2) Decrease raw materials (issue to production) & update issued_qty
+      for (const item of items) {
+        await this.inventoryService.decreaseStock(
+          item.item_id,
+          po.warehouse_id,
+          Number(item.required_qty),
+          {
+            reference_type: 'production_issue',
+            reference_id: id,
+            remarks: `Issued to production ${po.order_number}`,
+            queryRunner,
+          },
+        );
 
+        item.issued_qty = Number(item.required_qty);
+        await queryRunner.manager.save(item);
+      }
+
+      // 3) Increase FG stock
+      const targetWarehouse = dto.warehouse_id ?? po.warehouse_id;
+      await this.inventoryService.increaseStock(
+        po.fg_item_id,
+        targetWarehouse,
+        Number(dto.produced_qty),
+        {
+          reference_type: 'production_fg_receipt',
+          reference_id: id,
+          remarks: `FG produced for ${po.order_number}`,
+          queryRunner,
+        },
+      );
+
+      // 4) Mark PO completed
       po.status = 'completed';
       await queryRunner.manager.save(po);
 
-      // commit
       await queryRunner.commitTransaction();
 
-      // Optionally return updated PO with items
+      // return fresh PO
       return this.findOne(id);
     } catch (err) {
       await queryRunner.rollbackTransaction();

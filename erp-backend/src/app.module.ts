@@ -17,6 +17,10 @@ import { DispatchModule } from './dispatch/dispatch.module';
 import { FgrModule } from './fgr/fgr.module';
 import { BomModule } from './bom/bom.module';
 import { ProductionModule } from './production/production.module';
+import { StocksModule } from './stocks/stocks.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+
 
 @Module({
   imports: [
@@ -54,6 +58,9 @@ import { ProductionModule } from './production/production.module';
     FgrModule,
     BomModule,
     ProductionModule,
+    StocksModule,
+    InventoryModule,
+  // TypeOrmModule already configured above with forRootAsync
   ],
   controllers: [AppController],
   providers: [AppService],

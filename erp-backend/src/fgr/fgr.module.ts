@@ -5,14 +5,14 @@ import { FgrService } from './fgr.service';
 import { FgrController } from './fgr.controller';
 
 // ✅ Make sure these paths exactly match your folder/file structure
-import { ProductionOrdersModule } from '../production-orders/production-orders.module';
+import { ProductionModule } from '../production/production.module';
 import { StocksModule } from '../stocks/stocks.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([FinishedGoodsReceipt]),
     // ✅ Import the modules that provide the services/repositories you need
-    ProductionOrdersModule,
+    ProductionModule,
     StocksModule,
   ],
   providers: [FgrService],
