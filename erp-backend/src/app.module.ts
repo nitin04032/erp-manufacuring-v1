@@ -15,6 +15,7 @@ import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { GrnModule } from './grn/grn.module';
 import { DispatchModule } from './dispatch/dispatch.module';
 import { FgrModule } from './fgr/fgr.module';
+import { BomModule } from './bom/bom.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { FgrModule } from './fgr/fgr.module';
     GrnModule,
     DispatchModule,
     FgrModule,
+    BomModule,
   ],
   controllers: [AppController],
   providers: [AppService],
