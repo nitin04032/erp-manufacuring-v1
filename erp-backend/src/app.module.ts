@@ -16,6 +16,7 @@ import { GrnModule } from './grn/grn.module';
 import { DispatchModule } from './dispatch/dispatch.module';
 import { FgrModule } from './fgr/fgr.module';
 import { BomModule } from './bom/bom.module';
+import { ProductionModule } from './production/production.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { BomModule } from './bom/bom.module';
     DispatchModule,
     FgrModule,
     BomModule,
+    ProductionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
