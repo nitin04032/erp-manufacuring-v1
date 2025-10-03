@@ -1,26 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { gsap } from "gsap";
+import { useUserStore } from "../store/user";
+ // ✅ zustand store import
 
 export default function Navbar() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuth, user, logout } = useUserStore();
 
   useEffect(() => {
     // GSAP animation for navbar
     gsap.from("nav", { y: -80, duration: 0.8, ease: "power3.out" });
-
-    // JWT token check
-    const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token);
   }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsLoggedIn(false);
-    window.location.href = "/"; // redirect to login
-  };
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
@@ -41,7 +33,7 @@ export default function Navbar() {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           {/* ✅ ERP Menus only if logged in */}
-          {isLoggedIn && (
+          {isAuth && (
             <ul className="navbar-nav me-auto">
               <li className="nav-item">
                 <Link className="nav-link" href="/dashboard">
@@ -50,11 +42,7 @@ export default function Navbar() {
               </li>
               {/* Masters */}
               <li className="nav-item dropdown">
-                <a
-                  className="nav-link dropdown-toggle"
-                  href="#"
-                  data-bs-toggle="dropdown"
-                >
+                <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                   <i className="bi bi-database"></i> Masters
                 </a>
                 <ul className="dropdown-menu">
@@ -112,20 +100,36 @@ export default function Navbar() {
 
           {/* ✅ User Section */}
           <ul className="navbar-nav ms-auto">
-            {isLoggedIn ? (
+            {isAuth ? (
               <li className="nav-item dropdown">
                 <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                  <i className="bi bi-person-circle"></i> User
+                  <i className="bi bi-person-circle"></i> {user?.username || "User"}
                 </a>
                 <ul className="dropdown-menu dropdown-menu-end">
-                  <li><Link className="dropdown-item" href="/profile"><i className="bi bi-person"></i> Profile</Link></li>
-                  <li><button className="dropdown-item" onClick={handleLogout}><i className="bi bi-box-arrow-right"></i> Logout</button></li>
+                  <li>
+                    <Link className="dropdown-item" href="/profile">
+                      <i className="bi bi-person"></i> Profile
+                    </Link>
+                  </li>
+                  <li>
+                    <button className="dropdown-item" onClick={logout}>
+                      <i className="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                  </li>
                 </ul>
               </li>
             ) : (
               <>
-                <li className="nav-item"><Link className="nav-link" href="/"><i className="bi bi-box-arrow-in-right"></i> Login</Link></li>
-                <li className="nav-item"><Link className="nav-link" href="/register"><i className="bi bi-person-plus"></i> Register</Link></li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/">
+                    <i className="bi bi-box-arrow-in-right"></i> Login
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/register">
+                    <i className="bi bi-person-plus"></i> Register
+                  </Link>
+                </li>
               </>
             )}
           </ul>

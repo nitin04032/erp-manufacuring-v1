@@ -9,30 +9,32 @@ import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
-import { User } from '../users/user.entity'; // User entity ko import karein
+import { User } from '../users/user.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
   ) {}
 
   /**
    * Ek naye user ko register karta hai.
+   * Yeh password ko hash karta hai aur duplicate username/email check ke liye UsersService ka istemal karta hai.
    */
-  async register(payload: RegisterDto) {
+  async register(payload: RegisterDto): Promise<Omit<User, 'password_hash'>> {
     const { username, email, password, full_name, role } = payload;
 
-    // Password ki basic validation
+    // 1. Password ki basic validation
     if (!password || password.trim().length < 6) {
-      throw new BadRequestException('Password must be at least 6 characters');
+      throw new BadRequestException('Password must be at least 6 characters long.');
     }
 
-    // Password ko hash karein
+    // 2. Password ko hash karein
     const password_hash = await bcrypt.hash(password, 10);
 
-    // UsersService ke 'create' function ka istemaal karein jo duplicate check bhi karta hai
+    // 3. UsersService ke 'create' function ka istemaal karein
+    // UsersService.create ko is tarah design karna chahiye ki woh password_hash return na kare.
     const createdUser = await this.usersService.create({
       username,
       email,
@@ -41,39 +43,40 @@ export class AuthService {
       role: role || 'user', // Default role 'user' set karein agar nahi diya hai
     });
 
-    // UsersService.create() se password hash pehle se hi hata hua hai
     return createdUser;
   }
 
   /**
-   * User ke credentials ko validate karta hai.
+   * User ke credentials (username/email aur password) ko validate karta hai.
+   * Safal hone par, password hash ke bina user object return karta hai.
    */
   async validateUser(
     usernameOrEmail: string,
     pass: string,
   ): Promise<Omit<User, 'password_hash'> | null> {
-    // UsersService ke 'findOne' function ka istemaal karein
+    // 1. User ko database se find karein
     const user = await this.usersService.findOne(usernameOrEmail);
     if (!user) {
       return null;
     }
 
-    // Diye gaye password ko hash ke saath compare karein
+    // 2. Diye gaye password ko hash ke saath compare karein
     const isMatch = await bcrypt.compare(pass, user.password_hash);
     if (!isMatch) {
       return null;
     }
 
-    // Safal validation par, password hash ke bina user object return karein
+    // 3. (Sabse Zaroori) Safal validation par, password hash ke bina user object return karein
     const { password_hash, ...result } = user;
     return result;
   }
 
   /**
    * User ko login karke JWT token generate karta hai.
+   * Yeh last login time bhi update karta hai.
    */
   async login(userPayload: Omit<User, 'password_hash'>) {
-    // JWT payload mein zaroori jaankari daalein
+    // 1. JWT payload taiyaar karein
     const payload = {
       sub: userPayload.id,
       username: userPayload.username,
@@ -81,11 +84,14 @@ export class AuthService {
       role: userPayload.role,
     };
 
-    const token = this.jwtService.sign(payload);
+    // 2. JWT token asynchronously sign karein
+    const token = await this.jwtService.signAsync(payload);
 
-    // User ka last login time update karein
-    await this.usersService.updateLastLogin(userPayload.id);
+    // 3. User ka last login time update karein (background mein)
+    // Hum iska result wait nahi karenge taaki response jaldi jaaye
+    this.usersService.updateLastLogin(userPayload.id);
 
+    // 4. Token aur user data return karein
     return {
       access_token: token,
       user: userPayload,
