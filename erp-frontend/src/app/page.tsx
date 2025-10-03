@@ -1,0 +1,185 @@
+// FINAL CORRECTED CODE (erp-frontend/src/app/login/page.tsx)
+
+'use client';
+
+import { useState, FormEvent, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useUserStore } from '../store/user';
+
+// MUI Imports
+import {
+  Container, Box, TextField, Button, Typography, CircularProgress, Alert, Paper,
+  InputAdornment, IconButton, Divider
+} from '@mui/material';
+
+// MUI Icons Imports
+import SettingsIcon from '@mui/icons-material/Settings';
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import LoginIcon from '@mui/icons-material/Login';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const { setToken, isAuth } = useUserStore();
+
+  useEffect(() => {
+    if (isAuth) {
+      router.push('/dashboard');
+    }
+  }, [isAuth, router]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!email || !password) {
+      setError('Please enter both email and password.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernameOrEmail: email, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed.');
+      }
+      if (data.access_token) {
+        setToken(data.access_token);
+        router.push('/dashboard');
+      } else {
+        throw new Error('Token not found in response.');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(to right, #f8f9fa, #e9ecef)',
+      }}
+    >
+      <Paper
+        elevation={6}
+        sx={{
+          p: { xs: 3, sm: 5 },
+          borderRadius: 4,
+          width: { xs: '90%', sm: 450 },
+        }}
+      >
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <SettingsIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+          <Typography component="h1" variant="h5" fontWeight="bold">
+            Manufacturing ERP
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Sign in to continue
+          </Typography>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit} noValidate>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email or Username"
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockIcon color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            size="large"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
+            startIcon={!loading ? <LoginIcon /> : null}
+          >
+            {loading ? <CircularProgress size={26} color="inherit" /> : 'Sign In'}
+          </Button>
+        </Box>
+
+        <Divider sx={{ my: 3 }}>
+          <Typography variant="body2" color="text.secondary">OR</Typography>
+        </Divider>
+
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Don't have an account?
+          </Typography>
+          
+          {/* ## MUKHYA SUDHAAR YAHAN HAI (KEY FIX IS HERE) ## */}
+          <Button
+            component={Link}
+            href="/register"
+            fullWidth
+            variant="outlined"
+            startIcon={<PersonAddIcon />}
+          >
+            Create Account
+          </Button>
+
+        </Box>
+      </Paper>
+    </Box>
+  );
+}
