@@ -1,9 +1,10 @@
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
-  UpdateDateColumn 
+// erp-backend/src/warehouses/warehouse.entity.ts
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('warehouses')
@@ -22,7 +23,7 @@ export class Warehouse {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   city?: string;
-  
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   state?: string;
 
@@ -32,12 +33,16 @@ export class Warehouse {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone?: string;
 
+  // ### MUKHYA SUDHAR YAHAN HAI ###
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'contact_person' })
+  contact_person?: string;
+
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamp' })
   updated_at: Date;
 }

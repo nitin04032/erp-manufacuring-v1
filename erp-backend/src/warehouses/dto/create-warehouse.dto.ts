@@ -1,3 +1,4 @@
+// erp-backend/src/warehouses/dto/create-warehouse.dto.ts
 import { 
   IsString, 
   IsNotEmpty, 
@@ -8,9 +9,9 @@ import {
 
 export class CreateWarehouseDto {
   @IsString()
-  @IsNotEmpty()
+  @IsOptional() // Code ko optional banaya gaya
   @MaxLength(100)
-  code: string;
+  code?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -40,6 +41,12 @@ export class CreateWarehouseDto {
   @IsString()
   @MaxLength(20)
   phone?: string;
+
+  // ### MUKHYA SUDHAR YAHAN HAI ###
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  contact_person?: string;
 
   @IsOptional()
   @IsBoolean()
