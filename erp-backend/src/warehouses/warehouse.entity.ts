@@ -1,4 +1,3 @@
-// erp-backend/src/warehouses/warehouse.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -18,6 +17,10 @@ export class Warehouse {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
+  // ✅ SUDHAR: description field add kiya gaya
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
   @Column({ type: 'text', nullable: true })
   address?: string;
 
@@ -27,15 +30,23 @@ export class Warehouse {
   @Column({ type: 'varchar', length: 100, nullable: true })
   state?: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  // ✅ SUDHAR: country field add kiya gaya
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  country?: string;
+
+  // ✅ SUDHAR: Pincode ki length 10 set ki gayi
+  @Column({ type: 'varchar', length: 10, nullable: true })
   pincode?: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone?: string;
 
-  // ### MUKHYA SUDHAR YAHAN HAI ###
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'contact_person' })
   contact_person?: string;
+
+  // ✅ SUDHAR: email field add kiya gaya
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  email?: string;
 
   @Column({ type: 'boolean', default: true })
   is_active: boolean;

@@ -1,15 +1,15 @@
-// erp-backend/src/warehouses/dto/create-warehouse.dto.ts
-import { 
-  IsString, 
-  IsNotEmpty, 
-  IsOptional, 
-  MaxLength, 
-  IsBoolean 
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  MaxLength,
+  IsBoolean,
+  IsEmail, // ✅ IsEmail import kiya gaya
 } from 'class-validator';
 
 export class CreateWarehouseDto {
   @IsString()
-  @IsOptional() // Code ko optional banaya gaya
+  @IsOptional()
   @MaxLength(100)
   code?: string;
 
@@ -17,6 +17,10 @@ export class CreateWarehouseDto {
   @IsNotEmpty()
   @MaxLength(255)
   name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string; // ✅ description field add kiya gaya
 
   @IsOptional()
   @IsString()
@@ -34,7 +38,12 @@ export class CreateWarehouseDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(100)
+  country?: string; // ✅ country field add kiya gaya
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10) // ✅ Pincode ki length 10 set ki gayi
   pincode?: string;
 
   @IsOptional()
@@ -42,11 +51,14 @@ export class CreateWarehouseDto {
   @MaxLength(20)
   phone?: string;
 
-  // ### MUKHYA SUDHAR YAHAN HAI ###
   @IsOptional()
   @IsString()
   @MaxLength(255)
   contact_person?: string;
+
+  @IsOptional()
+  @IsEmail() // ✅ Email validation add kiya gaya
+  email?: string; // ✅ email field add kiya gaya
 
   @IsOptional()
   @IsBoolean()
