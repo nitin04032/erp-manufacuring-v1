@@ -1,11 +1,12 @@
 "use client";
 import { useState, FC, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // To redirect after success
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
-// ✅ STEP 1: Define interfaces for our data structures
+// Interfaces for data structures
 interface SupplierFormData {
-  supplier_name: string;
+  name: string;
   supplier_code: string;
   contact_person: string;
   email: string;
@@ -16,7 +17,7 @@ interface SupplierFormData {
   state: string;
   country: string;
   pincode: string;
-  status: "active" | "inactive";
+  is_active: boolean;
 }
 
 interface FlashMessage {
@@ -24,13 +25,12 @@ interface FlashMessage {
   message: string;
 }
 
-// ✅ STEP 2: Convert the component to a typed Functional Component (FC)
 const CreateSupplierPage: FC = () => {
   const router = useRouter();
 
   const initialFormState: SupplierFormData = {
-    supplier_name: "",
-    supplier_code: "",
+    name: "",
+    supplier_code: "", // This will be ignored on submission
     contact_person: "",
     email: "",
     phone: "",
@@ -40,44 +40,46 @@ const CreateSupplierPage: FC = () => {
     state: "",
     country: "India",
     pincode: "",
-    status: "active",
+    is_active: true,
   };
   
-  // ✅ STEP 3: Add types to all state hooks
   const [form, setForm] = useState<SupplierFormData>(initialFormState);
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // ✅ STEP 4: Create a single, typed handler for all form inputs
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setForm((prevForm) => ({
       ...prevForm,
-      [id]: value,
+      [id]: id === 'is_active' ? (value === 'true') : value,
     }));
   };
 
-  // ✅ STEP 5: Type the form submission event
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
 
-    if (!form.supplier_name || !form.contact_person) {
-      setFlash({ type: "danger", message: "Supplier Name and Contact Person are required." });
+    if (!form.name || !form.contact_person || !form.email) {
+      setFlash({ type: "danger", message: "Supplier Name, Contact Person, and Email are required." });
       setSubmitting(false);
       return;
     }
+    
+    // Create a data object without the empty supplier_code
+    const { supplier_code, ...dataToSend } = form;
 
     try {
-      // Replace with your actual API endpoint and auth logic
+      const token = Cookies.get('token');
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/suppliers`, {
         method: "POST",
-        body: JSON.stringify(form),
-        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSend),
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
       });
 
       if (res.ok) {
-        // Redirect to the list page on success for better UX
         router.push("/suppliers?created=true"); 
       } else {
         const data = await res.json();
@@ -93,7 +95,7 @@ const CreateSupplierPage: FC = () => {
 
   return (
     <div className="container-fluid">
-      {/* Header */}
+      {/* Header & Flash Messages */}
       <div className="row">
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0">
@@ -104,8 +106,6 @@ const CreateSupplierPage: FC = () => {
           </Link>
         </div>
       </div>
-
-      {/* Flash Messages */}
       {flash.message && (
         <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
           {flash.message}
@@ -116,27 +116,36 @@ const CreateSupplierPage: FC = () => {
       {/* Form */}
       <form onSubmit={handleSubmit} noValidate>
         <div className="row">
-          {/* Left Column: Details & Address */}
           <div className="col-md-8">
             <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Basic Information</h5></div>
               <div className="card-body">
                 <div className="row">
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="supplier_name" className="form-label">Supplier Name <span className="text-danger">*</span></label>
-                    <input type="text" id="supplier_name" className="form-control" required value={form.supplier_name} onChange={handleChange} />
+                    <label htmlFor="name" className="form-label">Supplier Name <span className="text-danger">*</span></label>
+                    <input type="text" id="name" className="form-control" required value={form.name} onChange={handleChange} />
                   </div>
+                  
+                  {/* ✅ SUDHAR: Supplier Code field ab disabled hai */}
                   <div className="col-md-6 mb-3">
                     <label htmlFor="supplier_code" className="form-label">Supplier Code</label>
-                    <input type="text" id="supplier_code" className="form-control" placeholder="Auto-generated if empty" value={form.supplier_code} onChange={handleChange} />
+                    <input 
+                      type="text" 
+                      id="supplier_code" 
+                      className="form-control" 
+                      value="Will be auto-generated" 
+                      readOnly 
+                      disabled 
+                    />
                   </div>
-                   <div className="col-md-6 mb-3">
+                  
+                  <div className="col-md-6 mb-3">
                     <label htmlFor="contact_person" className="form-label">Contact Person <span className="text-danger">*</span></label>
                     <input type="text" id="contact_person" className="form-control" required value={form.contact_person} onChange={handleChange} />
                   </div>
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="email" className="form-label">Email</label>
-                    <input type="email" id="email" className="form-control" value={form.email} onChange={handleChange} />
+                    <label htmlFor="email" className="form-label">Email <span className="text-danger">*</span></label>
+                    <input type="email" id="email" className="form-control" required value={form.email} onChange={handleChange} />
                   </div>
                   <div className="col-md-6 mb-3">
                     <label htmlFor="phone" className="form-label">Phone</label>
@@ -179,23 +188,22 @@ const CreateSupplierPage: FC = () => {
             </div>
           </div>
 
-          {/* Right Column: Status & Actions */}
           <div className="col-md-4">
             <div className="card">
               <div className="card-header"><h5 className="mb-0">Status & Actions</h5></div>
               <div className="card-body">
                 <div className="mb-3">
-                  <label htmlFor="status" className="form-label">Status</label>
-                  <select id="status" className="form-select" value={form.status} onChange={handleChange}>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                  <label htmlFor="is_active" className="form-label">Status</label>
+                  <select id="is_active" className="form-select" value={form.is_active.toString()} onChange={handleChange}>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
                   </select>
                 </div>
                 <hr />
                 <div className="d-grid gap-2">
                   <button type="submit" className="btn btn-primary" disabled={submitting}>
                     {submitting ? (
-                      <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...</>
+                      <><span className="spinner-border spinner-border-sm me-2"></span>Saving...</>
                     ) : (
                       <><i className="bi bi-check-circle me-2"></i>Create Supplier</>
                     )}
