@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNotEmpty, MaxLength, IsNumber, Min, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, MaxLength, IsNumber, Min, IsIn, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateItemDto {
@@ -12,33 +12,50 @@ export class CreateItemDto {
   @MaxLength(255)
   item_name: string;
 
+  // ✅ Improvement: Added validation for ALL fields
   @IsOptional()
   @IsString()
   description?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
+  @IsIn(['raw_material', 'semi_finished', 'finished_goods', 'consumable', 'service'])
+  item_type?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  item_category?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(20)
   unit?: string;
 
-  @IsOptional()
   @IsString()
-  @MaxLength(100)
-  category?: string;
-
   @IsOptional()
-  @Type(() => Number) // Transforms incoming data to a number before validation
-  @IsNumber()
-  @Min(0)
+  @MaxLength(50)
+  hsn_code?: string;
+  
+  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
+  sale_rate?: number;
+  
+  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
+  gst_rate?: number;
+
+  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
+  purchase_rate?: number;
+
+  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
+  minimum_stock?: number;
+  
+  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
+  maximum_stock?: number;
+
+  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
   reorder_level?: number;
-
+  
+  @IsBoolean()
   @IsOptional()
-  @Type(() => Number) // Transforms incoming data to a number before validation
-  @IsNumber()
-  @Min(0)
-  standard_rate?: number;
-
-  @IsOptional()
-  @IsIn(['active', 'inactive']) // Ensures the value is one of these
-  status?: 'active' | 'inactive';
+  is_active?: boolean;
 }

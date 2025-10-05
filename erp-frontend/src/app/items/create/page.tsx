@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-// ✅ 1. Define a detailed interface for the form data with correct types
+// ✅ 1. Ek detailed interface jo backend se match karti hai
 interface ItemFormData {
   item_code: string;
   item_name: string;
   item_type: 'raw_material' | 'semi_finished' | 'finished_goods' | 'consumable' | 'service';
   item_category: string;
-  unit: string; // Renamed from uom for clarity
+  unit: string; // UOM ki jagah naam saaf karne ke liye 'unit' rakha gaya hai
   hsn_code: string;
   gst_rate: number;
   purchase_rate: number;
@@ -18,7 +18,7 @@ interface ItemFormData {
   minimum_stock: number;
   maximum_stock: number;
   reorder_level: number;
-  is_active: boolean; // Using boolean for consistency
+  is_active: boolean; // Consistent rehne ke liye boolean type ka istemal kiya gaya hai
 }
 
 interface FlashMessage {
@@ -29,7 +29,7 @@ interface FlashMessage {
 const CreateItemPage: FC = () => {
   const router = useRouter();
 
-  // ✅ 2. Initialize state with the correct types (numbers are numbers, not strings)
+  // ✅ 2. State ko sahi types ke saath initialize kiya gaya hai (numbers ko number hi rakha gaya hai, string nahi)
   const initialFormState: ItemFormData = {
     item_code: "",
     item_name: "",
@@ -50,7 +50,7 @@ const CreateItemPage: FC = () => {
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // ✅ 3. Create a robust, typed handler that correctly parses numbers
+  // ✅ 3. Ek aasaan, typed handler jo numbers ko sahi se parse karta hai
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value, type } = e.target;
 
@@ -64,7 +64,7 @@ const CreateItemPage: FC = () => {
     setForm(prev => ({ ...prev, is_active: e.target.value === 'true' }));
   };
 
-  // ✅ 4. Implement a typed submit handler with improved UX and security
+  // ✅ 4. Behtar UX aur security ke saath ek typed submit handler
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.item_name || !form.item_code) {
@@ -85,7 +85,7 @@ const CreateItemPage: FC = () => {
       });
 
       if (res.ok) {
-        // Redirect immediately for better UX
+        // Behtar UX ke liye turant redirect karein
         router.push("/items?created=true");
       } else {
         const errorData = await res.json();
@@ -238,4 +238,4 @@ const CreateItemPage: FC = () => {
   );
 };
 
-export default CreateItemPage;
+export default CreateItemPage; 

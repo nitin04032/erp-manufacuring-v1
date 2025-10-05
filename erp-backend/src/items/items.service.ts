@@ -1,10 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, FindManyOptions } from 'typeorm';
 import { Item } from './item.entity';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -17,21 +13,36 @@ export class ItemsService {
   ) {}
 
   async create(dto: CreateItemDto): Promise<Item> {
-    // ✅ Check for duplicates before saving to prevent errors
-    const existingItem = await this.itemsRepository.findOne({
-      where: { item_code: dto.item_code },
-    });
-
+    const existingItem = await this.itemsRepository.findOne({ where: { item_code: dto.item_code } });
     if (existingItem) {
       throw new ConflictException('Item with this code already exists');
     }
-
     const item = this.itemsRepository.create(dto);
     return this.itemsRepository.save(item);
   }
 
-  findAll(): Promise<Item[]> {
-    return this.itemsRepository.find({ order: { item_name: 'ASC' } });
+  // ✅ Improvement: Implemented server-side filtering and searching
+  findAll(query?: { status?: string, search?: string }): Promise<Item[]> {
+    const options: FindManyOptions<Item> = { order: { item_name: 'ASC' } };
+    const where: any = {};
+
+    if (query?.status) {
+      where.is_active = query.status === 'active';
+    }
+    
+    if (query?.search) {
+      const searchQuery = Like(`%${query.search}%`);
+      options.where = [
+        { ...where, item_name: searchQuery },
+        { ...where, item_code: searchQuery },
+        { ...where, category: searchQuery },
+        { ...where, hsn_code: searchQuery },
+      ];
+    } else if (Object.keys(where).length > 0) {
+      options.where = where;
+    }
+
+    return this.itemsRepository.find(options);
   }
 
   async findOne(id: number): Promise<Item> {
@@ -43,7 +54,6 @@ export class ItemsService {
   }
 
   async update(id: number, dto: UpdateItemDto): Promise<Item> {
-    // The preload method safely merges the DTO with the existing entity
     const item = await this.itemsRepository.preload({ id, ...dto });
     if (!item) {
       throw new NotFoundException(`Item with ID #${id} not found`);
@@ -56,9 +66,5 @@ export class ItemsService {
     if (result.affected === 0) {
       throw new NotFoundException(`Item with ID #${id} not found`);
     }
-  }
-
-  count(): Promise<number> {
-    return this.itemsRepository.count();
   }
 }
