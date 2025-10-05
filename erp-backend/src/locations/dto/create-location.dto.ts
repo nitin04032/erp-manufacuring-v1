@@ -1,24 +1,35 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength, IsNumber, IsBoolean, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export enum LocationType {
+    AREA = 'area', RACK = 'rack', BIN = 'bin', FLOOR = 'floor', COLD_STORAGE = 'cold_storage', QUARANTINE = 'quarantine'
+}
 
 export class CreateLocationDto {
-  @IsString()
-  @IsNotEmpty()
-  location_code: string;
+  @IsString() @IsOptional() @MaxLength(100)
+  location_code?: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsString() @IsNotEmpty() @MaxLength(255)
   location_name: string;
 
-  @IsOptional()
-  @IsString()
+  @IsString() @IsOptional()
   description?: string;
+  
+  @IsEnum(LocationType) @IsOptional()
+  location_type?: string = LocationType.RACK;
 
-  @IsOptional()
-  @IsInt()
-  warehouse_id?: number;
+  @Type(() => Number) @IsNumber() @IsOptional()
+  capacity?: number = 0;
 
-  @IsOptional()
-  @IsString()
-  @IsIn(['active', 'inactive'])
-  status?: string = 'active';
+  @IsBoolean() @IsOptional()
+  is_default?: boolean = false;
+  
+  @IsBoolean() @IsOptional()
+  is_active?: boolean = true;
+  
+  @IsNumber() @IsNotEmpty()
+  warehouse_id: number;
+
+  @IsNumber() @IsOptional()
+  parent_location_id?: number;
 }

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, FindManyOptions } from 'typeorm';
 import { Location } from './location.entity';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
@@ -9,43 +9,95 @@ import { UpdateLocationDto } from './dto/update-location.dto';
 export class LocationsService {
   constructor(
     @InjectRepository(Location)
-    private readonly repo: Repository<Location>,
+    private readonly locationRepository: Repository<Location>,
   ) {}
 
   async create(dto: CreateLocationDto): Promise<Location> {
-    // Duplicate check on code
-    const existing = await this.repo.findOne({ where: { location_code: dto.location_code } });
-    if (existing) throw new ConflictException('Location code already exists');
-
-    const loc = this.repo.create({
+    if (!dto.location_code) {
+      const lastLoc = await this.locationRepository.findOne({ order: { id: 'DESC' }, where: {} });
+      const nextId = lastLoc ? lastLoc.id + 1 : 1;
+      dto.location_code = `LOC-${String(nextId).padStart(4, '0')}`;
+    }
+    const existing = await this.locationRepository.findOne({ where: { location_code: dto.location_code } });
+    if (existing) throw new ConflictException('Location code already exists.');
+    
+    const location = this.locationRepository.create({
       ...dto,
-      warehouse_id: dto.warehouse_id ?? null,
+      warehouse: { id: dto.warehouse_id },
+      parentLocation: dto.parent_location_id ? { id: dto.parent_location_id } : undefined,
     });
-    return this.repo.save(loc);
+    return this.locationRepository.save(location);
   }
 
-  findAll(): Promise<Location[]> {
-    return this.repo.find({ order: { location_name: 'ASC' } });
+  async findAll(query: { status?: string; search?: string }): Promise<any[]> {
+    const findOptions: FindManyOptions<Location> = {
+      order: { location_name: 'ASC' },
+      relations: ['warehouse', 'parentLocation'],
+    };
+
+    const where: any = {};
+    if (query.status) {
+      where.is_active = query.status === 'active';
+    }
+    
+    if (query.search) {
+      const searchQuery = Like(`%${query.search}%`);
+      findOptions.where = [
+        { ...where, location_name: searchQuery },
+        { ...where, location_code: searchQuery },
+        { ...where, warehouse: { name: searchQuery } },
+      ];
+    } else {
+      findOptions.where = where;
+    }
+
+    const locations = await this.locationRepository.find(findOptions);
+    return locations.map(loc => ({
+        id: loc.id,
+        location_code: loc.location_code,
+        location_name: loc.location_name,
+        location_type: loc.location_type,
+        warehouse_name: loc.warehouse?.name,
+        parent_location_name: loc.parentLocation?.location_name,
+        is_active: loc.is_active,
+    }));
   }
 
   async findOne(id: number): Promise<Location> {
-    const loc = await this.repo.findOne({ where: { id } });
-    if (!loc) throw new NotFoundException(`Location with ID ${id} not found`);
-    return loc;
+    const location = await this.locationRepository.findOne({ where: { id }, relations: ['warehouse', 'parentLocation'] });
+    if (!location) throw new NotFoundException(`Location #${id} not found`);
+    return location;
   }
-
+  
+  // ✅ FIX: update method ko theek kiya gaya hai
   async update(id: number, dto: UpdateLocationDto): Promise<Location> {
-    const loc = await this.repo.preload({ id, ...dto });
-    if (!loc) throw new NotFoundException(`Location with ID ${id} not found`);
-    return this.repo.save(loc);
+    // Step 1: Pehle sirf non-relational fields ke saath preload karein
+    const location = await this.locationRepository.preload({
+      id,
+      ...dto,
+      warehouse: dto.warehouse_id ? { id: dto.warehouse_id } : undefined,
+    });
+
+    if (!location) {
+      throw new NotFoundException(`Location #${id} not found`);
+    }
+
+    // Step 2: Ab parentLocation ko alag se handle karein
+    if (dto.parent_location_id !== undefined) {
+      // Agar parent_location_id 'null' bheja gaya hai, to relation ko null set karein
+      // Agar number bheja gaya hai, to relation ko uss id se set karein
+      location.parentLocation = dto.parent_location_id ? { id: dto.parent_location_id } as Location : null;
+    }
+
+    return this.locationRepository.save(location);
   }
 
   async remove(id: number): Promise<void> {
-    const res = await this.repo.delete(id);
-    if (res.affected === 0) throw new NotFoundException(`Location with ID ${id} not found`);
-  }
-
-  count(): Promise<number> {
-    return this.repo.count();
+    const location = await this.locationRepository.findOne({ where: { id }, relations: ['childLocations'] });
+    if (!location) throw new NotFoundException(`Location #${id} not found`);
+    if (location.childLocations && location.childLocations.length > 0) {
+      throw new ConflictException('Cannot delete location with child locations.');
+    }
+    await this.locationRepository.softDelete(id);
   }
 }

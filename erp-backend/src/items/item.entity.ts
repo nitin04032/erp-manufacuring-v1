@@ -4,16 +4,16 @@ import {
   Column, 
   CreateDateColumn, 
   UpdateDateColumn,
-  DeleteDateColumn, // ✅ UPDATE: Ise import karein
-  OneToMany,      // ✅ UPDATE: Ise import karein
+  DeleteDateColumn,
+  OneToMany,
 } from 'typeorm';
 
-// ✅ UPDATE: Yeh ek example import hai. Aapko apne project ke aadhar par
-//           sahi entity (jaise PurchaseOrderItem, ProductionOrderItem, etc.) import karni hogi.
-import { SalesOrderItem } from '../sales/sales-order-item.entity';
+// ✅ FIX: Jab tak Sales module nahi banta, is import ko comment out rakhein
+// import { SalesOrderItem } from '../sales/sales-order-item.entity';
 
 @Entity('items')
 export class Item {
+  // ... (id se lekar updated_at tak sab kuch waise hi rahega) ...
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -65,12 +65,10 @@ export class Item {
   @UpdateDateColumn()
   updated_at: Date;
   
-  // ✅ UPDATE: Soft delete ke liye yeh column add karein
   @DeleteDateColumn()
   deleted_at?: Date;
 
-  // ✅ UPDATE: Item ka dusre modules se connection.
-  // Aapko har uss entity ke liye aisi @OneToMany relationship banani hogi jahan item use hota hai.
-  @OneToMany(() => SalesOrderItem, (orderItem) => orderItem.item)
-  salesOrderItems: SalesOrderItem[];
+  // ✅ FIX: Jab tak Sales module nahi banta, is relationship ko comment out rakhein
+  // @OneToMany(() => SalesOrderItem, (orderItem) => orderItem.item)
+  // salesOrderItems: SalesOrderItem[];
 }

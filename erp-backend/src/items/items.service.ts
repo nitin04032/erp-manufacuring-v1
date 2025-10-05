@@ -72,34 +72,35 @@ export class ItemsService {
     return this.itemsRepository.save(item);
   }
 
-  /**
-   * ✅ UPDATE: Yeh method ab delete karne se pehle check karega.
-   */
   async remove(id: number): Promise<void> {
-    // Step 1: Item ko uske relationships ke saath find karein
+    // ✅ FIX: Jab tak Sales module nahi banta, is check ko comment out rakhein
+    /*
     const item = await this.itemsRepository.findOne({
       where: { id },
-      relations: ['salesOrderItems'], // Yahan saare relations ke naam daalein
+      relations: ['salesOrderItems'], 
     });
 
     if (!item) {
       throw new NotFoundException(`Item with ID #${id} not found`);
     }
 
-    // Step 2: Check karein ki item kahin use ho raha hai ya nahi
     const isBeingUsed = item.salesOrderItems && item.salesOrderItems.length > 0;
-    
     if (isBeingUsed) {
-      // Step 3: Agar item use ho raha hai, to user-friendly error dein
       throw new ConflictException(
         'This item cannot be deleted as it is linked to existing transactions (e.g., Sales Orders).',
       );
     }
-
-    // Step 4: Agar item use nahi ho raha, tab hi use soft-delete karein
+    */
+    
+    // Abhi ke liye simple soft-delete istemal hoga
     const result = await this.itemsRepository.softDelete(id);
     if (result.affected === 0) {
       throw new NotFoundException(`Item with ID #${id} not found`);
     }
+  }
+
+  // ✅ FIX: `count` method add kar diya gaya hai
+  count(): Promise<number> {
+    return this.itemsRepository.count();
   }
 }
