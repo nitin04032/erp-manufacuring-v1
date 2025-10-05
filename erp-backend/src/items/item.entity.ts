@@ -1,4 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { 
+  Entity, 
+  PrimaryGeneratedColumn, 
+  Column, 
+  CreateDateColumn, 
+  UpdateDateColumn,
+  DeleteDateColumn, // ✅ UPDATE: Ise import karein
+  OneToMany,      // ✅ UPDATE: Ise import karein
+} from 'typeorm';
+
+// ✅ UPDATE: Yeh ek example import hai. Aapko apne project ke aadhar par
+//           sahi entity (jaise PurchaseOrderItem, ProductionOrderItem, etc.) import karni hogi.
+import { SalesOrderItem } from '../sales/sales-order-item.entity';
 
 @Entity('items')
 export class Item {
@@ -14,7 +26,6 @@ export class Item {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  // ✅ Improvement: Added all missing fields from the frontend
   @Column({ type: 'varchar', length: 50, default: 'raw_material' })
   item_type: string;
 
@@ -28,7 +39,7 @@ export class Item {
   hsn_code?: string;
   
   @Column({ name: 'standard_rate', type: 'decimal', precision: 18, scale: 2, default: 0 })
-  sale_rate: number; // Renamed for clarity
+  sale_rate: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   gst_rate: number;
@@ -45,7 +56,6 @@ export class Item {
   @Column({ type: 'decimal', precision: 15, scale: 3, default: 0 })
   reorder_level: number;
   
-  // ✅ Improvement: Changed status to is_active (boolean)
   @Column({ default: true })
   is_active: boolean;
 
@@ -54,4 +64,13 @@ export class Item {
 
   @UpdateDateColumn()
   updated_at: Date;
+  
+  // ✅ UPDATE: Soft delete ke liye yeh column add karein
+  @DeleteDateColumn()
+  deleted_at?: Date;
+
+  // ✅ UPDATE: Item ka dusre modules se connection.
+  // Aapko har uss entity ke liye aisi @OneToMany relationship banani hogi jahan item use hota hai.
+  @OneToMany(() => SalesOrderItem, (orderItem) => orderItem.item)
+  salesOrderItems: SalesOrderItem[];
 }

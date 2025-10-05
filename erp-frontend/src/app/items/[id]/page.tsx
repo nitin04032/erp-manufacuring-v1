@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 
-// ✅ 1. Define a complete interface for the Item data model
 interface Item {
   id: number;
   item_code: string;
@@ -12,7 +11,7 @@ interface Item {
   description?: string;
   item_type: string;
   item_category?: string;
-  unit: string;
+  unit: string | null; // ✅ FIX: Unit can be null from the database
   hsn_code?: string;
   gst_rate: number;
   purchase_rate: number;
@@ -21,7 +20,7 @@ interface Item {
   maximum_stock: number;
   reorder_level: number;
   is_active: boolean;
-  created_at: string; // API sends dates as ISO strings
+  created_at: string;
   updated_at: string;
 }
 
@@ -30,7 +29,6 @@ interface FlashMessage {
   message: string;
 }
 
-// ✅ 2. Create reusable components for clean UI states
 const LoadingSpinner: FC = () => (
   <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
     <div className="spinner-border text-primary" role="status">
@@ -51,7 +49,6 @@ const ErrorDisplay: FC<{ message: string }> = ({ message }) => (
   </div>
 );
 
-// ✅ 3. Convert the component to a typed FC with full state management
 const ItemDetailsPage: FC = () => {
   const { id } = useParams();
   const searchParams = useSearchParams();
@@ -61,14 +58,12 @@ const ItemDetailsPage: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
 
-  // Check for success messages from create/edit pages
   useEffect(() => {
     if (searchParams.get("updated") === "true") {
       setFlash({ type: "success", message: "Item details updated successfully!" });
     }
   }, [searchParams]);
 
-  // Fetch item details from the server
   useEffect(() => {
     if (!id) return;
 
@@ -101,10 +96,7 @@ const ItemDetailsPage: FC = () => {
   if (error) return <ErrorDisplay message={error} />;
   if (!item) return <ErrorDisplay message="No item data available." />;
 
-  // Helper for displaying text or "N/A"
   const showOrNA = (val: string | null | undefined) => val || "N/A";
-  
-  // Helper for displaying formatted numbers
   const showNumber = (val: number | null | undefined) => (val != null ? val.toLocaleString('en-IN') : "N/A");
 
   return (
@@ -141,7 +133,11 @@ const ItemDetailsPage: FC = () => {
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Name</label><p className="form-control-plaintext">{item.item_name}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Type</label><p className="form-control-plaintext">{showOrNA(item.item_type?.replace('_', ' '))}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Category</label><p className="form-control-plaintext">{showOrNA(item.item_category)}</p></div>
-                <div className="col-md-4 mb-3"><label className="form-label text-muted">Unit (UOM)</label><p className="form-control-plaintext">{item.unit.toUpperCase()}</p></div>
+                <div className="col-md-4 mb-3">
+                  <label className="form-label text-muted">Unit (UOM)</label>
+                  {/* ✅ FIX: Added null check before toUpperCase */}
+                  <p className="form-control-plaintext">{showOrNA(item.unit).toUpperCase()}</p>
+                </div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">HSN/SAC Code</label><p className="form-control-plaintext">{showOrNA(item.hsn_code)}</p></div>
               </div>
             </div>
@@ -160,9 +156,10 @@ const ItemDetailsPage: FC = () => {
             <div className="card-header"><h5 className="mb-0">Stock Management</h5></div>
             <div className="card-body">
               <div className="row">
-                <div className="col-md-4 mb-3"><label className="form-label text-muted">Minimum Stock</label><p className="form-control-plaintext">{showNumber(item.minimum_stock)} {item.unit.toUpperCase()}</p></div>
-                <div className="col-md-4 mb-3"><label className="form-label text-muted">Maximum Stock</label><p className="form-control-plaintext">{showNumber(item.maximum_stock)} {item.unit.toUpperCase()}</p></div>
-                <div className="col-md-4 mb-3"><label className="form-label text-muted">Reorder Level</label><p className="form-control-plaintext">{showNumber(item.reorder_level)} {item.unit.toUpperCase()}</p></div>
+                {/* ✅ FIX: Added null check before toUpperCase */}
+                <div className="col-md-4 mb-3"><label className="form-label text-muted">Minimum Stock</label><p className="form-control-plaintext">{showNumber(item.minimum_stock)} {showOrNA(item.unit).toUpperCase()}</p></div>
+                <div className="col-md-4 mb-3"><label className="form-label text-muted">Maximum Stock</label><p className="form-control-plaintext">{showNumber(item.maximum_stock)} {showOrNA(item.unit).toUpperCase()}</p></div>
+                <div className="col-md-4 mb-3"><label className="form-label text-muted">Reorder Level</label><p className="form-control-plaintext">{showNumber(item.reorder_level)} {showOrNA(item.unit).toUpperCase()}</p></div>
               </div>
             </div>
           </div>
