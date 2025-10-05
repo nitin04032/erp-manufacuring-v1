@@ -20,6 +20,7 @@ import { ProductionModule } from './production/production.module';
 import { StocksModule } from './stocks/stocks.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { LocationsModule } from './locations/locations.module';
 
 
 @Module({
@@ -60,6 +61,7 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
     ProductionModule,
     StocksModule,
     InventoryModule,
+    LocationsModule,  
   // TypeOrmModule already configured above with forRootAsync
   ],
   controllers: [AppController],
