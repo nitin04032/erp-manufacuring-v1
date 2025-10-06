@@ -29,7 +29,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx"
-  ],
+, "src/app/purchase-orders/create/page.tsx", "src/app/purchase-orders/[id]/edit/page.tsx"  ],
   "exclude": [
     "node_modules"
   ]
