@@ -13,8 +13,8 @@ import {
 
 @Entity('items')
 export class Item {
-  // ... (id se lekar updated_at tak sab kuch waise hi rahega) ...
-  @PrimaryGeneratedColumn()
+  // ✅ FIX: Changed to match the 'bigint unsigned' type in your database
+  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   id: number;
 
   @Column({ type: 'varchar', length: 100, unique: true })

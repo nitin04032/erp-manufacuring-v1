@@ -12,7 +12,7 @@ export class DispatchService {
     @InjectRepository(DispatchOrder)
     private repo: Repository<DispatchOrder>,
     private stocksService: StocksService,
-  ) {}
+  ) { }
 
   async create(dto: CreateDispatchDto): Promise<DispatchOrder> {
     const dispatch = this.repo.create({
@@ -25,8 +25,10 @@ export class DispatchService {
 
     // After saving the dispatch, decrease the stock for each item
     for (const item of dto.items) {
+      // DTO uses item_code and dispatched_qty; resolve to item id
+      const it = await (this.stocksService as any).itemsService.findByCode(item.item_code);
       await this.stocksService.decreaseStock(
-        item.item_code,
+        it.id,
         dto.warehouse_name,
         item.dispatched_qty,
       );

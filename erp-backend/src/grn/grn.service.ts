@@ -16,7 +16,7 @@ export class GrnService {
     private poRepo: Repository<PurchaseOrder>,
     // Inject the StocksService to manage inventory
     private stocksService: StocksService,
-  ) {}
+  ) { }
 
   async create(dto: CreateGrnDto): Promise<Grn> {
     // 1. Find the related Purchase Order
@@ -29,18 +29,18 @@ export class GrnService {
       purchaseOrder: po,
       received_date: new Date(dto.received_date),
     });
-    
+
     // 3. Save the new GRN to the database
     const savedGrn = await this.repo.save(grn);
 
     // 4. After saving the GRN, update the stock for each item
     for (const item of dto.items) {
+      // DTO uses item_code and received_qty; resolve to item id
+      const it = await (this.stocksService as any).itemsService.findByCode(item.item_code);
       await this.stocksService.increaseStock(
-        item.item_code,
+        it.id,
         dto.warehouse_name,
         item.received_qty,
-        item.uom,
-        item.item_name,
       );
     }
 

@@ -103,4 +103,13 @@ export class ItemsService {
   count(): Promise<number> {
     return this.itemsRepository.count();
   }
+
+  // Find an item by its item_code
+  async findByCode(item_code: string): Promise<Item> {
+    const item = await this.itemsRepository.findOne({ where: { item_code } });
+    if (!item) {
+      throw new NotFoundException(`Item with code ${item_code} not found`);
+    }
+    return item;
+  }
 }

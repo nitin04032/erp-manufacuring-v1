@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { StocksService } from './stocks.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -17,8 +17,12 @@ export class StocksController {
     return this.service.findByWarehouse(warehouse_name);
   }
 
-  @Get(':item_code/:warehouse')
-  findOne(@Param('item_code') item_code: string, @Param('warehouse') warehouse: string) {
-    return this.service.findOne(item_code, warehouse);
+  // ✅ FIX: Endpoint ab ':item_id' use karta hai
+  @Get(':item_id/:warehouse')
+  findOne(
+    @Param('item_id', ParseIntPipe) itemId: number, 
+    @Param('warehouse') warehouse: string
+  ) {
+    return this.service.findOne(itemId, warehouse);
   }
 }
