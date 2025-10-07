@@ -1,17 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Stock } from './stock.entity';
-import { StocksController } from './stocks.controller';
 import { StocksService } from './stocks.service';
-import { ItemsModule } from '../items/items.module'; // ✅ IMPROVEMENT: ItemsModule ko import karein
+import { StocksController } from './stocks.controller';
+import { Stock } from './stock.entity';
+import { Item } from '../items/item.entity';  // ✅ Import Item entity
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Stock]),
-    ItemsModule, // ✅ IMPROVEMENT: ItemsModule ko yahan add karein
+    TypeOrmModule.forFeature([Stock, Item]) // ✅ Include both entities
   ],
-  controllers: [StocksController],
   providers: [StocksService],
-  exports: [StocksService], // To make it available for DashboardModule
+  controllers: [StocksController],
+  exports: [StocksService], // Optional: export for Dashboard or other modules
 })
 export class StocksModule {}

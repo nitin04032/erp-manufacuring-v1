@@ -1,3 +1,4 @@
+// src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -19,10 +20,10 @@ import { UsersModule } from '../users/users.module';
         signOptions: { expiresIn: cfg.get<string>('JWT_EXPIRES_IN') ?? '1d' },
       }),
     }),
-    UsersModule, // UsersService ko use karega
+    UsersModule,
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, JwtStrategy, JwtModule], // ✅ make sure you export these
 })
 export class AuthModule {}

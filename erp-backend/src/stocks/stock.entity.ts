@@ -1,6 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn,ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Item } from '../items/item.entity';
-
 
 @Entity('stocks')
 export class Stock {
@@ -24,7 +23,8 @@ export class Stock {
 
   @UpdateDateColumn()
   updated_at: Date;
+
   @ManyToOne(() => Item)
-  @JoinColumn({ name: 'item_id' }) // This assumes you have a foreign key column named 'item_id'
+  @JoinColumn({ name: 'item_id' })
   item: Item;
 }

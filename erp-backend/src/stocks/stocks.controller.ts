@@ -13,16 +13,15 @@ export class StocksController {
   }
 
   @Get('warehouse/:name')
-  findByWarehouse(@Param('name') warehouse_name: string) {
-    return this.service.findByWarehouse(warehouse_name);
-  }
-
-  // ✅ FIX: Endpoint ab ':item_id' use karta hai
-  @Get(':item_id/:warehouse')
-  findOne(
-    @Param('item_id', ParseIntPipe) itemId: number, 
-    @Param('warehouse') warehouse: string
-  ) {
-    return this.service.findOne(itemId, warehouse);
-  }
+findByWarehouse(@Param('name') warehouse_name: string) {
+  return this.service.findByWarehouse(warehouse_name);
 }
+
+@Get(':item_id/:warehouse')
+findOne(
+  @Param('item_id', ParseIntPipe) itemId: number,
+  @Param('warehouse') warehouse: string,
+) {
+  return this.service.findOne(itemId, warehouse);
+}
+};

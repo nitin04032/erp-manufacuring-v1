@@ -98,7 +98,7 @@ export default function RegisterPage() {
               )}
 
               <form onSubmit={handleSubmit} noValidate>
-                {/* Full Name + Email */}
+                {/* Form Fields... (No changes here) */}
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label htmlFor="name" className="form-label">Full Name *</label>
@@ -115,7 +115,6 @@ export default function RegisterPage() {
                       />
                     </div>
                   </div>
-
                   <div className="col-md-6 mb-3">
                     <label htmlFor="email" className="form-label">Email Address *</label>
                     <div className="input-group">
@@ -132,8 +131,6 @@ export default function RegisterPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Password + Confirm */}
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label htmlFor="password" className="form-label">Password *</label>
@@ -149,16 +146,11 @@ export default function RegisterPage() {
                         value={form.password}
                         onChange={(e) => setForm({ ...form, password: e.target.value })}
                       />
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => setShow({ ...show, password: !show.password })}
-                      >
+                      <button type="button" className="btn btn-outline-secondary" onClick={() => setShow({ ...show, password: !show.password })}>
                         <i className={`bi ${show.password ? "bi-eye-slash" : "bi-eye"}`}></i>
                       </button>
                     </div>
                   </div>
-
                   <div className="col-md-6 mb-3">
                     <label htmlFor="confirm" className="form-label">Confirm Password *</label>
                     <div className="input-group">
@@ -172,18 +164,12 @@ export default function RegisterPage() {
                         value={form.confirm}
                         onChange={(e) => setForm({ ...form, confirm: e.target.value })}
                       />
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => setShow({ ...show, confirm: !show.confirm })}
-                      >
+                      <button type="button" className="btn btn-outline-secondary" onClick={() => setShow({ ...show, confirm: !show.confirm })}>
                         <i className={`bi ${show.confirm ? "bi-eye-slash" : "bi-eye"}`}></i>
                       </button>
                     </div>
                   </div>
                 </div>
-
-                {/* Role */}
                 <div className="mb-3">
                   <label htmlFor="role" className="form-label">Role</label>
                   <select
@@ -198,7 +184,7 @@ export default function RegisterPage() {
                   </select>
                 </div>
 
-                {/* Terms */}
+                {/* Terms (CHANGED to use Link component) */}
                 <div className="mb-4 form-check">
                   <input
                     type="checkbox"
@@ -208,7 +194,7 @@ export default function RegisterPage() {
                     onChange={(e) => setForm({ ...form, terms: e.target.checked })}
                   />
                   <label className="form-check-label small" htmlFor="terms">
-                    I agree to the <a href="#" className="text-decoration-none">Terms of Service</a> and <a href="#" className="text-decoration-none">Privacy Policy</a> *
+                    I agree to the <Link href="/terms" className="text-decoration-none">Terms of Service</Link> and <Link href="/privacy" className="text-decoration-none">Privacy Policy</Link> *
                   </label>
                 </div>
 
