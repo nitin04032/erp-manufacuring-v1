@@ -69,7 +69,7 @@ export class DashboardController {
         lowStockItems: lowStockItems,
       },
       poStatusSummary: poStatusSummary,
-      recentPurchaseOrders: recentPurchaseOrders,
+      recentActivities: recentPurchaseOrders,
     };
   }
 }

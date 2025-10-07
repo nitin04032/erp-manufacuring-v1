@@ -42,7 +42,7 @@ import { LocationsModule } from './locations/locations.module';
         password: configService.get<string>('DB_PASSWORD') ?? '',
         database: configService.get<string>('DB_DATABASE') ?? 'erp',
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // IMPORTANT: Set to false in production!
+        synchronize: true, // IMPORTANT: Set to false in production!
       }),
     }),
 

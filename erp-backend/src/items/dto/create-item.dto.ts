@@ -3,9 +3,9 @@ import { Type } from 'class-transformer';
 
 export class CreateItemDto {
   @IsString()
-  @IsNotEmpty()
+  @IsOptional() // ✅ This is the fix
   @MaxLength(100)
-  item_code: string;
+  item_code?: string; // Add the '?' to make it optional in TypeScript
 
   @IsString()
   @IsNotEmpty()
@@ -36,10 +36,10 @@ export class CreateItemDto {
   @IsOptional()
   @MaxLength(50)
   hsn_code?: string;
-  
+
   @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
   sale_rate?: number;
-  
+
   @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
   gst_rate?: number;
 
@@ -48,13 +48,13 @@ export class CreateItemDto {
 
   @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
   minimum_stock?: number;
-  
+
   @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
   maximum_stock?: number;
 
   @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
   reorder_level?: number;
-  
+
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;
