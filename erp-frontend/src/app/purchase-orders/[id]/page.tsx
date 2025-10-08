@@ -1,23 +1,26 @@
 "use client";
 import { useState, useEffect, FC, Fragment } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Cookies from "js-cookie";
 
-// Data models ke liye TypeScript interfaces
+// =================================================================
+// ✅ UPDATED INTERFACES TO MATCH BACKEND RESPONSE
+// =================================================================
 type POStatus = 'draft' | 'sent' | 'acknowledged' | 'partial' | 'completed' | 'cancelled';
 
 interface PurchaseOrderItem {
   id: number;
   item_name: string;
   item_code: string;
-  uom: string;
   ordered_qty: number;
-  received_qty: number;
   unit_price: number;
   discount_percent: number;
   tax_percent: number;
-  remarks?: string;
+  total_amount: number;
+  // Yeh fields optional hain kyunki yeh abhi backend se nahi aa rahe
+  uom?: string; 
+  received_qty?: number;
 }
 
 interface PurchaseOrder {
@@ -25,16 +28,19 @@ interface PurchaseOrder {
   po_number: string;
   supplier_name: string;
   warehouse_name: string;
-  po_date: string;
-  expected_delivery_date?: string;
+  order_date: string; // Changed from po_date
+  expected_date?: string; // Changed from expected_delivery_date
   terms_and_conditions?: string;
   remarks?: string;
   status: POStatus;
-  subtotal: number;
-  discount_amount: number;
-  tax_amount: number;
-  total_amount: number;
+  total_amount: number; // Yeh backend se aata hai
   items: PurchaseOrderItem[];
+}
+
+interface OrderSummary {
+    subtotal: number;
+    discount: number;
+    tax: number;
 }
 
 interface FlashMessage {
@@ -42,7 +48,7 @@ interface FlashMessage {
   message: string;
 }
 
-// UI states ke liye reusable components
+// UI states ke liye reusable components (No changes needed here)
 const LoadingSpinner: FC = () => (
     <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
         <div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div>
@@ -61,22 +67,26 @@ const ErrorDisplay: FC<{ message: string }> = ({ message }) => (
 
 const PurchaseOrderDetailsPage: FC = () => {
   const { id } = useParams();
-  const searchParams = useSearchParams();
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
+  const [summary, setSummary] = useState<OrderSummary>({ subtotal: 0, discount: 0, tax: 0 });
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Doosre pages se success messages check karein
+  // =================================================================
+  // ✅ COOKIE-BASED FLASH MESSAGES (MORE RELIABLE)
+  // =================================================================
   useEffect(() => {
-    if (searchParams.get("created") === "true") {
-      setFlash({ type: "success", message: "Purchase Order created successfully!" });
+    const flashMessage = Cookies.get("flashMessage");
+    const flashType = Cookies.get("flashType") as FlashMessage['type'] | undefined;
+
+    if (flashMessage && flashType) {
+        setFlash({ type: flashType, message: flashMessage });
+        Cookies.remove("flashMessage");
+        Cookies.remove("flashType");
     }
-     if (searchParams.get("updated") === "true") {
-      setFlash({ type: "success", message: "Purchase Order updated successfully!" });
-    }
-  }, [searchParams]);
+  }, []);
 
   // PO details securely fetch karein
   useEffect(() => {
@@ -103,6 +113,26 @@ const PurchaseOrderDetailsPage: FC = () => {
     };
     fetchPO();
   }, [id]);
+  
+  // =================================================================
+  // ✅ CALCULATE SUMMARY ON FRONTEND FOR ACCURACY
+  // =================================================================
+  useEffect(() => {
+    if (purchaseOrder?.items) {
+        let subtotal = 0, totalDiscount = 0, totalTax = 0;
+        purchaseOrder.items.forEach(item => {
+            const lineAmount = item.ordered_qty * item.unit_price;
+            const discountAmount = (lineAmount * item.discount_percent) / 100;
+            const taxableAmount = lineAmount - discountAmount;
+            const taxAmount = (taxableAmount * item.tax_percent) / 100;
+
+            subtotal += lineAmount;
+            totalDiscount += discountAmount;
+            totalTax += taxAmount;
+        });
+        setSummary({ subtotal, discount: totalDiscount, tax: totalTax });
+    }
+  }, [purchaseOrder]);
 
   // Status ko securely update karein
   const updateStatus = async (status: POStatus) => {
@@ -110,7 +140,7 @@ const PurchaseOrderDetailsPage: FC = () => {
 
     try {
         const token = Cookies.get("token");
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/purchase-orders/${id}/status`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/purchase-orders/${id}`, { // Updated endpoint
             method: "PATCH",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ status }),
@@ -147,26 +177,26 @@ const PurchaseOrderDetailsPage: FC = () => {
                   <Link href="/purchase-orders" className="btn btn-outline-secondary me-2"><i className="bi bi-arrow-left me-2"></i>Back to List</Link>
                   
                   <div className="btn-group">
-                    <button type="button" className="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                      <i className="bi bi-gear me-2"></i>Actions
-                    </button>
-                    <ul className="dropdown-menu dropdown-menu-end">
-                      {purchaseOrder.status === 'draft' && (
-                        <li><button className="dropdown-item" onClick={() => updateStatus('sent')}><i className="bi bi-send me-2"></i>Send to Supplier</button></li>
-                      )}
-                      {['sent', 'acknowledged'].includes(purchaseOrder.status) && (
-                        <li><button className="dropdown-item" onClick={() => updateStatus('acknowledged')}><i className="bi bi-check-circle me-2"></i>Mark as Acknowledged</button></li>
-                      )}
-                      {purchaseOrder.status === 'draft' && (
-                        <li><Link className="dropdown-item" href={`/purchase-orders/${id}/edit`}><i className="bi bi-pencil me-2"></i>Edit Order</Link></li>
-                      )}
-                      {purchaseOrder.status !== 'cancelled' && purchaseOrder.status !== 'completed' && (
-                        <>
-                          <li><hr className="dropdown-divider" /></li>
-                          <li><button className="dropdown-item text-danger" onClick={() => updateStatus('cancelled')}><i className="bi bi-x-circle me-2"></i>Cancel Order</button></li>
-                        </>
-                      )}
-                    </ul>
+                      <button type="button" className="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                          <i className="bi bi-gear me-2"></i>Actions
+                      </button>
+                      <ul className="dropdown-menu dropdown-menu-end">
+                          {purchaseOrder.status === 'draft' && (
+                              <li><button className="dropdown-item" onClick={() => updateStatus('sent')}><i className="bi bi-send me-2"></i>Send to Supplier</button></li>
+                          )}
+                          {['sent', 'acknowledged'].includes(purchaseOrder.status) && (
+                              <li><button className="dropdown-item" onClick={() => updateStatus('acknowledged')}><i className="bi bi-check-circle me-2"></i>Mark as Acknowledged</button></li>
+                          )}
+                          {purchaseOrder.status === 'draft' && (
+                              <li><Link className="dropdown-item" href={`/purchase-orders/${id}/edit`}><i className="bi bi-pencil me-2"></i>Edit Order</Link></li>
+                          )}
+                          {purchaseOrder.status !== 'cancelled' && purchaseOrder.status !== 'completed' && (
+                              <>
+                                  <li><hr className="dropdown-divider" /></li>
+                                  <li><button className="dropdown-item text-danger" onClick={() => updateStatus('cancelled')}><i className="bi bi-x-circle me-2"></i>Cancel Order</button></li>
+                              </>
+                          )}
+                      </ul>
                   </div>
               </div>
           </div>
@@ -192,8 +222,8 @@ const PurchaseOrderDetailsPage: FC = () => {
                     <div className="row">
                         <div className="col-md-6"><p className="mb-2"><strong>Supplier:</strong> {purchaseOrder.supplier_name}</p></div>
                         <div className="col-md-6"><p className="mb-2"><strong>Warehouse:</strong> {purchaseOrder.warehouse_name}</p></div>
-                        <div className="col-md-6"><p className="mb-2"><strong>PO Date:</strong> {new Date(purchaseOrder.po_date).toLocaleDateString('en-GB')}</p></div>
-                        <div className="col-md-6"><p className="mb-2"><strong>Expected Delivery:</strong> {purchaseOrder.expected_delivery_date ? new Date(purchaseOrder.expected_delivery_date).toLocaleDateString('en-GB') : 'N/A'}</p></div>
+                        <div className="col-md-6"><p className="mb-2"><strong>PO Date:</strong> {new Date(purchaseOrder.order_date).toLocaleDateString('en-GB')}</p></div>
+                        <div className="col-md-6"><p className="mb-2"><strong>Expected Delivery:</strong> {purchaseOrder.expected_date ? new Date(purchaseOrder.expected_date).toLocaleDateString('en-GB') : 'N/A'}</p></div>
                     </div>
                 </div>
             </div>
@@ -202,57 +232,46 @@ const PurchaseOrderDetailsPage: FC = () => {
             <div className="card">
                  <div className="card-header"><h5 className="mb-0"><i className="bi bi-list-ul"></i> Items <span className="badge bg-primary ms-2">{purchaseOrder.items?.length || 0}</span></h5></div>
                  <div className="card-body p-0">
-                    {!purchaseOrder.items?.length 
-                        ? <p className="text-muted text-center p-4">No items in this purchase order.</p>
-                        : (
-                        <div className="table-responsive">
-                            <table className="table table-hover mb-0">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th>Item</th>
-                                        <th className="text-end">Ordered</th>
-                                        <th className="text-end">Received</th>
-                                        <th className="text-end">Pending</th>
-                                        <th className="text-end">Unit Price</th>
-                                        <th className="text-end">Line Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                {purchaseOrder.items.map((item) => {
-                                    const lineTotal = (item.ordered_qty * item.unit_price) * (1 - item.discount_percent/100) * (1 + item.tax_percent/100);
-                                    const pendingQty = item.ordered_qty - (item.received_qty || 0);
-
-                                    return (
-                                    <Fragment key={item.id}>
-                                        <tr>
-                                            <td><strong>{item.item_name}</strong> <br/><small className="text-muted">{item.item_code}</small></td>
-                                            <td className="text-end">{item.ordered_qty} {item.uom}</td>
-                                            <td className="text-end">{item.received_qty || 0} {item.uom}</td>
-                                            <td className="text-end">{pendingQty > 0 ? pendingQty : 0} {item.uom}</td>
-                                            <td className="text-end">₹{Number(item.unit_price).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-                                            <td className="text-end"><strong>₹{lineTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
-                                        </tr>
-                                    </Fragment>
-                                    );
-                                })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                   {!purchaseOrder.items?.length 
+                       ? <p className="text-muted text-center p-4">No items in this purchase order.</p>
+                       : (
+                       <div className="table-responsive">
+                           <table className="table table-hover mb-0">
+                               <thead className="table-light">
+                                   <tr>
+                                       <th>Item</th>
+                                       <th className="text-end">Ordered</th>
+                                       <th className="text-end">Unit Price</th>
+                                       <th className="text-end">Line Total</th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                               {purchaseOrder.items.map((item) => (
+                                   <tr key={item.id}>
+                                       <td><strong>{item.item_name}</strong> <br/><small className="text-muted">{item.item_code}</small></td>
+                                       <td className="text-end">{item.ordered_qty} {item.uom || ''}</td>
+                                       <td className="text-end">₹{Number(item.unit_price).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                                       <td className="text-end"><strong>₹{item.total_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
+                                   </tr>
+                               ))}
+                               </tbody>
+                           </table>
+                       </div>
+                   )}
                  </div>
             </div>
         </div>
         <div className="col-lg-4">
              <div className="card">
-                <div className="card-header"><h5 className="mb-0">Order Summary</h5></div>
-                <div className="card-body">
-                    <div className="d-flex justify-content-between mb-2"><span className="text-muted">Subtotal:</span><span>₹{Number(purchaseOrder.subtotal).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
-                    <div className="d-flex justify-content-between mb-2"><span className="text-muted">Discount:</span><span>- ₹{Number(purchaseOrder.discount_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
-                    <div className="d-flex justify-content-between mb-2"><span className="text-muted">Tax:</span><span>+ ₹{Number(purchaseOrder.tax_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
-                    <hr />
-                    <div className="d-flex justify-content-between h5"><strong>Total:</strong><strong>₹{Number(purchaseOrder.total_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></div>
-                </div>
-             </div>
+                 <div className="card-header"><h5 className="mb-0">Order Summary</h5></div>
+                 <div className="card-body">
+                     <div className="d-flex justify-content-between mb-2"><span className="text-muted">Subtotal:</span><span>₹{summary.subtotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
+                     <div className="d-flex justify-content-between mb-2"><span className="text-muted">Discount:</span><span>- ₹{summary.discount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
+                     <div className="d-flex justify-content-between mb-2"><span className="text-muted">Tax:</span><span>+ ₹{summary.tax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
+                     <hr />
+                     <div className="d-flex justify-content-between h5"><strong>Total:</strong><strong>₹{Number(purchaseOrder.total_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></div>
+                 </div>
+            </div>
         </div>
       </div>
     </div>

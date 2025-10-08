@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, FC } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
@@ -9,7 +10,7 @@ type POStatus = 'draft' | 'sent' | 'acknowledged' | 'partial' | 'completed' | 'c
 interface PurchaseOrder {
   id: number;
   po_number: string;
-  po_date: string; // API sends date as ISO string
+  order_date: string; // API sends date as ISO string
   supplier_name: string;
   warehouse_name: string;
   total_amount: number;
@@ -65,6 +66,15 @@ const PurchaseOrdersPage: FC = () => {
   // Fetch initial data (suppliers) only once
   useEffect(() => {
     fetchSuppliers();
+    
+    // Check for flash messages from redirects (e.g., after creation)
+    const message = Cookies.get("flashMessage");
+    const type = Cookies.get("flashType") as "success" | "danger" | "";
+    if (message && type) {
+        setFlash({ type, message });
+        Cookies.remove("flashMessage");
+        Cookies.remove("flashType");
+    }
   }, []);
 
   const fetchPurchaseOrders = async () => {
@@ -199,7 +209,7 @@ const PurchaseOrdersPage: FC = () => {
                   {purchaseOrders.map((po) => (
                     <tr key={po.id}>
                       <td><strong>{po.po_number}</strong></td>
-                      <td>{new Date(po.po_date).toLocaleDateString("en-GB")}</td>
+                      <td>{new Date(po.order_date).toLocaleDateString("en-GB")}</td>
                       <td>{po.supplier_name}</td>
                       <td>{po.warehouse_name}</td>
                       <td>₹{Number(po.total_amount).toLocaleString('en-IN')}</td>

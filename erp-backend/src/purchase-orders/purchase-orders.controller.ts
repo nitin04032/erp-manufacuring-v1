@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe, UseGuards } from '@nestjs/common';
+// erp-backend/src/purchase-orders/purchase-orders.controller.ts
+
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  Query, // Query decorator ko import kiya gaya
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
@@ -14,9 +27,11 @@ export class PurchaseOrdersController {
     return this.service.create(dto);
   }
 
+  // ✅ YEH METHOD AB QUERY PARAMETERS KO HANDLE KARTA HAI
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() query: { status?: string; supplier?: string }) {
+    // URL query params (jaise /purchase-orders?status=draft) ko capture karke service ko pass kiya ja raha hai.
+    return this.service.findAll(query);
   }
 
   @Get(':id')
@@ -25,7 +40,10 @@ export class PurchaseOrdersController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePurchaseOrderDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePurchaseOrderDto,
+  ) {
     return this.service.update(id, dto);
   }
 

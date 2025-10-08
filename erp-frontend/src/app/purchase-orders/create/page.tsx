@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-// ✅ 1. Detailed interfaces with correct data types
+// Interfaces (No changes needed here)
 interface PurchaseOrderItem {
   item_id: number | '';
   ordered_qty: number;
@@ -12,7 +12,6 @@ interface PurchaseOrderItem {
   discount_percent: number;
   tax_percent: number;
 }
-
 interface PurchaseOrderData {
   supplier_id: number | '';
   warehouse_id: number | '';
@@ -23,14 +22,12 @@ interface PurchaseOrderData {
   status: 'draft' | 'sent';
   items: PurchaseOrderItem[];
 }
-
 interface Summary {
   subtotal: number;
   discount: number;
   tax: number;
   total: number;
 }
-
 interface DropdownOption {
   id: number;
   name: string;
@@ -38,7 +35,6 @@ interface DropdownOption {
   item_code?: string;
   purchase_rate?: number;
 }
-
 interface FlashMessage {
   type: "success" | "danger" | "";
   message: string;
@@ -65,7 +61,6 @@ const CreatePurchaseOrderPage: FC = () => {
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // ✅ 2. Securely fetch all dropdown data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -86,7 +81,6 @@ const CreatePurchaseOrderPage: FC = () => {
     fetchData();
   }, []);
 
-  // ✅ 3. Centralized handlers for form changes
   const handleHeaderChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setPoData(prev => ({ ...prev, [id]: value }));
@@ -120,7 +114,6 @@ const CreatePurchaseOrderPage: FC = () => {
     setPoData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
   };
   
-  // Calculation logic now works with clean number types
   useEffect(() => {
     let subtotal = 0, totalDiscount = 0, totalTax = 0;
     poData.items.forEach(row => {
@@ -136,39 +129,51 @@ const CreatePurchaseOrderPage: FC = () => {
     setSummary({ subtotal, discount: totalDiscount, tax: totalTax, total: subtotal - totalDiscount + totalTax });
   }, [poData.items]);
 
-  // ✅ 4. Robust submit handler
+  // =================================================================
+  // ✅ UPDATED SUBMIT HANDLER
+  // =================================================================
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // 1. Improved Validation
     if (!poData.supplier_id || !poData.warehouse_id || poData.items.length === 0) {
-      setFlash({ type: "danger", message: "Supplier, Warehouse, and at least one item are required." });
+      setFlash({ type: "danger", message: "Supplier, Warehouse and at least one item are required." });
       return;
     }
     setSubmitting(true);
     
-    const dataToSend = {
-      ...poData,
+    // 2. Payload exactly matches backend DTO
+    const payload = {
       supplier_id: Number(poData.supplier_id),
       warehouse_id: Number(poData.warehouse_id),
-      items: poData.items.map(item => ({...item, item_id: Number(item.item_id)})),
-      subtotal: summary.subtotal,
-      discount_amount: summary.discount,
-      tax_amount: summary.tax,
-      total_amount: summary.total,
+      order_date: poData.po_date,
+      expected_date: poData.expected_delivery_date || undefined,
+      status: 'draft', // Default status 'draft'
+      items: poData.items.map(item => ({
+        // Only DTO fields are sent
+        item_id: Number(item.item_id),
+        ordered_qty: item.ordered_qty,
+        unit_price: item.unit_price,
+      })),
     };
-
+ 
     try {
       const token = Cookies.get("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/purchase-orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`},
-        body: JSON.stringify(dataToSend),
+        body: JSON.stringify(payload),
       });
-
+ 
       if (res.ok) {
-        router.push("/purchase-orders?created=true");
+        // 3. Set cookie for success message and redirect
+        Cookies.set("flashMessage", "Purchase Order created successfully!", { path: "/" });
+        Cookies.set("flashType", "success", { path: "/" });
+        router.push("/purchase-orders");
       } else {
         const err = await res.json();
-        setFlash({ type: "danger", message: err.message || "Failed to create PO." });
+        const messages = Array.isArray(err.message) ? err.message.join(', ') : err.message;
+        setFlash({ type: "danger", message: messages || "Failed to create PO." });
       }
     } catch (error) {
       setFlash({ type: "danger", message: "Server error. Please try again later." });
@@ -187,7 +192,21 @@ const CreatePurchaseOrderPage: FC = () => {
 
   return (
     <div className="container-fluid">
-      {/* ... Header and Flash Messages ... */}
+      {/* Flash Message Display */}
+      {flash.message && (
+          <div className={`alert alert-${flash.type} alert-dismissible fade show`} role="alert">
+              {flash.message}
+              <button type="button" className="btn-close" onClick={() => setFlash({type: '', message: ''})}></button>
+          </div>
+      )}
+
+      <div className="d-flex justify-content-between align-items-center mb-4">
+          <h1 className="h3">Create Purchase Order</h1>
+          <Link href="/purchase-orders" className="btn btn-secondary">
+              <i className="bi bi-arrow-left me-2"></i>Back to List
+          </Link>
+      </div>
+
       <form onSubmit={handleSubmit} noValidate>
         {/* PO Details Card */}
         <div className="card mb-4">
@@ -264,21 +283,21 @@ const CreatePurchaseOrderPage: FC = () => {
 
         {/* Summary and Actions */}
         <div className="row">
-            <div className="col-lg-8">
+            <div className="col-lg-8 mb-4">
                 <div className="card">
                     <div className="card-body">
-                         <div className="mb-3">
+                        <div className="mb-3">
                             <label htmlFor="terms_and_conditions" className="form-label">Terms & Conditions</label>
                             <textarea id="terms_and_conditions" className="form-control" rows={2} value={poData.terms_and_conditions} onChange={handleHeaderChange}></textarea>
                         </div>
-                         <div className="mb-0">
+                        <div className="mb-0">
                             <label htmlFor="remarks" className="form-label">Remarks</label>
                             <textarea id="remarks" className="form-control" rows={2} value={poData.remarks} onChange={handleHeaderChange}></textarea>
                         </div>
                     </div>
                 </div>
             </div>
-            <div className="col-lg-4">
+            <div className="col-lg-4 mb-4">
                 <div className="card">
                     <div className="card-body">
                         <div className="d-flex justify-content-between mb-2"><span>Subtotal:</span><span>₹{summary.subtotal.toFixed(2)}</span></div>
@@ -288,10 +307,10 @@ const CreatePurchaseOrderPage: FC = () => {
                         <div className="d-flex justify-content-between h5"><strong>Total:</strong><strong>₹{summary.total.toFixed(2)}</strong></div>
                         <hr/>
                         <div className="d-grid gap-2">
-                             <button type="submit" className="btn btn-primary" disabled={submitting}>
-                                {submitting ? 'Creating...' : <><i className="bi bi-check-circle me-2"></i>Create Purchase Order</>}
-                             </button>
-                             <Link href="/purchase-orders" className="btn btn-outline-secondary">Cancel</Link>
+                                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                                    {submitting ? 'Creating...' : <><i className="bi bi-check-circle me-2"></i>Create Purchase Order</>}
+                                </button>
+                                <Link href="/purchase-orders" className="btn btn-outline-secondary">Cancel</Link>
                         </div>
                     </div>
                 </div>
