@@ -7,7 +7,7 @@ import Cookies from "js-cookie"; // Assuming you use cookies for auth
 // ✅ STEP 1: Define TypeScript interfaces for our data structures
 interface Supplier {
   id: number;
-  supplier_name: string;
+  name: string;
   supplier_code: string;
   contact_person: string;
   email: string;
@@ -100,7 +100,7 @@ const EditSupplierPage: FC = () => {
     setSubmitting(true);
     setFlash({ type: "", message: "" });
 
-    if (!form.supplier_name || !form.contact_person) {
+    if (!form.name || !form.contact_person) {
       setFlash({ type: "danger", message: "Supplier Name and Contact Person are required." });
       setSubmitting(false);
       return;
@@ -164,7 +164,7 @@ const EditSupplierPage: FC = () => {
               <div className="card-header"><h5 className="mb-0">Basic Information</h5></div>
               <div className="card-body">
                  <div className="row">
-                  <div className="col-md-6 mb-3"><label htmlFor="supplier_name" className="form-label">Supplier Name <span className="text-danger">*</span></label><input type="text" id="supplier_name" className="form-control" required value={form.supplier_name || ''} onChange={handleChange} /></div>
+                  <div className="col-md-6 mb-3"><label htmlFor="supplier_name" className="form-label">Supplier Name <span className="text-danger">*</span></label><input type="text" id="supplier_name" className="form-control" required value={form.name || ''} onChange={handleChange} /></div>
                   <div className="col-md-6 mb-3"><label htmlFor="supplier_code" className="form-label">Supplier Code</label><input type="text" id="supplier_code" className="form-control" value={form.supplier_code || ''} readOnly disabled /></div>
                   <div className="col-md-6 mb-3"><label htmlFor="contact_person" className="form-label">Contact Person <span className="text-danger">*</span></label><input type="text" id="contact_person" className="form-control" required value={form.contact_person || ''} onChange={handleChange} /></div>
                   <div className="col-md-6 mb-3"><label htmlFor="email" className="form-label">Email</label><input type="email" id="email" className="form-control" value={form.email || ''} onChange={handleChange} /></div>

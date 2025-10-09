@@ -3,14 +3,15 @@ import { useState, useEffect, FC, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import { motion, Variants } from "framer-motion";
 
-// ✅ 1. Define a complete and consistent interface for the Item data
+// ✅ 1. Interface mein 'item_category' ko 'category' kar diya gaya hai
 interface Item {
   id: number;
   item_code: string;
   item_name: string;
   item_type: 'raw_material' | 'semi_finished' | 'finished_goods' | 'consumable' | 'service';
-  item_category: string;
+  category: string; // ✅ SUDHAR
   unit: string;
   hsn_code: string;
   gst_rate: number;
@@ -27,7 +28,25 @@ interface FlashMessage {
   message: string;
 }
 
-// ✅ 2. Create reusable components for clean UI states
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+  },
+};
+
 const LoadingSpinner: FC = () => (
   <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
     <div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div>
@@ -44,7 +63,6 @@ const ErrorDisplay: FC<{ message: string }> = ({ message }) => (
   </div>
 );
 
-// ✅ 3. Convert the component to a typed FC with full state management
 const EditItemPage: FC = () => {
   const { id } = useParams();
   const router = useRouter();
@@ -55,7 +73,6 @@ const EditItemPage: FC = () => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
 
-  // Fetch existing item data
   useEffect(() => {
     if (!id) return;
     
@@ -71,7 +88,8 @@ const EditItemPage: FC = () => {
           const errorData = await res.json();
           throw new Error(errorData.message || "Item not found.");
         }
-        const data: Item = await res.json();
+        const data = await res.json();
+        // Backend se 'category' aa raha hai, use form mein set kar rahe hain
         setForm(data);
       } catch (err: any) {
         setError(err.message);
@@ -83,7 +101,6 @@ const EditItemPage: FC = () => {
     fetchItem();
   }, [id]);
 
-  // ✅ 4. Create a robust, typed handler that correctly parses numbers
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value, type } = e.target;
     setForm((prev) => ({
@@ -96,7 +113,6 @@ const EditItemPage: FC = () => {
     setForm(prev => ({ ...prev, is_active: e.target.value === 'true' }));
   };
 
-  // ✅ 5. Implement a typed submit handler with improved UX and security
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.item_name) {
@@ -108,7 +124,7 @@ const EditItemPage: FC = () => {
     try {
       const token = Cookies.get("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items/${id}`, {
-        method: "PATCH", // PATCH is better for updates
+        method: "PATCH",
         headers: { 
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}` 
@@ -134,27 +150,31 @@ const EditItemPage: FC = () => {
   if (!form) return <ErrorDisplay message="Item data could not be loaded."/>;
 
   return (
-    <div className="container-fluid">
-      {/* Header */}
-      <div className="row">
+    <motion.div 
+        className="container-fluid"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+    >
+      <motion.div className="row" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0"><i className="bi bi-pencil text-primary"></i> Edit Item</h1>
           <Link href={`/items/${id}`} className="btn btn-outline-secondary"><i className="bi bi-arrow-left me-2"></i> Back to Details</Link>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Flash Messages */}
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
-        </div>
+        <motion.div variants={itemVariants} initial={{opacity: 0}} animate={{opacity: 1}}>
+            <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+            {flash.message}
+            <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
+            </div>
+        </motion.div>
       )}
 
-      {/* Form */}
       <form onSubmit={handleSubmit} noValidate>
         <div className="row">
-          <div className="col-lg-8">
+          <motion.div className="col-lg-8" variants={itemVariants}>
             <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Item Details</h5></div>
               <div className="card-body">
@@ -177,10 +197,13 @@ const EditItemPage: FC = () => {
                       <option value="service">Service</option>
                     </select>
                   </div>
+                  
+                  {/* ✅ 2. Input field mein 'item_category' ko 'category' kar diya gaya hai */}
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="item_category" className="form-label">Category</label>
-                    <input type="text" id="item_category" className="form-control" value={form.item_category || ''} onChange={handleChange} />
+                    <label htmlFor="category" className="form-label">Category</label>
+                    <input type="text" id="category" className="form-control" value={form.category || ''} onChange={handleChange} />
                   </div>
+
                    <div className="col-md-6 mb-3">
                     <label htmlFor="unit" className="form-label">Unit (UOM)</label>
                     <select id="unit" className="form-select" value={form.unit || 'pcs'} onChange={handleChange}>
@@ -198,8 +221,7 @@ const EditItemPage: FC = () => {
                 </div>
               </div>
             </div>
-
-             <div className="card mb-4">
+            <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Pricing & Tax</h5></div>
               <div className="card-body">
                 <div className="row">
@@ -218,8 +240,7 @@ const EditItemPage: FC = () => {
                 </div>
               </div>
             </div>
-
-             <div className="card mb-4">
+            <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Stock Management</h5></div>
               <div className="card-body">
                 <div className="row">
@@ -238,9 +259,8 @@ const EditItemPage: FC = () => {
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="col-lg-4">
+          </motion.div>
+          <motion.div className="col-lg-4" variants={itemVariants}>
             <div className="card">
               <div className="card-header"><h5 className="mb-0">Status & Actions</h5></div>
               <div className="card-body">
@@ -266,10 +286,10 @@ const EditItemPage: FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </form>
-    </div>
+    </motion.div>
   );
 };
 

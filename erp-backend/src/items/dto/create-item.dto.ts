@@ -3,16 +3,15 @@ import { Type } from 'class-transformer';
 
 export class CreateItemDto {
   @IsString()
-  @IsOptional() // ✅ This is the fix
+  @IsOptional()
   @MaxLength(100)
-  item_code?: string; // Add the '?' to make it optional in TypeScript
+  item_code?: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
   item_name: string;
 
-  // ✅ Improvement: Added validation for ALL fields
   @IsOptional()
   @IsString()
   description?: string;
@@ -22,10 +21,11 @@ export class CreateItemDto {
   @IsIn(['raw_material', 'semi_finished', 'finished_goods', 'consumable', 'service'])
   item_type?: string;
 
+  // ✅ SUDHAR YAHAN HAI (FIX IS HERE)
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  item_category?: string;
+  category?: string; // 'item_category' ko 'category' kar diya gaya hai
 
   @IsString()
   @IsOptional()

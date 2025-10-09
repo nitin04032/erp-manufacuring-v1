@@ -3,8 +3,9 @@ import { useState, FC, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 
-// Interface remains the same as it correctly defines the data structure
+// Interface for the form data
 interface ItemFormData {
   item_code: string;
   item_name: string;
@@ -26,11 +27,30 @@ interface FlashMessage {
   message: string;
 }
 
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+  },
+};
+
 const CreateItemPage: FC = () => {
   const router = useRouter();
 
   const initialFormState: ItemFormData = {
-    item_code: "", // Stays as an empty string in the initial state
+    item_code: "",
     item_name: "",
     item_type: "raw_material",
     item_category: "",
@@ -63,14 +83,12 @@ const CreateItemPage: FC = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Validation now only checks for item_name
     if (!form.item_name) {
         setFlash({ type: "danger", message: "Item Name is a required field." });
         return;
     }
     setSubmitting(true);
 
-    // ✅ Key Change: Exclude item_code from the data sent to the backend.
     const { item_code, ...dataToSend } = form;
 
     try {
@@ -81,7 +99,7 @@ const CreateItemPage: FC = () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}` 
         },
-        body: JSON.stringify(dataToSend), // Send the data without the item_code field
+        body: JSON.stringify(dataToSend),
       });
 
       if (res.ok) {
@@ -98,25 +116,35 @@ const CreateItemPage: FC = () => {
   };
 
   return (
-    <div className="container-fluid">
-      {/* Header and Flash Messages remain the same */}
-      <div className="row">
+    <motion.div 
+        className="container-fluid"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+    >
+      {/* Header */}
+      <motion.div className="row" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0"><i className="bi bi-plus-circle text-primary"></i> Create Item</h1>
           <Link href="/items" className="btn btn-outline-secondary"><i className="bi bi-arrow-left me-2"></i> Back to List</Link>
         </div>
-      </div>
+      </motion.div>
+      
+      {/* Flash Messages */}
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
-        </div>
+        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} variants={itemVariants}>
+            <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+            {flash.message}
+            <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
+            </div>
+        </motion.div>
       )}
 
       {/* Form */}
       <form onSubmit={handleSubmit} noValidate>
         <div className="row">
-          <div className="col-lg-8">
+          <motion.div className="col-lg-8" variants={itemVariants}>
+            {/* Item Details Card */}
             <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Item Details</h5></div>
               <div className="card-body">
@@ -125,20 +153,10 @@ const CreateItemPage: FC = () => {
                     <label htmlFor="item_name" className="form-label">Item Name <span className="text-danger">*</span></label>
                     <input type="text" id="item_name" className="form-control" value={form.item_name} onChange={handleChange} required />
                   </div>
-                  
-                  {/* ✅ Key Change: Item Code field is now disabled and read-only */}
                   <div className="col-md-6 mb-3">
                     <label htmlFor="item_code" className="form-label">Item Code</label>
-                    <input 
-                      type="text" 
-                      id="item_code" 
-                      className="form-control" 
-                      value="Will be auto-generated" 
-                      readOnly 
-                      disabled 
-                    />
+                    <input type="text" id="item_code" className="form-control" value="Will be auto-generated" readOnly disabled />
                   </div>
-
                   <div className="col-md-6 mb-3">
                     <label htmlFor="item_type" className="form-label">Item Type</label>
                     <select id="item_type" className="form-select" value={form.item_type} onChange={handleChange}>
@@ -171,7 +189,7 @@ const CreateItemPage: FC = () => {
               </div>
             </div>
 
-            {/* Other cards for Pricing and Stock Management remain the same */}
+            {/* Pricing & Tax Card */}
             <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Pricing & Tax</h5></div>
               <div className="card-body">
@@ -192,6 +210,7 @@ const CreateItemPage: FC = () => {
               </div>
             </div>
 
+            {/* Stock Management Card */}
             <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Stock Management</h5></div>
               <div className="card-body">
@@ -211,10 +230,10 @@ const CreateItemPage: FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Right column for Status & Actions remains the same */}
-          <div className="col-lg-4">
+          {/* Right column for Status & Actions */}
+          <motion.div className="col-lg-4" variants={itemVariants}>
             <div className="card">
               <div className="card-header"><h5 className="mb-0">Status & Actions</h5></div>
               <div className="card-body">
@@ -240,11 +259,11 @@ const CreateItemPage: FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </form>
-    </div>
+    </motion.div>
   );
 };
 
-export default CreateItemPage;
+export default CreateItemPage; 

@@ -2,6 +2,7 @@
 
 import { useApi } from '../../hooks/useApi'; // Apna custom hook import karein
 import Link from 'next/link';
+import { motion, Variants } from 'framer-motion';
 
 // API se aane waale data ka structure (example)
 interface DashboardStats {
@@ -32,10 +33,31 @@ interface DashboardData {
   statusCounts: StatusCounts;
 }
 
+// Animation variants for Framer Motion
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.15, // Thoda slow kiya
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.6, // Thoda smooth kiya
+    },
+  },
+};
+
 export default function DashboardPage() {
   // Step 1: useApi hook se live data fetch karein
   const { data, loading, error } = useApi<DashboardData>('/dashboard/summary');
-  
 
   // Step 2: Loading state handle karein
   if (loading) {
@@ -52,9 +74,13 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="container-fluid mt-4">
-        <div className="alert alert-danger">
+        <motion.div
+          className="alert alert-danger"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <strong>Error:</strong> Failed to load dashboard data. {error}
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -86,11 +112,15 @@ export default function DashboardPage() {
 
   const total = Object.values(statusCounts).reduce((a, b) => a + b, 0);
 
-  // Yahan se aapka poora Bootstrap wala rich UI code shuru hota hai
   return (
-    <div className="container-fluid">
+    <motion.div
+      className="container-fluid"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Enhanced Dashboard Header */}
-      <div className="row mb-4">
+      <motion.div className="row mb-4" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center">
           <div>
             <h1 className="h3 mb-0">
@@ -106,7 +136,7 @@ export default function DashboardPage() {
             <small className="text-muted">{new Date().toLocaleDateString()}</small>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Key Statistics Cards */}
       <div className="row mb-4">
@@ -117,12 +147,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <QuickActions />
+      <motion.div variants={itemVariants}>
+        <QuickActions />
+      </motion.div>
 
       {/* Recent Activities + Status Overview */}
       <div className="row">
         {/* Recent Activities */}
-        <div className="col-md-8">
+        <motion.div className="col-md-8" variants={itemVariants}>
           <div className="card border-0 shadow-sm">
             <div className="card-header">
               <h5 className="mb-0">
@@ -163,10 +195,10 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Order Status Overview */}
-        <div className="col-md-4">
+        <motion.div className="col-md-4" variants={itemVariants}>
           <div className="card border-0 shadow-sm">
             <div className="card-header">
               <h5 className="mb-0">
@@ -197,30 +229,17 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-// Reusable Components (isi file mein rakhe gaye hain)
-function DashboardCard({
-  icon,
-  color,
-  title,
-  value,
-  link,
-}: {
-  icon: string;
-  color: string;
-  title: string;
-  value?: number | null;
-  link: string;
-}) {
+// Reusable Components
+function DashboardCard({ icon, color, title, value, link }: { icon: string; color: string; title: string; value?: number | null; link: string; }) {
   const displayValue = typeof value === 'number' ? value.toLocaleString() : '0';
-
   return (
-    <div className="col-md-3 mb-3">
+    <motion.div className="col-md-3 mb-3" variants={itemVariants} whileHover={{ scale: 1.05, y: -5 }}>
       <div className="card border-0 shadow-sm h-100">
         <div className="card-body text-center">
           <div className="mb-3">
@@ -233,7 +252,7 @@ function DashboardCard({
           </Link>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -256,13 +275,13 @@ function QuickActions() {
           <div className="card-body">
             <div className="row text-center">
               {actions.map((action) => (
-                <div className="col mb-2" key={action.label}>
-                  <Link href={action.link} className={`btn btn-outline-${action.color} d-block`}>
+                <motion.div className="col mb-2" key={action.label} whileHover={{ scale: 1.1 }}>
+                  <Link href={action.link} className={`btn btn-outline-${action.color} d-block p-3`}>
                     <i className={`bi ${action.icon} fs-1 mb-2`}></i>
                     <br />
                     {action.label}
                   </Link>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>

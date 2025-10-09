@@ -1,17 +1,35 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Interfaces
+interface Item {
+  id: number;
+  item_name: string;
+  item_code: string;
+}
+
+interface BOMComponent {
+  item_id: string;
+  qty: string;
+}
+
+interface FlashMessage {
+  type: 'success' | 'danger' | '';
+  message: string;
+}
 
 export default function CreateBOMPage() {
-  const [flash, setFlash] = useState({ type: "", message: "" });
-  const [items, setItems] = useState([]);
+  const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
+  const [items, setItems] = useState<Item[]>([]);
   const [form, setForm] = useState({
-    item_id: "",        // 🔹 product_id ❌ → item_id ✅
+    item_id: "",
     version: "V1",
-    is_active: 1,       // 🔹 status ❌ → is_active ✅
+    is_active: 1,
     remarks: "",
   });
-  const [components, setComponents] = useState([]);
+  const [components, setComponents] = useState<BOMComponent[]>([]);
 
   // Load Items
   useEffect(() => {
@@ -29,7 +47,7 @@ export default function CreateBOMPage() {
   }, []);
 
   // Handle Form Change
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -39,19 +57,19 @@ export default function CreateBOMPage() {
   };
 
   // Remove Component Row
-  const removeComponent = (index) => {
+  const removeComponent = (index: number) => {
     setComponents(components.filter((_, i) => i !== index));
   };
 
   // Handle Component Change
-  const handleComponentChange = (index, field, value) => {
+  const handleComponentChange = (index: number, field: keyof BOMComponent, value: string) => {
     const updated = [...components];
     updated[index][field] = value;
     setComponents(updated);
   };
 
   // Submit Form
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.item_id || components.length === 0) {
       setFlash({ type: "danger", message: "Please select finished product & add at least one component." });
@@ -93,16 +111,24 @@ export default function CreateBOMPage() {
       </div>
 
       {/* Flash Messages */}
-      {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`} role="alert">
-          {flash.message}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setFlash({ type: "", message: "" })}
-          ></button>
-        </div>
-      )}
+      <AnimatePresence>
+        {flash.message && (
+          <motion.div
+            className={`alert alert-${flash.type} alert-dismissible fade show`}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            role="alert"
+          >
+            {flash.message}
+            <button
+              type="button"
+              className="btn-close"
+              onClick={() => setFlash({ type: "", message: "" })}
+            ></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* BOM Form */}
       <form onSubmit={handleSubmit}>
@@ -160,7 +186,7 @@ export default function CreateBOMPage() {
             <textarea
               name="remarks"
               className="form-control"
-              rows="2"
+              rows={2}
               value={form.remarks}
               onChange={handleChange}
               placeholder="Optional notes..."
@@ -178,59 +204,72 @@ export default function CreateBOMPage() {
           </div>
           <div className="card-body">
             {components.length === 0 && <p className="text-muted">No components added yet</p>}
-            {components.map((comp, index) => (
-              <div key={index} className="row align-items-end mb-3">
-                {/* Item */}
-                <div className="col-md-5">
-                  <label className="form-label">Item</label>
-                  <select
-                    className="form-select"
-                    value={comp.item_id}
-                    onChange={(e) => handleComponentChange(index, "item_id", e.target.value)}
-                    required
-                  >
-                    <option value="">Select Item</option>
-                    {items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.item_name} ({item.item_code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <AnimatePresence>
+              {components.map((comp, index) => (
+                <motion.div
+                  key={index}
+                  className="row align-items-end mb-3"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  {/* Item */}
+                  <div className="col-md-5">
+                    <label className="form-label">Item</label>
+                    <select
+                      className="form-select"
+                      value={comp.item_id}
+                      onChange={(e) => handleComponentChange(index, "item_id", e.target.value)}
+                      required
+                    >
+                      <option value="">Select Item</option>
+                      {items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.item_name} ({item.item_code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Qty */}
-                <div className="col-md-3">
-                  <label className="form-label">Quantity</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={comp.qty}
-                    onChange={(e) => handleComponentChange(index, "qty", e.target.value)}
-                    step="0.001"
-                    min="0.001"
-                    required
-                  />
-                </div>
+                  {/* Qty */}
+                  <div className="col-md-3">
+                    <label className="form-label">Quantity</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={comp.qty}
+                      onChange={(e) => handleComponentChange(index, "qty", e.target.value)}
+                      step="0.001"
+                      min="0.001"
+                      required
+                    />
+                  </div>
 
-                {/* Remove Button */}
-                <div className="col-md-2">
-                  <button
-                    type="button"
-                    className="btn btn-danger mt-4"
-                    onClick={() => removeComponent(index)}
-                  >
-                    <i className="bi bi-trash"></i>
-                  </button>
-                </div>
-              </div>
-            ))}
+                  {/* Remove Button */}
+                  <div className="col-md-2">
+                    <button
+                      type="button"
+                      className="btn btn-danger mt-4"
+                      onClick={() => removeComponent(index)}
+                    >
+                      <i className="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
 
         {/* Submit */}
-        <button type="submit" className="btn btn-primary">
+        <motion.button
+          type="submit"
+          className="btn btn-primary"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
           <i className="bi bi-check-circle me-2"></i>Create BOM
-        </button>
+        </motion.button>
       </form>
     </div>
   );

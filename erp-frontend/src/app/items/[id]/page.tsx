@@ -3,7 +3,9 @@ import { useEffect, useState, FC } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
+import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 
+// Interface for the item data
 interface Item {
   id: number;
   item_code: string;
@@ -11,7 +13,7 @@ interface Item {
   description?: string;
   item_type: string;
   item_category?: string;
-  unit: string | null; // ✅ FIX: Unit can be null from the database
+  unit: string | null;
   hsn_code?: string;
   gst_rate: number;
   purchase_rate: number;
@@ -29,24 +31,44 @@ interface FlashMessage {
   message: string;
 }
 
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+  },
+};
+
+// Reusable components
 const LoadingSpinner: FC = () => (
-  <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
-    <div className="spinner-border text-primary" role="status">
-      <span className="visually-hidden">Loading...</span>
+    <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
+        <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+        </div>
+        <h4 className="ms-3 text-muted">Loading Item Details...</h4>
     </div>
-    <h4 className="ms-3 text-muted">Loading Item Details...</h4>
-  </div>
 );
 
 const ErrorDisplay: FC<{ message: string }> = ({ message }) => (
-  <div className="text-center py-5">
-    <i className="bi bi-exclamation-triangle-fill text-danger fs-1"></i>
-    <h4 className="mt-3 text-danger">An Error Occurred</h4>
-    <p className="text-muted">{message}</p>
-    <Link href="/items" className="btn btn-primary">
-      <i className="bi bi-arrow-left me-2"></i>Back to Items List
-    </Link>
-  </div>
+    <div className="text-center py-5">
+        <i className="bi bi-exclamation-triangle-fill text-danger fs-1"></i>
+        <h4 className="mt-3 text-danger">An Error Occurred</h4>
+        <p className="text-muted">{message}</p>
+        <Link href="/items" className="btn btn-primary">
+            <i className="bi bi-arrow-left me-2"></i>Back to Items List
+        </Link>
+    </div>
 );
 
 const ItemDetailsPage: FC = () => {
@@ -100,9 +122,14 @@ const ItemDetailsPage: FC = () => {
   const showNumber = (val: number | null | undefined) => (val != null ? val.toLocaleString('en-IN') : "N/A");
 
   return (
-    <div className="container-fluid">
+    <motion.div 
+        className="container-fluid"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+    >
       {/* Header */}
-      <div className="row">
+      <motion.div className="row" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0">
             <i className="bi bi-box text-primary"></i> {item.item_name}
@@ -112,30 +139,31 @@ const ItemDetailsPage: FC = () => {
             <Link href={`/items/${id}/edit`} className="btn btn-primary"><i className="bi bi-pencil me-2"></i> Edit</Link>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Flash Messages */}
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
-        </div>
+        <motion.div variants={itemVariants} initial={{opacity: 0}} animate={{opacity: 1}}>
+            <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+            {flash.message}
+            <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
+            </div>
+        </motion.div>
       )}
 
       <div className="row">
         {/* Left Column: Main Details */}
-        <div className="col-lg-8">
+        <motion.div className="col-lg-8" variants={itemVariants}>
           <div className="card mb-4">
             <div className="card-header"><h5 className="mb-0">Item Details</h5></div>
             <div className="card-body">
               <div className="row">
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Code</label><p className="form-control-plaintext">{item.item_code}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Name</label><p className="form-control-plaintext">{item.item_name}</p></div>
-                <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Type</label><p className="form-control-plaintext">{showOrNA(item.item_type?.replace('_', ' '))}</p></div>
+                <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Type</label><p className="form-control-plaintext text-capitalize">{showOrNA(item.item_type?.replace('_', ' '))}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Category</label><p className="form-control-plaintext">{showOrNA(item.item_category)}</p></div>
                 <div className="col-md-4 mb-3">
                   <label className="form-label text-muted">Unit (UOM)</label>
-                  {/* ✅ FIX: Added null check before toUpperCase */}
                   <p className="form-control-plaintext">{showOrNA(item.unit).toUpperCase()}</p>
                 </div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">HSN/SAC Code</label><p className="form-control-plaintext">{showOrNA(item.hsn_code)}</p></div>
@@ -156,17 +184,16 @@ const ItemDetailsPage: FC = () => {
             <div className="card-header"><h5 className="mb-0">Stock Management</h5></div>
             <div className="card-body">
               <div className="row">
-                {/* ✅ FIX: Added null check before toUpperCase */}
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Minimum Stock</label><p className="form-control-plaintext">{showNumber(item.minimum_stock)} {showOrNA(item.unit).toUpperCase()}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Maximum Stock</label><p className="form-control-plaintext">{showNumber(item.maximum_stock)} {showOrNA(item.unit).toUpperCase()}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Reorder Level</label><p className="form-control-plaintext">{showNumber(item.reorder_level)} {showOrNA(item.unit).toUpperCase()}</p></div>
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Right Column: Status & Timestamps */}
-        <div className="col-lg-4">
+        <motion.div className="col-lg-4" variants={itemVariants}>
           <div className="card">
             <div className="card-header"><h5 className="mb-0">Status & Info</h5></div>
             <div className="card-body">
@@ -188,9 +215,9 @@ const ItemDetailsPage: FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

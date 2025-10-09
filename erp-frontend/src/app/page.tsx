@@ -1,11 +1,10 @@
-// FINAL CORRECTED CODE (erp-frontend/src/app/login/page.tsx)
-
 'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useUserStore } from '../store/user';
+import { useUserStore } from '../store/user'; // Sahi path se user store import karein
+import { motion, Variants } from 'framer-motion';
 
 // MUI Imports
 import {
@@ -22,6 +21,32 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
+// ## TYPE ERROR SUDHAAR YAHAN HAI (TYPE ERROR FIX IS HERE) ##
+const containerVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      duration: 0.8,
+      // 'ease' value ke aage 'as const' lagane se type error theek ho jayega
+      ease: [0.42, 0, 0.58, 1] as const,
+      staggerChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 25, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.7,
+    },
+  },
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +57,7 @@ export default function LoginPage() {
   const { setToken, isAuth } = useUserStore();
 
   useEffect(() => {
+    // Agar user pehle se logged in hai, toh use dashboard par bhej do
     if (isAuth) {
       router.push('/dashboard');
     }
@@ -78,108 +104,133 @@ export default function LoginPage() {
         background: 'linear-gradient(to right, #f8f9fa, #e9ecef)',
       }}
     >
-      <Paper
-        elevation={6}
-        sx={{
-          p: { xs: 3, sm: 5 },
-          borderRadius: 4,
-          width: { xs: '90%', sm: 450 },
-        }}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
       >
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <SettingsIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-          <Typography component="h1" variant="h5" fontWeight="bold">
-            Manufacturing ERP
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Sign in to continue
-          </Typography>
-        </Box>
+        <Paper
+          elevation={6}
+          sx={{
+            p: { xs: 3, sm: 5 },
+            borderRadius: 4,
+            width: { xs: '90%', sm: 450 },
+          }}
+        >
+          <motion.div variants={itemVariants}>
+            <Box sx={{ textAlign: 'center', mb: 4 }}>
+              <SettingsIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+              <Typography component="h1" variant="h5" fontWeight="bold">
+                Manufacturing ERP
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Sign in to continue
+              </Typography>
+            </Box>
+          </motion.div>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+          {error && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            </motion.div>
+          )}
 
-        <Box component="form" onSubmit={handleSubmit} noValidate>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email or Username"
-            name="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <EmailIcon color="action" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type={showPassword ? 'text' : 'password'}
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <LockIcon color="action" />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={loading}
-            startIcon={!loading ? <LoginIcon /> : null}
-          >
-            {loading ? <CircularProgress size={26} color="inherit" /> : 'Sign In'}
-          </Button>
-        </Box>
+          <Box component="form" onSubmit={handleSubmit} noValidate>
+            <motion.div variants={itemVariants}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="email"
+                label="Email or Username"
+                name="email"
+                autoComplete="email"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                name="password"
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </motion.div>
+            <motion.div
+              variants={itemVariants}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                size="large"
+                sx={{ mt: 3, mb: 2 }}
+                disabled={loading}
+                startIcon={!loading ? <LoginIcon /> : null}
+              >
+                {loading ? <CircularProgress size={26} color="inherit" /> : 'Sign In'}
+              </Button>
+            </motion.div>
+          </Box>
 
-        <Divider sx={{ my: 3 }}>
-          <Typography variant="body2" color="text.secondary">OR</Typography>
-        </Divider>
+          <motion.div variants={itemVariants}>
+            <Divider sx={{ my: 3 }}>
+              <Typography variant="body2" color="text.secondary">OR</Typography>
+            </Divider>
+          </motion.div>
 
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Don't have an account?
-          </Typography>
-          
-          {/* ## MUKHYA SUDHAAR YAHAN HAI (KEY FIX IS HERE) ## */}
-          <Button
-            component={Link}
-            href="/register"
-            fullWidth
-            variant="outlined"
-            startIcon={<PersonAddIcon />}
-          >
-            Create Account
-          </Button>
+          <motion.div variants={itemVariants}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Don't have an account?
+              </Typography>
 
-        </Box>
-      </Paper>
+              <Button
+                component={Link}
+                href="/register"
+                fullWidth
+                variant="outlined"
+                startIcon={<PersonAddIcon />}
+              >
+                Create Account
+              </Button>
+            </Box>
+          </motion.div>
+        </Paper>
+      </motion.div>
     </Box>
   );
 }

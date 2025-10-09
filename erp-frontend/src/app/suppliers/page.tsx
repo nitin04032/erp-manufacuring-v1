@@ -2,6 +2,7 @@
 import { useState, useEffect, FC } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
+import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 
 // Interface jo backend se match karti hai
 interface Supplier {
@@ -18,6 +19,25 @@ interface FlashMessage {
   type: "success" | "danger" | "";
   message: string;
 }
+
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+  },
+};
 
 // Component jab koi data na ho
 const NoDataDisplay: FC = () => (
@@ -39,15 +59,12 @@ const SuppliersPage: FC = () => {
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [totalCount, setTotalCount] = useState<number>(0);
 
-  // useEffect server-side filtering aur debouncing handle karta hai
   useEffect(() => {
-    // 500ms ke delay ke baad API call, taaki har keystroke par request na jaaye
     const handler = setTimeout(() => {
       fetchSuppliers();
     }, 500);
-
     return () => clearTimeout(handler);
-  }, [status, search]); // Jab status ya search badlega, tab yeh effect chalega
+  }, [status, search]);
 
   const fetchSuppliers = async () => {
     setLoading(true);
@@ -58,14 +75,12 @@ const SuppliersPage: FC = () => {
         `${process.env.NEXT_PUBLIC_API_URL}/suppliers?${query}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        },
+        }
       );
-
       if (!response.ok) throw new Error("Failed to fetch suppliers");
-
       const data: Supplier[] = await response.json();
       setSuppliers(data);
-      setTotalCount(data.length); // Update count
+      setTotalCount(data.length);
     } catch (err: any) {
       setFlash({ type: "danger", message: err.message });
     } finally {
@@ -75,7 +90,6 @@ const SuppliersPage: FC = () => {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this supplier?")) return;
-
     try {
       const token = Cookies.get("token");
       const res = await fetch(
@@ -83,12 +97,11 @@ const SuppliersPage: FC = () => {
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
-        },
+        }
       );
-
       if (res.ok) {
         setFlash({ type: "success", message: "Supplier deleted successfully!" });
-        fetchSuppliers(); // List ko refresh karo
+        fetchSuppliers();
       } else {
         const err = await res.json();
         setFlash({ type: "danger", message: err.message || "Delete failed" });
@@ -99,9 +112,14 @@ const SuppliersPage: FC = () => {
   };
 
   return (
-    <div className="container-fluid">
+    <motion.div
+      className="container-fluid"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Page Header */}
-      <div className="row">
+      <motion.div className="row" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0">
             <i className="bi bi-people text-primary"></i> Suppliers
@@ -110,32 +128,29 @@ const SuppliersPage: FC = () => {
             <i className="bi bi-plus-circle me-2"></i> Add Supplier
           </Link>
         </div>
-      </div>
+      </motion.div>
 
       {/* Flash Messages */}
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setFlash({ type: "", message: "" })}
-          ></button>
-        </div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+            {flash.message}
+            <button
+              type="button"
+              className="btn-close"
+              onClick={() => setFlash({ type: "", message: "" })}
+            ></button>
+          </div>
+        </motion.div>
       )}
 
       {/* Filters Card */}
-      <div className="card mb-4">
+      <motion.div className="card mb-4" variants={itemVariants}>
         <div className="card-body">
           <form className="row g-3">
             <div className="col-md-3">
               <label htmlFor="status" className="form-label">Status</label>
-              <select
-                id="status"
-                className="form-select"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
+              <select id="status" className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -143,33 +158,19 @@ const SuppliersPage: FC = () => {
             </div>
             <div className="col-md-4">
               <label htmlFor="search" className="form-label">Search</label>
-              <input
-                type="text"
-                id="search"
-                className="form-control"
-                placeholder="Search by name, code, contact..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <input type="text" id="search" className="form-control" placeholder="Search by name, code, contact..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <div className="col-md-3 d-flex align-items-end">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={() => {
-                  setStatus("");
-                  setSearch("");
-                }}
-              >
+              <button type="button" className="btn btn-outline-secondary" onClick={() => { setStatus(""); setSearch(""); }}>
                 <i className="bi bi-arrow-clockwise me-2"></i> Reset
               </button>
             </div>
           </form>
         </div>
-      </div>
+      </motion.div>
 
       {/* Suppliers Table Card */}
-      <div className="card">
+      <motion.div className="card" variants={itemVariants}>
         <div className="card-header">
           <h5 className="mb-0">
             <i className="bi bi-list-ul"></i> Suppliers List{" "}
@@ -178,7 +179,11 @@ const SuppliersPage: FC = () => {
         </div>
         <div className="card-body">
           {loading ? (
-            <div className="text-center py-5">Loading...</div>
+            <div className="text-center py-5">
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </div>
           ) : suppliers.length === 0 ? (
             <NoDataDisplay />
           ) : (
@@ -195,9 +200,9 @@ const SuppliersPage: FC = () => {
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
                   {suppliers.map((s) => (
-                    <tr key={s.id}>
+                    <motion.tr key={s.id} variants={itemVariants}>
                       <td><strong>{s.supplier_code}</strong></td>
                       <td>{s.name}</td>
                       <td>{s.contact_person || "-"}</td>
@@ -218,15 +223,15 @@ const SuppliersPage: FC = () => {
                           </button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
-                </tbody>
+                </motion.tbody>
               </table>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

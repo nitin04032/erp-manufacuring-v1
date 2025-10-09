@@ -3,6 +3,7 @@ import { useState, FC, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 
 // Interfaces for data structures
 interface SupplierFormData {
@@ -24,6 +25,25 @@ interface FlashMessage {
   type: "success" | "danger" | "";
   message: string;
 }
+
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+  },
+};
 
 const CreateSupplierPage: FC = () => {
   const router = useRouter();
@@ -65,7 +85,6 @@ const CreateSupplierPage: FC = () => {
       return;
     }
     
-    // Create a data object without the empty supplier_code
     const { supplier_code, ...dataToSend } = form;
 
     try {
@@ -80,6 +99,7 @@ const CreateSupplierPage: FC = () => {
       });
 
       if (res.ok) {
+        // Redirect with a success query param to show flash message on the list page
         router.push("/suppliers?created=true"); 
       } else {
         const data = await res.json();
@@ -94,9 +114,14 @@ const CreateSupplierPage: FC = () => {
   };
 
   return (
-    <div className="container-fluid">
+    <motion.div 
+      className="container-fluid"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header & Flash Messages */}
-      <div className="row">
+      <motion.div className="row" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0">
             <i className="bi bi-plus-circle text-primary"></i> Create Supplier
@@ -105,18 +130,20 @@ const CreateSupplierPage: FC = () => {
             <i className="bi bi-arrow-left me-2"></i>Back to List
           </Link>
         </div>
-      </div>
+      </motion.div>
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
-        </div>
+        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} variants={itemVariants}>
+            <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+                {flash.message}
+                <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
+            </div>
+        </motion.div>
       )}
 
       {/* Form */}
       <form onSubmit={handleSubmit} noValidate>
         <div className="row">
-          <div className="col-md-8">
+          <motion.div className="col-md-8" variants={itemVariants}>
             <div className="card mb-4">
               <div className="card-header"><h5 className="mb-0">Basic Information</h5></div>
               <div className="card-body">
@@ -125,20 +152,10 @@ const CreateSupplierPage: FC = () => {
                     <label htmlFor="name" className="form-label">Supplier Name <span className="text-danger">*</span></label>
                     <input type="text" id="name" className="form-control" required value={form.name} onChange={handleChange} />
                   </div>
-                  
-                  {/* ✅ SUDHAR: Supplier Code field ab disabled hai */}
                   <div className="col-md-6 mb-3">
                     <label htmlFor="supplier_code" className="form-label">Supplier Code</label>
-                    <input 
-                      type="text" 
-                      id="supplier_code" 
-                      className="form-control" 
-                      value="Will be auto-generated" 
-                      readOnly 
-                      disabled 
-                    />
+                    <input type="text" id="supplier_code" className="form-control" value="Will be auto-generated" readOnly disabled />
                   </div>
-                  
                   <div className="col-md-6 mb-3">
                     <label htmlFor="contact_person" className="form-label">Contact Person <span className="text-danger">*</span></label>
                     <input type="text" id="contact_person" className="form-control" required value={form.contact_person} onChange={handleChange} />
@@ -186,9 +203,9 @@ const CreateSupplierPage: FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="col-md-4">
+          <motion.div className="col-md-4" variants={itemVariants}>
             <div className="card">
               <div className="card-header"><h5 className="mb-0">Status & Actions</h5></div>
               <div className="card-body">
@@ -214,10 +231,10 @@ const CreateSupplierPage: FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </form>
-    </div>
+    </motion.div>
   );
 };
 

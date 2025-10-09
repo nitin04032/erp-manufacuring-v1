@@ -2,12 +2,13 @@
 import { useState, useEffect, FC } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import Cookies from "js-cookie"; // Assuming you use cookies for auth
+import Cookies from "js-cookie";
+import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 
-// ✅ STEP 1: Define TypeScript interfaces for data structures
+// Interface for data structures
 interface Supplier {
   id: number;
-  supplier_name: string;
+  name: string;
   supplier_code: string;
   contact_person?: string;
   email?: string;
@@ -19,7 +20,7 @@ interface Supplier {
   country?: string;
   pincode?: string;
   status: "active" | "inactive";
-  created_at: string; // API will send date as ISO string
+  created_at: string;
   updated_at: string;
 }
 
@@ -28,7 +29,26 @@ interface FlashMessage {
   message: string;
 }
 
-// ✅ STEP 2: Create reusable components for loading and error states
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+  },
+};
+
+// Reusable components for loading and error states
 const LoadingSpinner: FC = () => (
   <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
     <div className="spinner-border text-primary" role="status">
@@ -49,37 +69,31 @@ const ErrorDisplay: FC<{ message: string }> = ({ message }) => (
   </div>
 );
 
-// ✅ STEP 3: Convert the main component to a typed FC
 const SupplierDetailsPage: FC = () => {
   const { id } = useParams();
   const searchParams = useSearchParams();
 
-  // ✅ STEP 4: Add types to all state hooks
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   
-  // Check for a success message from the edit page
   useEffect(() => {
     if (searchParams.get("updated") === "true") {
       setFlash({ type: "success", message: "Supplier details updated successfully!" });
     }
   }, [searchParams]);
 
-  // Fetch supplier details
   useEffect(() => {
     if (!id) return;
-
     const fetchSupplier = async () => {
       setLoading(true);
       setError(null);
       try {
-        const token = Cookies.get("token"); // Example: using token
+        const token = Cookies.get("token");
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/suppliers/${id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
         if (!res.ok) {
           const errorData = await res.json();
           throw new Error(errorData.message || "Supplier not found.");
@@ -92,11 +106,9 @@ const SupplierDetailsPage: FC = () => {
         setLoading(false);
       }
     };
-
     fetchSupplier();
   }, [id]);
 
-  // ✅ STEP 5: Type the helper function
   const showOrNA = (val: string | null | undefined): string => val && val.trim() !== "" ? val : "N/A";
 
   if (loading) return <LoadingSpinner />;
@@ -104,12 +116,17 @@ const SupplierDetailsPage: FC = () => {
   if (!supplier) return <ErrorDisplay message="No supplier data available." />;
 
   return (
-    <div className="container-fluid">
+    <motion.div 
+        className="container-fluid"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+    >
       {/* Header */}
-      <div className="row">
+      <motion.div className="row" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0">
-            <i className="bi bi-person-badge text-primary"></i> {supplier.supplier_name}
+            <i className="bi bi-person-badge text-primary"></i> {supplier.name}
           </h1>
           <div>
             <Link href="/suppliers" className="btn btn-outline-secondary me-2">
@@ -120,25 +137,27 @@ const SupplierDetailsPage: FC = () => {
             </Link>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Flash Messages */}
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
-        </div>
+        <motion.div variants={itemVariants} initial={{opacity: 0}} animate={{opacity: 1}}>
+            <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+                {flash.message}
+                <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
+            </div>
+        </motion.div>
       )}
 
       <div className="row">
         {/* Left Column: Details */}
-        <div className="col-md-8">
+        <motion.div className="col-md-8" variants={itemVariants}>
           <div className="card mb-4">
             <div className="card-header"><h5 className="mb-0">Basic Information</h5></div>
             <div className="card-body">
               <div className="row">
                 <div className="col-md-6 mb-3"><label className="form-label text-muted">Supplier Code</label><p className="form-control-plaintext">{showOrNA(supplier.supplier_code)}</p></div>
-                <div className="col-md-6 mb-3"><label className="form-label text-muted">Supplier Name</label><p className="form-control-plaintext">{showOrNA(supplier.supplier_name)}</p></div>
+                <div className="col-md-6 mb-3"><label className="form-label text-muted">Supplier Name</label><p className="form-control-plaintext">{showOrNA(supplier.name)}</p></div>
                 <div className="col-md-6 mb-3"><label className="form-label text-muted">Contact Person</label><p className="form-control-plaintext">{showOrNA(supplier.contact_person)}</p></div>
                 <div className="col-md-6 mb-3"><label className="form-label text-muted">Email</label><p className="form-control-plaintext">{showOrNA(supplier.email)}</p></div>
                 <div className="col-md-6 mb-3"><label className="form-label text-muted">Phone</label><p className="form-control-plaintext">{showOrNA(supplier.phone)}</p></div>
@@ -150,7 +169,7 @@ const SupplierDetailsPage: FC = () => {
           <div className="card">
             <div className="card-header"><h5 className="mb-0">Address Information</h5></div>
             <div className="card-body">
-               <div className="row">
+              <div className="row">
                 <div className="col-12 mb-3"><label className="form-label text-muted">Address</label><p className="form-control-plaintext">{showOrNA(supplier.address)}</p></div>
                 <div className="col-md-6 mb-3"><label className="form-label text-muted">City</label><p className="form-control-plaintext">{showOrNA(supplier.city)}</p></div>
                 <div className="col-md-6 mb-3"><label className="form-label text-muted">State</label><p className="form-control-plaintext">{showOrNA(supplier.state)}</p></div>
@@ -159,10 +178,10 @@ const SupplierDetailsPage: FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Right Column: Status & Info */}
-        <div className="col-md-4">
+        <motion.div className="col-md-4" variants={itemVariants}>
           <div className="card">
             <div className="card-header"><h5 className="mb-0">Status & Info</h5></div>
             <div className="card-body">
@@ -184,9 +203,9 @@ const SupplierDetailsPage: FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

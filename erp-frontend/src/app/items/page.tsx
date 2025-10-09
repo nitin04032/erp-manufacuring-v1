@@ -2,8 +2,9 @@
 import { useState, useEffect, FC } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
+import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 
-// ✅ 1. Define TypeScript interfaces for your data
+// 1. Define TypeScript interfaces
 interface Item {
   id: number;
   item_code: string;
@@ -11,7 +12,7 @@ interface Item {
   description?: string;
   unit: string;
   category?: string;
-  is_active: boolean; // Use boolean for status, consistent with other modules
+  is_active: boolean;
 }
 
 interface FlashMessage {
@@ -19,7 +20,26 @@ interface FlashMessage {
   message: string;
 }
 
-// ✅ 2. Create reusable components for clean UI states
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+  },
+};
+
+// 2. Create reusable components for clean UI states
 const NoDataDisplay: FC = () => (
   <div className="text-center py-5">
     <i className="bi bi-box fs-1 text-muted"></i>
@@ -40,25 +60,20 @@ const LoadingSpinner: FC = () => (
     </div>
 );
 
-// ✅ 3. Convert the component to a typed FC and add full state management
 const ItemsPage: FC = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // States for server-side filtering and searching
   const [status, setStatus] = useState<string>("");
   const [search, setSearch] = useState<string>("");
 
-  // ✅ 4. Implement server-side filtering and debounced search
   useEffect(() => {
     const handler = setTimeout(() => {
       fetchItems();
-    }, 500); // Debounce to avoid excessive API calls while typing
-
+    }, 500);
     return () => clearTimeout(handler);
-  }, [status, search]); // Refetch when status or search changes
+  }, [status, search]);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -95,7 +110,7 @@ const ItemsPage: FC = () => {
 
       if (res.ok) {
         setFlash({ type: "success", message: "Item deleted successfully!" });
-        fetchItems(); // Refresh the list from the server
+        fetchItems();
       } else {
         const errorData = await res.json();
         setFlash({ type: "danger", message: errorData.message || "Failed to delete item."});
@@ -106,25 +121,32 @@ const ItemsPage: FC = () => {
   };
 
   return (
-    <div className="container-fluid">
+    <motion.div 
+        className="container-fluid"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+    >
       {/* Header */}
-      <div className="row">
+      <motion.div className="row" variants={itemVariants}>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3 mb-0"><i className="bi bi-box text-primary"></i> Items</h1>
           <Link href="/items/create" className="btn btn-primary"><i className="bi bi-plus-circle me-2"></i> Add Item</Link>
         </div>
-      </div>
+      </motion.div>
 
       {/* Flash Messages */}
       {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
-        </div>
+        <motion.div initial={{opacity: 0}} animate={{opacity: 1}}>
+            <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
+                {flash.message}
+                <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
+            </div>
+        </motion.div>
       )}
 
-      {/* ✅ 5. Add the filter and search card from the "warehouse UI" */}
-      <div className="card mb-4">
+      {/* Filter and search card */}
+      <motion.div className="card mb-4" variants={itemVariants}>
         <div className="card-body">
           <div className="row g-3">
             <div className="col-md-3">
@@ -146,10 +168,10 @@ const ItemsPage: FC = () => {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Items Table */}
-      <div className="card">
+      <motion.div className="card" variants={itemVariants}>
         <div className="card-header">
             <h5 className="mb-0"><i className="bi bi-list-ul"></i> Items List <span className="badge bg-primary ms-2">{items.length}</span></h5>
         </div>
@@ -173,9 +195,9 @@ const ItemsPage: FC = () => {
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
                   {items.map((item) => (
-                    <tr key={item.id}>
+                    <motion.tr key={item.id} variants={itemVariants}>
                       <td><strong>{item.item_code}</strong></td>
                       <td>{item.item_name}</td>
                       <td>{item.unit}</td>
@@ -192,15 +214,15 @@ const ItemsPage: FC = () => {
                           <button onClick={() => handleDelete(item.id)} className="btn btn-outline-danger" title="Delete"><i className="bi bi-trash"></i></button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
-                </tbody>
+                </motion.tbody>
               </table>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
