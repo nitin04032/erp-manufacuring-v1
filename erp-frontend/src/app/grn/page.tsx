@@ -3,16 +3,26 @@
 import { useState, useEffect, FC } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
+// ✅ Animation ke liye import karein
+import { motion, AnimatePresence } from "framer-motion";
 
-// ✅ 1. Define detailed interfaces for GRN data
-type GRNStatus = 'draft' | 'completed';
+// ✅ Sahi data structure define karein
+interface PurchaseOrderInfo {
+  id: number;
+  po_number: string;
+  supplier: {
+    id: number;
+    name: string;
+  };
+}
+
+type GRNStatus = 'draft' | 'completed' | 'cancelled';
 
 interface GRN {
   id: number;
-  receipt_number: string;
-  po_number: string;
-  supplier_name: string;
-  receipt_date: string;
+  grn_number: string; // <- Sahi naam
+  received_date: string; // <- Sahi naam
+  purchaseOrder: PurchaseOrderInfo; // <- Sahi nested structure
   items: any[];
   status: GRNStatus;
 }
@@ -27,7 +37,7 @@ interface FlashMessage {
   message: string;
 }
 
-// ✅ 2. Create reusable components for clean UI states
+// Reusable Components
 const NoDataDisplay: FC = () => (
   <div className="text-center py-5">
     <i className="bi bi-file-earmark-text display-4 text-muted"></i>
@@ -46,7 +56,19 @@ const LoadingSpinner: FC = () => (
     </div>
 );
 
-// ✅ 3. Convert the component to a typed FC with full state management
+// ✅ Animation ke liye variants
+const tableRowVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.05, // Har row thodi der baad aayegi
+    },
+  }),
+  exit: { opacity: 0, x: -50, transition: { duration: 0.2 } },
+};
+
 const GRNListPage: FC = () => {
   const [grns, setGrns] = useState<GRN[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
@@ -54,21 +76,18 @@ const GRNListPage: FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // States for server-side filtering
   const [status, setStatus] = useState<string>("");
   const [supplier, setSupplier] = useState<string>("");
 
-  // ✅ 4. Implement server-side filtering
   useEffect(() => {
     fetchGrns();
-  }, [status, supplier]); // Refetch when filters change
+  }, [status, supplier]);
 
-  // Fetch initial data (suppliers) and check for flash messages only once
   useEffect(() => {
     fetchSuppliers();
     
     const message = Cookies.get("flashMessage");
-    const type = Cookies.get("flashType") as FlashMessage['type'] | "";
+    const type = Cookies.get("flashType") as FlashMessage['type'] | undefined;
     if (message && type) {
         setFlash({ type, message });
         Cookies.remove("flashMessage");
@@ -83,7 +102,6 @@ const GRNListPage: FC = () => {
       const token = Cookies.get("token");
       const query = new URLSearchParams({ status, supplier }).toString();
       
-      // Corrected to singular 'grn' as requested
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/grn?${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -108,13 +126,11 @@ const GRNListPage: FC = () => {
     }
   };
 
-  // ✅ 5. Add a complete and robust handleDelete function
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this GRN? This action cannot be undone.")) return;
 
     try {
       const token = Cookies.get("token");
-      // Corrected to singular 'grn' as requested
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/grn/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -122,7 +138,8 @@ const GRNListPage: FC = () => {
 
       if (res.ok) {
         setFlash({ type: "success", message: "GRN deleted successfully!" });
-        fetchGrns(); // Refresh the list from the server
+        // Optimistic UI update: remove item from state before refetching
+        setGrns(prevGrns => prevGrns.filter(grn => grn.id !== id));
       } else {
         const err = await res.json();
         setFlash({ type: "danger", message: err.message || "Failed to delete GRN." });
@@ -135,25 +152,45 @@ const GRNListPage: FC = () => {
   const statusClass: Record<GRNStatus, string> = {
     draft: "secondary",
     completed: "success",
+    cancelled: "danger",
   };
 
   return (
-    <div className="container-fluid">
-      {/* Header & Flash Messages */}
+    // ✅ Page-level animation
+    <motion.div 
+      className="container-fluid"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3 mb-0"><i className="bi bi-box-arrow-in-down text-primary me-2"></i> Goods Receipt Notes (GRN)</h1>
-        <Link href="/grn/create" className="btn btn-primary"><i className="bi bi-plus-circle me-2"></i> Create GRN</Link>
+        <Link href="/grn/create" className="btn btn-primary shadow-sm"><i className="bi bi-plus-circle me-2"></i> Create GRN</Link>
       </div>
-      {flash.message && (
-        <div className={`alert alert-${flash.type} alert-dismissible fade show`}>
-          {flash.message}
-          <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
-        </div>
-      )}
+      
+      {/* ✅ Animated Flash Message */}
+      <AnimatePresence>
+        {flash.message && (
+          <motion.div
+            className={`alert alert-${flash.type} alert-dismissible fade show`}
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+          >
+            {flash.message}
+            <button type="button" className="btn-close" onClick={() => setFlash({ type: "", message: "" })}></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Filters Card */}
-      <div className="card border-0 shadow-sm mb-4">
-          <div className="card-body">
+      {/* ✅ Animated Filters Card */}
+      <motion.div 
+        className="card border-0 shadow-sm mb-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="card-body">
               <form className="row g-3">
                   <div className="col-md-3">
                       <label htmlFor="status" className="form-label">Status</label>
@@ -161,6 +198,7 @@ const GRNListPage: FC = () => {
                           <option value="">All Status</option>
                           <option value="draft">Draft</option>
                           <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
                       </select>
                   </div>
                   <div className="col-md-4">
@@ -177,10 +215,15 @@ const GRNListPage: FC = () => {
                   </div>
               </form>
           </div>
-      </div>
+      </motion.div>
 
-      {/* Table Card */}
-      <div className="card border-0 shadow-sm">
+      {/* ✅ Animated Table Card */}
+      <motion.div 
+        className="card border-0 shadow-sm"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
         <div className="card-header bg-light border-0">
             <h5 className="mb-0"><i className="bi bi-list-ul me-2"></i> GRN List <span className="badge bg-primary rounded-pill ms-2">{grns.length}</span></h5>
         </div>
@@ -203,12 +246,24 @@ const GRNListPage: FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {grns.map((grn) => (
-                    <tr key={grn.id}>
-                      <td><strong>{grn.receipt_number}</strong></td>
-                      <td>{grn.po_number}</td>
-                      <td>{grn.supplier_name}</td>
-                      <td>{new Date(grn.receipt_date).toLocaleDateString("en-GB")}</td>
+                  {/* ✅ Wrap list with AnimatePresence for exit animations */}
+                  <AnimatePresence>
+                  {grns.map((grn, i) => (
+                    <motion.tr 
+                      key={grn.id}
+                      variants={tableRowVariants}
+                      custom={i}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      layout // `layout` prop animates re-ordering on delete
+                      whileHover={{ scale: 1.015, backgroundColor: "rgba(0, 123, 255, 0.05)" }}
+                    >
+                      {/* ✅ Sahi data access karein */}
+                      <td><strong>{grn.grn_number}</strong></td>
+                      <td>{grn.purchaseOrder?.po_number}</td>
+                      <td>{grn.purchaseOrder?.supplier?.name}</td>
+                      <td>{new Date(grn.received_date).toLocaleDateString("en-GB")}</td>
                       <td>{grn.items?.length || 0}</td>
                       <td>
                         <span className={`badge bg-${statusClass[grn.status] || "secondary"} text-capitalize`}>
@@ -224,15 +279,16 @@ const GRNListPage: FC = () => {
                             <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(grn.id)} title="Delete"><i className="bi bi-trash"></i></button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
+                  </AnimatePresence>
                 </tbody>
               </table>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-// Interfaces (No changes needed here)
+// Interfaces (UOM ke saath updated)
 interface PurchaseOrderItem {
   item_id: number | '';
   ordered_qty: number;
   unit_price: number;
   discount_percent: number;
   tax_percent: number;
+  uom: string; // UOM field yahan add kiya gaya
 }
 interface PurchaseOrderData {
   supplier_id: number | '';
@@ -34,6 +35,7 @@ interface DropdownOption {
   item_name?: string;
   item_code?: string;
   purchase_rate?: number;
+  uom?: string; // UOM field yahan add kiya gaya
 }
 interface FlashMessage {
   type: "success" | "danger" | "";
@@ -71,9 +73,21 @@ const CreatePurchaseOrderPage: FC = () => {
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, { headers }),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/items`, { headers }),
         ]);
-        if (supRes.ok) setSuppliers(await supRes.json());
-        if (whRes.ok) setWarehouses(await whRes.json());
-        if (itemRes.ok) setItems(await itemRes.json());
+
+        // Assuming API returns an object with a 'data' property
+        if (supRes.ok) {
+            const suppliersData = await supRes.json();
+            setSuppliers(suppliersData.data || suppliersData);
+        }
+        if (whRes.ok) {
+            const warehousesData = await whRes.json();
+            setWarehouses(warehousesData.data || warehousesData);
+        }
+        if (itemRes.ok) {
+            const itemsData = await itemRes.json();
+            setItems(itemsData.data || itemsData);
+        }
+
       } catch (err) {
         setFlash({ type: 'danger', message: 'Failed to load required data.' });
       }
@@ -98,6 +112,9 @@ const CreatePurchaseOrderPage: FC = () => {
       const selectedItem = items.find((i) => i.id == parseInt(value));
       if (selectedItem) {
         itemRow.unit_price = selectedItem.purchase_rate || 0;
+        itemRow.uom = selectedItem.uom || ''; // <-- UOM Yahan set ho raha hai
+      } else {
+        itemRow.uom = ''; // Agar item deselect ho to UOM clear karein
       }
     }
     setPoData(prev => ({ ...prev, items: newItems }));
@@ -106,7 +123,17 @@ const CreatePurchaseOrderPage: FC = () => {
   const addItemRow = () => {
     setPoData(prev => ({
       ...prev,
-      items: [...prev.items, { item_id: "", ordered_qty: 1, unit_price: 0, discount_percent: 0, tax_percent: 0 }],
+      items: [
+        ...prev.items, 
+        { 
+          item_id: "", 
+          ordered_qty: 1, 
+          unit_price: 0, 
+          discount_percent: 0, 
+          tax_percent: 0, 
+          uom: "" // <-- Default UOM value
+        }
+      ],
     }));
   };
 
@@ -129,31 +156,31 @@ const CreatePurchaseOrderPage: FC = () => {
     setSummary({ subtotal, discount: totalDiscount, tax: totalTax, total: subtotal - totalDiscount + totalTax });
   }, [poData.items]);
 
-  // =================================================================
-  // ✅ UPDATED SUBMIT HANDLER
-  // =================================================================
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // 1. Improved Validation
     if (!poData.supplier_id || !poData.warehouse_id || poData.items.length === 0) {
       setFlash({ type: "danger", message: "Supplier, Warehouse and at least one item are required." });
       return;
     }
     setSubmitting(true);
     
-    // 2. Payload exactly matches backend DTO
+    // Payload mein ab UOM bhi jayega
     const payload = {
       supplier_id: Number(poData.supplier_id),
       warehouse_id: Number(poData.warehouse_id),
-      order_date: poData.po_date,
-      expected_date: poData.expected_delivery_date || undefined,
-      status: 'draft', // Default status 'draft'
+      po_date: poData.po_date,
+      expected_delivery_date: poData.expected_delivery_date || undefined,
+      terms_and_conditions: poData.terms_and_conditions,
+      remarks: poData.remarks,
+      status: poData.status,
       items: poData.items.map(item => ({
-        // Only DTO fields are sent
         item_id: Number(item.item_id),
         ordered_qty: item.ordered_qty,
         unit_price: item.unit_price,
+        discount_percent: item.discount_percent,
+        tax_percent: item.tax_percent,
+        uom: item.uom, // <-- UOM server ko bheja ja raha hai
       })),
     };
  
@@ -166,9 +193,7 @@ const CreatePurchaseOrderPage: FC = () => {
       });
  
       if (res.ok) {
-        // 3. Set cookie for success message and redirect
         Cookies.set("flashMessage", "Purchase Order created successfully!", { path: "/" });
-        Cookies.set("flashType", "success", { path: "/" });
         router.push("/purchase-orders");
       } else {
         const err = await res.json();
@@ -254,6 +279,7 @@ const CreatePurchaseOrderPage: FC = () => {
                             <thead>
                                 <tr>
                                     <th style={{width: "25%"}}>Item</th>
+                                    <th style={{width: "10%"}}>UOM</th>
                                     <th style={{width: "10%"}}>Qty</th>
                                     <th style={{width: "15%"}}>Unit Price</th>
                                     <th style={{width: "10%"}}>Discount %</th>
@@ -266,6 +292,7 @@ const CreatePurchaseOrderPage: FC = () => {
                             {poData.items.map((row, index) => (
                                 <tr key={index}>
                                     <td><select name="item_id" className="form-select" value={row.item_id} onChange={(e) => handleItemChange(index, e)} required><option value="">Select Item</option>{items.map(it => <option key={it.id} value={it.id}>{it.item_name} ({it.item_code})</option>)}</select></td>
+                                    <td className="align-middle text-center"><span className="badge bg-secondary">{row.uom || 'N/A'}</span></td>
                                     <td><input type="number" name="ordered_qty" className="form-control" value={row.ordered_qty} onChange={(e) => handleItemChange(index, e)} min="1" required/></td>
                                     <td><input type="number" name="unit_price" className="form-control" value={row.unit_price} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" required/></td>
                                     <td><input type="number" name="discount_percent" className="form-control" value={row.discount_percent} onChange={(e) => handleItemChange(index, e)} min="0" max="100"/></td>

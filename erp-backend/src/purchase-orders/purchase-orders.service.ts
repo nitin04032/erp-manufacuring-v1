@@ -1,4 +1,3 @@
-// erp-backend/src/purchase-orders/purchase-orders.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions } from 'typeorm';
@@ -26,7 +25,6 @@ export class PurchaseOrdersService {
   /**
    * ✅ 1. DATA TRANSFORMER FUNCTION
    * Yeh function database PurchaseOrder object ko frontend-friendly format mein badalta hai.
-   * Isse nested objects (like supplier, warehouse) ke naam seedhe mil jaate hain.
    */
   private transformPoForClient(po: PurchaseOrder): any {
     return {
@@ -36,10 +34,8 @@ export class PurchaseOrdersService {
       expected_date: po.expected_date,
       status: po.status,
       total_amount: po.total_amount,
-      // Nested objects se seedhe naam nikal kar bhejenge
       supplier_name: po.supplier?.name || 'N/A',
       warehouse_name: po.warehouse?.name || 'N/A',
-      // findOne ke liye poori details bhi bhejenge
       supplier_id: po.supplier?.id,
       warehouse_id: po.warehouse?.id,
       items: po.items?.map(item => ({
@@ -49,6 +45,7 @@ export class PurchaseOrdersService {
         item_code: item.item?.item_code || 'N/A',
         ordered_qty: item.ordered_qty,
         unit_price: item.unit_price,
+        uom: item.uom, // ✨ UPDATE: UOM ko client ko bhejne ke liye add kiya gaya
         discount_percent: item.discount_percent,
         tax_percent: item.tax_percent,
         total_amount: item.total_amount,
@@ -56,7 +53,10 @@ export class PurchaseOrdersService {
     };
   }
 
-  // --- Create Method (No changes needed here) ---
+  /**
+   * ✅ 2. UPDATED CREATE METHOD
+   * Ab yeh method DTO se 'uom' field ko save karta hai.
+   */
   async create(dto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id });
     if (!supplier) {
@@ -87,6 +87,7 @@ export class PurchaseOrdersService {
       poItem.item = item;
       poItem.ordered_qty = itemDto.ordered_qty;
       poItem.unit_price = itemDto.unit_price;
+      poItem.uom = itemDto.uom ?? ''; // ✨ UPDATE: DTO se UOM save karne ke liye add kiya gaya (use empty string if undefined)
       poItem.total_amount = itemDto.ordered_qty * itemDto.unit_price;
       poItems.push(poItem);
       calculatedTotalAmount += poItem.total_amount;
@@ -105,14 +106,13 @@ export class PurchaseOrdersService {
   }
 
   /**
-   * ✅ 2. UPDATED FINDALL METHOD
-   * Ab yeh method transformer function use karta hai.
-   * Return type `Promise<any[]>` hai kyunki ab hum custom objects bhej rahe hain.
+   * ✅ 3. UPDATED FINDALL METHOD
+   * Yeh method ab transformer function use karta hai.
    */
   async findAll(query: { status?: string; supplier?: string }): Promise<any[]> {
     const options: FindManyOptions<PurchaseOrder> = {
       order: { order_date: 'DESC' },
-      relations: ['supplier', 'warehouse'], // Relations zaroori hain transformer ke liye
+      relations: ['supplier', 'warehouse', 'items', 'items.item'], // items.item relation zaroori hai
       where: {},
     };
 
@@ -125,14 +125,12 @@ export class PurchaseOrdersService {
     }
 
     const purchaseOrders = await this.repo.find(options);
-    // Har PO ko transform karke bhejein
     return purchaseOrders.map(po => this.transformPoForClient(po));
   }
 
   /**
-   * ✅ 3. UPDATED FINDONE METHOD
+   * ✅ 4. UPDATED FINDONE METHOD
    * Yeh method bhi ab transformer use karta hai.
-   * Return type `Promise<any>` hai.
    */
   async findOne(id: number): Promise<any> {
     const po = await this.repo.findOne({
@@ -144,21 +142,19 @@ export class PurchaseOrdersService {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
     
-    // Single PO ko transform karke bhejein
     return this.transformPoForClient(po);
   }
 
-  // --- Update and Remove Methods ---
+  // --- Update and Remove Methods (No changes needed here) ---
 
   async update(id: number, dto: UpdatePurchaseOrderDto): Promise<PurchaseOrder> {
-    // IMPORTANT: `findOne` ab transformed object deta hai. `merge` ke liye original entity chahiye.
-    // Isliye hum yahan seedhe repo se entity find karenge.
     const existingPoEntity = await this.repo.findOneBy({ id });
     if (!existingPoEntity) {
         throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
 
     const poToUpdate = this.repo.merge(existingPoEntity, dto);
+    // Note: This basic merge won't handle item updates. A more complex logic would be needed for that.
     return this.repo.save(poToUpdate);
   }
 
@@ -169,7 +165,7 @@ export class PurchaseOrdersService {
     }
   }
 
-  // --- Other Helper Methods ---
+  // --- Other Helper Methods (No changes needed here) ---
 
   count(): Promise<number> {
     return this.repo.count();
@@ -199,7 +195,6 @@ export class PurchaseOrdersService {
       take: limit,
       relations: ['supplier', 'warehouse'],
     });
-    // Inhe bhi transform karna behtar hai for UI consistency
     return recentPOs.map(po => this.transformPoForClient(po));
   }
 }

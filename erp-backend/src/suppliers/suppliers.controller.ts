@@ -9,14 +9,16 @@ import {
   UseGuards,
   ParseIntPipe,
   Query,
+  ValidationPipe,
 } from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { QuerySupplierDto } from './dto/query-supplier.dto';
 
 @Controller('suppliers')
-@UseGuards(JwtAuthGuard) // ✅ Guard applied to the whole controller
+@UseGuards(JwtAuthGuard)
 export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
 
@@ -25,12 +27,9 @@ export class SuppliersController {
     return this.suppliersService.create(createSupplierDto);
   }
 
-  // ✅ Added query params for filtering and searching
   @Get()
-  findAll(@Query('status') status?: string, @Query('search') search?: string) {
-    // validate status to expected union
-    const s = status === 'active' ? 'active' : status === 'inactive' ? 'inactive' : undefined;
-    return this.suppliersService.findAll({ status: s, search });
+  findAll(@Query(new ValidationPipe({ transform: true })) query: QuerySupplierDto) {
+    return this.suppliersService.findAll(query);
   }
 
   @Get('count')

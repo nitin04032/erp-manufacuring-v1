@@ -1,5 +1,3 @@
-// erp-backend/src/purchase-orders/purchase-order-item.entity.ts (NEW FILE)
-
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Item } from '../items/item.entity';
@@ -10,10 +8,14 @@ export class PurchaseOrderItem {
   id: number;
 
   @ManyToOne(() => PurchaseOrder, (po) => po.items)
-  purchaseOrder: PurchaseOrder; 
+  purchaseOrder: PurchaseOrder;
 
-  @ManyToOne(() => Item, { eager: true }) // eager loads the item details
+  @ManyToOne(() => Item, { eager: true })
   item: Item;
+  
+  // ✅ ADD THIS COLUMN
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  uom: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 3 })
   ordered_qty: number;

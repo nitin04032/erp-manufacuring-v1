@@ -12,7 +12,7 @@ interface Item {
   item_name: string;
   description?: string;
   item_type: string;
-  item_category?: string;
+  category?: string;
   unit: string | null;
   hsn_code?: string;
   gst_rate: number;
@@ -161,7 +161,7 @@ const ItemDetailsPage: FC = () => {
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Code</label><p className="form-control-plaintext">{item.item_code}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Name</label><p className="form-control-plaintext">{item.item_name}</p></div>
                 <div className="col-md-4 mb-3"><label className="form-label text-muted">Item Type</label><p className="form-control-plaintext text-capitalize">{showOrNA(item.item_type?.replace('_', ' '))}</p></div>
-                <div className="col-md-4 mb-3"><label className="form-label text-muted">Category</label><p className="form-control-plaintext">{showOrNA(item.item_category)}</p></div>
+                <div className="col-md-4 mb-3"><label className="form-label text-muted">Category</label><p className="form-control-plaintext">{showOrNA(item.category)}</p></div>
                 <div className="col-md-4 mb-3">
                   <label className="form-label text-muted">Unit (UOM)</label>
                   <p className="form-control-plaintext">{showOrNA(item.unit).toUpperCase()}</p>

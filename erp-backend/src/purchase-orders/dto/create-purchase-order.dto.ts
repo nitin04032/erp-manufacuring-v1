@@ -1,5 +1,3 @@
-// erp-backend/src/purchase-orders/dto/create-purchase-order.dto.ts
-
 import {
   IsString,
   IsNotEmpty,
@@ -26,6 +24,11 @@ class CreatePurchaseOrderItemDto {
   @IsNumber()
   @Min(0)
   unit_price: number;
+
+  // ✅ UOM (Unit of Measurement) property जोड़ी गई
+  @IsString()
+  @IsOptional()
+  uom?: string;
 }
 
 // मुख्य DTO: Purchase Order बनाने के लिए
@@ -38,7 +41,7 @@ export class CreatePurchaseOrderDto {
   @IsNotEmpty()
   supplier_id: number;
 
-  // ✅ WAREHOUSE ID PROPERTY जोड़ी गई
+  // ✅ Warehouse ID property जोड़ी गई
   @IsInt()
   @IsNotEmpty({ message: 'A warehouse must be selected.' })
   warehouse_id: number;
