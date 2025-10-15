@@ -4,25 +4,28 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-// ✅ 1. Reuse interfaces for consistency
-type GRNStatus = 'draft' | 'completed';
+// ✅ 1. Updated interfaces to match the new API structure
+type GRNStatus = 'draft' | 'completed' | 'cancelled';
 
 interface GRNItem {
-  id: number;
-  item_name: string;
-  item_code: string;
+  id: number; // This is the grn_item ID
+  item: {
+    item_name: string;
+    item_code: string;
+    unit?: string;
+  };
   ordered_qty: number;
-  received_qty: number | string;
-  uom?: string;
+  received_qty: number | string; // Use string for input field compatibility
   remarks?: string;
 }
 
 interface GRN {
   id: number;
-  receipt_number: string;
-  po_number: string;
-  supplier_name: string;
-  receipt_date: string;
+  grn_number: string; // Changed from receipt_number
+  purchaseOrder: {
+    po_number: string;
+  };
+  received_date: string; // Changed from receipt_date
   remarks?: string;
   status: GRNStatus;
   items: GRNItem[];
@@ -33,7 +36,7 @@ interface FlashMessage {
   message: string;
 }
 
-// Reusable UI state components
+// Reusable UI components (no changes)
 const LoadingSpinner: FC = () => (
     <div className="d-flex justify-content-center align-items-center" style={{ height: '70vh' }}>
         <div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div>
@@ -50,19 +53,17 @@ const ErrorDisplay: FC<{ message: string }> = ({ message }) => (
     </div>
 );
 
-
 const EditGRNPage: FC = () => {
   const { id } = useParams();
   const router = useRouter();
 
-  // ✅ 2. Use a single state object for the form and add loading/error/submitting states
   const [grn, setGrn] = useState<GRN | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
 
-  // ✅ 3. Fetch data securely and handle loading/error states
+  // Data fetching logic
   useEffect(() => {
     if (!id) return;
     const fetchData = async () => {
@@ -91,27 +92,23 @@ const EditGRNPage: FC = () => {
     fetchData();
   }, [id]);
 
-  // ✅ 4. Refactor handlers to update a single state object immutably
+  // State handlers
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setGrn(prev => prev ? { ...prev, [id]: value } : null);
   };
 
-  const handleItemChange = (index: number, field: keyof GRNItem, value: string | number) => {
+  const handleItemChange = (index: number, field: 'received_qty' | 'remarks', value: string | number) => {
     setGrn(prevGrn => {
         if (!prevGrn) return null;
-
         const updatedItems = [...prevGrn.items];
-        const itemToUpdate = { ...updatedItems[index] };
-        // @ts-ignore
-        itemToUpdate[field] = value;
+        const itemToUpdate = { ...updatedItems[index], [field]: value };
         updatedItems[index] = itemToUpdate;
-        
         return { ...prevGrn, items: updatedItems };
     });
   };
 
-  // ✅ 5. Implement a robust handleSubmit with validation and better UX
+  // Form submission
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!grn) return;
@@ -119,22 +116,22 @@ const EditGRNPage: FC = () => {
     setSubmitting(true);
     setFlash({ type: "", message: "" });
 
-    // Validation
+    // Client-side validation
     for (const item of grn.items) {
         if (Number(item.received_qty) < 0 || Number(item.received_qty) > item.ordered_qty) {
-            setFlash({ type: 'danger', message: `Invalid quantity for item ${item.item_name}.` });
+            setFlash({ type: 'danger', message: `Invalid received quantity for item ${item.item.item_name}.` });
             setSubmitting(false);
             return;
         }
     }
 
-    // Prepare a clean payload for the PATCH request
+    // ✅ 2. Updated payload to use the correct field name 'received_date'
     const payload = {
-        receipt_date: grn.receipt_date,
+        received_date: grn.received_date,
         remarks: grn.remarks,
         status: grn.status,
         items: grn.items.map(item => ({
-            id: item.id,
+            id: item.id, // This is the grn_item ID
             received_qty: Number(item.received_qty),
             remarks: item.remarks
         }))
@@ -143,7 +140,7 @@ const EditGRNPage: FC = () => {
     try {
       const token = Cookies.get("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/grn/${id}`, {
-        method: "PATCH", // PATCH is better for partial updates
+        method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
@@ -159,7 +156,7 @@ const EditGRNPage: FC = () => {
     } catch (err) {
       setFlash({ type: "danger", message: "A server error occurred." });
     } finally {
-        setSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -172,7 +169,9 @@ const EditGRNPage: FC = () => {
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3 mb-0">
-          <i className="bi bi-pencil-square text-warning me-2"></i> Edit GRN #{grn.receipt_number}
+          <i className="bi bi-pencil-square text-warning me-2"></i> 
+          {/* ✅ 3. JSX updated to use new property names */}
+          Edit GRN #{grn.grn_number}
         </h1>
         <Link href={`/grn/${id}`} className="btn btn-secondary">
           <i className="bi bi-x-circle me-2"></i> Cancel
@@ -190,22 +189,20 @@ const EditGRNPage: FC = () => {
         <div className="row">
           <div className="col-lg-8">
             <div className="card shadow-sm mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">GRN Details</h5>
-              </div>
+              <div className="card-header bg-light"><h5 className="mb-0">GRN Details</h5></div>
               <div className="card-body">
                 <div className="row g-3">
                   <div className="col-md-6">
                     <label className="form-label">PO Number</label>
-                    <input type="text" className="form-control" value={grn.po_number || ""} readOnly disabled />
+                    <input type="text" className="form-control" value={grn.purchaseOrder?.po_number || ""} readOnly disabled />
                   </div>
                   <div className="col-md-6">
-                    <label htmlFor="receipt_date" className="form-label">GRN Date *</label>
+                    <label htmlFor="received_date" className="form-label">GRN Date *</label>
                     <input
                       type="date"
-                      id="receipt_date"
+                      id="received_date"
                       className="form-control"
-                      value={grn.receipt_date?.split("T")[0] || ""}
+                      value={grn.received_date?.split("T")[0] || ""}
                       onChange={handleChange}
                       required
                     />
@@ -227,45 +224,46 @@ const EditGRNPage: FC = () => {
             <div className="card shadow-sm">
                 <div className="card-header bg-light"><h5 className="mb-0">Received Items</h5></div>
                 <div className="card-body p-0">
-                    <div className="table-responsive">
-                        <table className="table table-hover mb-0 align-middle">
-                            <thead className="table-light">
-                            <tr>
-                                <th>Item</th>
-                                <th className="text-end">Ordered</th>
-                                <th style={{width: '15%'}} className="text-end">Received *</th>
-                                <th style={{width: '25%'}}>Remarks</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {grn.items.map((item, i) => (
-                                <tr key={item.id}>
-                                <td>{item.item_name} <br/><small className="text-muted">{item.item_code}</small></td>
-                                <td className="text-end">{item.ordered_qty} {item.uom}</td>
-                                <td>
-                                    <input
-                                    type="number"
-                                    className="form-control text-end"
-                                    value={item.received_qty}
-                                    onChange={(e) => handleItemChange(i, "received_qty", e.target.value)}
-                                    min="0"
-                                    max={item.ordered_qty}
-                                    required
-                                    />
-                                </td>
-                                <td>
-                                    <input
-                                    type="text"
-                                    className="form-control"
-                                    value={item.remarks || ''}
-                                    onChange={(e) => handleItemChange(i, "remarks", e.target.value)}
-                                    />
-                                </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    </div>
+                  <div className="table-responsive">
+                    <table className="table table-hover mb-0 align-middle">
+                      <thead className="table-light">
+                      <tr>
+                          <th>Item</th>
+                          <th className="text-end">Ordered</th>
+                          <th style={{width: '15%'}} className="text-end">Received *</th>
+                          <th style={{width: '25%'}}>Remarks</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      {grn.items.map((item, i) => (
+                          <tr key={item.id}>
+                          {/* ✅ 4. JSX updated for nested item object */}
+                          <td>{item.item.item_name} <br/><small className="text-muted">{item.item.item_code}</small></td>
+                          <td className="text-end">{item.ordered_qty} {item.item.unit}</td>
+                          <td>
+                              <input
+                              type="number"
+                              className="form-control text-end"
+                              value={item.received_qty}
+                              onChange={(e) => handleItemChange(i, "received_qty", e.target.value)}
+                              min="0"
+                              max={item.ordered_qty}
+                              required
+                              />
+                          </td>
+                          <td>
+                              <input
+                              type="text"
+                              className="form-control"
+                              value={item.remarks || ''}
+                              onChange={(e) => handleItemChange(i, "remarks", e.target.value)}
+                              />
+                          </td>
+                          </tr>
+                      ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
             </div>
           </div>
@@ -280,12 +278,12 @@ const EditGRNPage: FC = () => {
                   <option value="completed">Completed</option>
                 </select>
                 <div className="d-grid gap-2">
-                    <button type="submit" className="btn btn-warning" disabled={submitting}>
-                        {submitting ? 'Updating...' : <><i className="bi bi-check-circle me-2"></i> Update GRN</>}
-                    </button>
-                    <Link href={`/grn/${id}`} className="btn btn-secondary">
-                        Cancel
-                    </Link>
+                  <button type="submit" className="btn btn-warning" disabled={submitting}>
+                    {submitting ? 'Updating...' : <><i className="bi bi-check-circle me-2"></i> Update GRN</>}
+                  </button>
+                  <Link href={`/grn/${id}`} className="btn btn-secondary">
+                    Cancel
+                  </Link>
                 </div>
               </div>
             </div>

@@ -4,19 +4,22 @@ import { Grn } from './grn.entity';
 import { GrnService } from './grn.service';
 import { GrnController } from './grn.controller';
 import { PurchaseOrder } from '../purchase-orders/purchase-order.entity';
-import { StocksModule } from '../stocks/stocks.module'; // 👈 Import StocksModule
+import { StocksModule } from '../stocks/stocks.module';
+import { GrnItem } from './grn-item.entity'; // ✅ 1. Import GrnItem
+import { Item } from '../items/item.entity'; // ✅ 2. Import Item
 
 @Module({
   imports: [
-    // Registers the Grn and PurchaseOrder entities to make their repositories
-    // available for injection within this module.
-    TypeOrmModule.forFeature([Grn, PurchaseOrder]),
-    
-    // Imports StocksModule to make StocksService available for injection.
+    TypeOrmModule.forFeature([
+      Grn, 
+      GrnItem, // ✅ 3. Add GrnItem here
+      Item,    // ✅ 4. Add Item here to find by code
+      PurchaseOrder
+    ]),
     StocksModule,
   ],
   providers: [GrnService],
   controllers: [GrnController],
-  exports: [GrnService], // Exports GrnService so other modules can use it
+  exports: [GrnService],
 })
 export class GrnModule {}

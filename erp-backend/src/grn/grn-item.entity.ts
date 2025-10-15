@@ -13,12 +13,17 @@ export class GrnItem {
   @ManyToOne(() => Item, { eager: true })
   item: Item;
 
-  @Column()
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   ordered_qty: number;
 
-  @Column()
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   received_qty: number;
 
-  @Column({ type: 'text', nullable: true })
-  remarks?: string;
+  // ✅ ADD THIS: Store the unit price at the time of receiving
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  unit_price: number;
+
+  // ✅ ADD THIS: Store the calculated total value for this line item
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  total_value: number;
 }

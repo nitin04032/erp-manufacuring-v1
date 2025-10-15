@@ -15,7 +15,7 @@ import {
 class GrnItemDto {
   @IsString()
   @IsNotEmpty()
-  item_code: string;
+  item_id: string;
 
   @IsString()
   @IsNotEmpty()

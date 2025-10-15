@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, EntityManager } from 'typeorm';
 import { Stock } from './stock.entity';
 import { Item } from '../items/item.entity';
 
@@ -16,26 +16,28 @@ export class StocksService {
 
   // --- Stock Management ---
 
-  async increaseStock(itemId: number, warehouse_name: string, qty: number): Promise<Stock> {
-    const item = await this.itemRepo.findOneBy({ id: itemId });
-    if (!item) throw new NotFoundException(`Item with ID ${itemId} not found.`);
+  async increaseStock(
+    itemId: number,
+    warehouse_name: string,
+    qty: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    // Use provided manager's repository when inside a transaction, otherwise use the service repo
+    const repo = manager ? manager.getRepository(Stock) : this.repo;
 
-    let stock = await this.repo.findOne({ where: { item: { id: itemId }, warehouse_name } });
-
-    if (!stock) {
-      stock = this.repo.create({
+    const stock = await repo.findOne({ where: { item: { id: itemId }, warehouse_name } });
+    if (stock) {
+      stock.quantity = (stock.quantity || 0) + qty;
+      await repo.save(stock);
+    } else {
+      // create new stock record
+      const newStock = repo.create({
+        item: { id: itemId },
         warehouse_name,
         quantity: qty,
-        item_name: item.item_name,
-        item_code: item.item_code,
-        uom: item.unit,
-        item: { id: itemId } as Item,
       });
-    } else {
-      stock.quantity = Number(stock.quantity) + Number(qty);
+      await repo.save(newStock);
     }
-
-    return this.repo.save(stock);
   }
 
   async decreaseStock(itemId: number, warehouse_name: string, qty: number): Promise<Stock> {
