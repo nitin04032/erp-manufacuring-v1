@@ -44,6 +44,14 @@ export class PurchaseOrder {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   total_amount: number;
 
+
+  // ✅ YEH DO COLUMNS ADD KAREIN
+  @Column({ type: 'text', nullable: true })
+  terms_and_conditions?: string;
+
+  @Column({ type: 'text', nullable: true })
+  remarks?: string;
+
   @OneToMany(() => PurchaseOrderItem, (item) => item.purchaseOrder, {
     cascade: true, // Important for automatically saving/updating items with the PO
     eager: true, // Load items automatically when fetching a PO

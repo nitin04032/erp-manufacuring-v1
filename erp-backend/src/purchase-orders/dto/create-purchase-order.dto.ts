@@ -25,10 +25,20 @@ class CreatePurchaseOrderItemDto {
   @Min(0)
   unit_price: number;
 
-  // ✅ UOM (Unit of Measurement) property जोड़ी गई
   @IsString()
   @IsOptional()
   uom?: string;
+
+  // ✅ नई फील्ड्स: डिस्काउंट और टैक्स प्रतिशत
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  discount_percent?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  tax_percent?: number;
 }
 
 // मुख्य DTO: Purchase Order बनाने के लिए
@@ -41,7 +51,6 @@ export class CreatePurchaseOrderDto {
   @IsNotEmpty()
   supplier_id: number;
 
-  // ✅ Warehouse ID property जोड़ी गई
   @IsInt()
   @IsNotEmpty({ message: 'A warehouse must be selected.' })
   warehouse_id: number;
@@ -57,6 +66,14 @@ export class CreatePurchaseOrderDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsString()
+  @IsOptional()
+  terms_and_conditions?: string;
+
+  @IsString()
+  @IsOptional()
+  remarks?: string;
 
   // आइटम्स की ऐरे और उसके अंदर के ऑब्जेक्ट्स को वैलिडेट करने के लिए
   @IsArray()

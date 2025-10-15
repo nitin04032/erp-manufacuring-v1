@@ -22,10 +22,7 @@ export class PurchaseOrdersService {
     private warehouseRepo: Repository<Warehouse>,
   ) {}
 
-  /**
-   * ✅ 1. DATA TRANSFORMER FUNCTION
-   * Yeh function database PurchaseOrder object ko frontend-friendly format mein badalta hai.
-   */
+  // यह फंक्शन डेटा को फ्रंटएंड के लिए ट्रांसफॉर्म करता है
   private transformPoForClient(po: PurchaseOrder): any {
     return {
       id: po.id,
@@ -38,6 +35,8 @@ export class PurchaseOrdersService {
       warehouse_name: po.warehouse?.name || 'N/A',
       supplier_id: po.supplier?.id,
       warehouse_id: po.warehouse?.id,
+      terms_and_conditions: po.terms_and_conditions,
+      remarks: po.remarks,
       items: po.items?.map(item => ({
         id: item.id,
         item_id: item.item?.id,
@@ -45,7 +44,7 @@ export class PurchaseOrdersService {
         item_code: item.item?.item_code || 'N/A',
         ordered_qty: item.ordered_qty,
         unit_price: item.unit_price,
-        uom: item.uom, // ✨ UPDATE: UOM ko client ko bhejne ke liye add kiya gaya
+        uom: item.uom,
         discount_percent: item.discount_percent,
         tax_percent: item.tax_percent,
         total_amount: item.total_amount,
@@ -53,10 +52,6 @@ export class PurchaseOrdersService {
     };
   }
 
-  /**
-   * ✅ 2. UPDATED CREATE METHOD
-   * Ab yeh method DTO se 'uom' field ko save karta hai.
-   */
   async create(dto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id });
     if (!supplier) {
@@ -67,11 +62,11 @@ export class PurchaseOrdersService {
     if (!warehouse) {
       throw new NotFoundException(`Warehouse with ID ${dto.warehouse_id} not found`);
     }
-
+    
     if (!dto.po_number) {
-      const lastPO = await this.repo.findOne({ where: {}, order: { id: 'DESC' } });
-      const nextId = (lastPO?.id || 0) + 1;
-      dto.po_number = `PO-${String(nextId).padStart(4, '0')}`;
+        const lastPO = await this.repo.findOne({ where: {}, order: { id: 'DESC' } });
+        const nextId = (lastPO?.id || 0) + 1;
+        dto.po_number = `PO-${String(nextId).padStart(4, '0')}`;
     }
 
     const po = new PurchaseOrder();
@@ -83,13 +78,27 @@ export class PurchaseOrdersService {
       if (!item) {
         throw new NotFoundException(`Item with ID ${itemDto.item_id} not found`);
       }
+      
       const poItem = new PurchaseOrderItem();
       poItem.item = item;
       poItem.ordered_qty = itemDto.ordered_qty;
       poItem.unit_price = itemDto.unit_price;
-      poItem.uom = itemDto.uom ?? ''; // ✨ UPDATE: DTO se UOM save karne ke liye add kiya gaya (use empty string if undefined)
-      poItem.total_amount = itemDto.ordered_qty * itemDto.unit_price;
+      poItem.uom = itemDto.uom ?? '';
+      
+      // ✅ डिस्काउंट और टैक्स प्रतिशत को सेव करें (अगर नहीं है तो 0)
+      poItem.discount_percent = itemDto.discount_percent || 0;
+      poItem.tax_percent = itemDto.tax_percent || 0;
+
+      // ✅ हर आइटम का टोटल अमाउंट सही से कैलकुलेट करें
+      const lineAmount = itemDto.ordered_qty * itemDto.unit_price;
+      const discountAmount = (lineAmount * poItem.discount_percent) / 100;
+      const taxableAmount = lineAmount - discountAmount;
+      const taxAmount = (taxableAmount * poItem.tax_percent) / 100;
+      
+      poItem.total_amount = taxableAmount + taxAmount;
       poItems.push(poItem);
+      
+      // ✅ ग्रैंड टोटल में इस आइटम का टोटल अमाउंट जोड़ें
       calculatedTotalAmount += poItem.total_amount;
     }
 
@@ -99,62 +108,46 @@ export class PurchaseOrdersService {
     po.order_date = new Date(dto.order_date);
     po.expected_date = dto.expected_date ? new Date(dto.expected_date) : undefined;
     po.status = dto.status || 'draft';
+    po.terms_and_conditions = dto.terms_and_conditions;
+    po.remarks = dto.remarks;
     po.total_amount = calculatedTotalAmount;
     po.items = poItems;
 
     return this.repo.save(po);
   }
 
-  /**
-   * ✅ 3. UPDATED FINDALL METHOD
-   * Yeh method ab transformer function use karta hai.
-   */
   async findAll(query: { status?: string; supplier?: string }): Promise<any[]> {
     const options: FindManyOptions<PurchaseOrder> = {
       order: { order_date: 'DESC' },
-      relations: ['supplier', 'warehouse', 'items', 'items.item'], // items.item relation zaroori hai
+      relations: ['supplier', 'warehouse', 'items', 'items.item'],
       where: {},
     };
-
     if (query.status) {
       options.where = { ...options.where, status: query.status };
     }
-
     if (query.supplier) {
       options.where = { ...options.where, supplier: { id: parseInt(query.supplier, 10) } };
     }
-
     const purchaseOrders = await this.repo.find(options);
     return purchaseOrders.map(po => this.transformPoForClient(po));
   }
 
-  /**
-   * ✅ 4. UPDATED FINDONE METHOD
-   * Yeh method bhi ab transformer use karta hai.
-   */
   async findOne(id: number): Promise<any> {
     const po = await this.repo.findOne({
       where: { id },
-      relations: ['supplier', 'warehouse', 'items', 'items.item'], // Saare relations load karein
+      relations: ['supplier', 'warehouse', 'items', 'items.item'],
     });
-
     if (!po) {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
-    
     return this.transformPoForClient(po);
   }
 
-  // --- Update and Remove Methods (No changes needed here) ---
-
   async update(id: number, dto: UpdatePurchaseOrderDto): Promise<PurchaseOrder> {
-    const existingPoEntity = await this.repo.findOneBy({ id });
-    if (!existingPoEntity) {
+    const poToUpdate = await this.repo.preload({ id, ...dto });
+    if (!poToUpdate) {
         throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
-
-    const poToUpdate = this.repo.merge(existingPoEntity, dto);
-    // Note: This basic merge won't handle item updates. A more complex logic would be needed for that.
     return this.repo.save(poToUpdate);
   }
 
@@ -163,38 +156,5 @@ export class PurchaseOrdersService {
     if (result.affected === 0) {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
-  }
-
-  // --- Other Helper Methods (No changes needed here) ---
-
-  count(): Promise<number> {
-    return this.repo.count();
-  }
-
-  async getStatusCounts(): Promise<Record<string, number>> {
-    const counts = await this.repo
-      .createQueryBuilder('po')
-      .select('po.status', 'status')
-      .addSelect('COUNT(po.id)', 'count')
-      .groupBy('po.status')
-      .getRawMany();
-
-    const formattedCounts: Record<string, number> = {};
-    counts.forEach(item => {
-      formattedCounts[item.status] = parseInt(item.count, 10);
-    });
-
-    return formattedCounts;
-  }
-
-  async getRecent(limit: number = 5): Promise<any[]> {
-    const recentPOs = await this.repo.find({
-      order: {
-        created_at: 'DESC',
-      },
-      take: limit,
-      relations: ['supplier', 'warehouse'],
-    });
-    return recentPOs.map(po => this.transformPoForClient(po));
   }
 }

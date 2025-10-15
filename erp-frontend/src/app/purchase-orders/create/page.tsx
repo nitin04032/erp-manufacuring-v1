@@ -4,20 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-// Interfaces (UOM ke saath updated)
+// Interfaces
 interface PurchaseOrderItem {
   item_id: number | '';
   ordered_qty: number;
   unit_price: number;
   discount_percent: number;
   tax_percent: number;
-  uom: string; // UOM field yahan add kiya gaya
+  uom: string;
 }
 interface PurchaseOrderData {
   supplier_id: number | '';
   warehouse_id: number | '';
-  po_date: string;
-  expected_delivery_date: string;
+  order_date: string;
+  expected_date: string;
   terms_and_conditions: string;
   remarks: string;
   status: 'draft' | 'sent';
@@ -34,8 +34,8 @@ interface DropdownOption {
   name: string;
   item_name?: string;
   item_code?: string;
-  purchase_rate?: number;
-  uom?: string; // UOM field yahan add kiya gaya
+  purchase_rate?: number | string;
+  unit?: string;
 }
 interface FlashMessage {
   type: "success" | "danger" | "";
@@ -48,8 +48,8 @@ const CreatePurchaseOrderPage: FC = () => {
   const [poData, setPoData] = useState<PurchaseOrderData>({
     supplier_id: "",
     warehouse_id: "",
-    po_date: new Date().toISOString().split("T")[0],
-    expected_delivery_date: "",
+    order_date: new Date().toISOString().split("T")[0],
+    expected_date: "",
     terms_and_conditions: "",
     remarks: "",
     status: "draft",
@@ -73,21 +73,9 @@ const CreatePurchaseOrderPage: FC = () => {
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, { headers }),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/items`, { headers }),
         ]);
-
-        // Assuming API returns an object with a 'data' property
-        if (supRes.ok) {
-            const suppliersData = await supRes.json();
-            setSuppliers(suppliersData.data || suppliersData);
-        }
-        if (whRes.ok) {
-            const warehousesData = await whRes.json();
-            setWarehouses(warehousesData.data || warehousesData);
-        }
-        if (itemRes.ok) {
-            const itemsData = await itemRes.json();
-            setItems(itemsData.data || itemsData);
-        }
-
+        if (supRes.ok) setSuppliers(await supRes.json());
+        if (whRes.ok) setWarehouses(await whRes.json());
+        if (itemRes.ok) setItems(await itemRes.json());
       } catch (err) {
         setFlash({ type: 'danger', message: 'Failed to load required data.' });
       }
@@ -111,10 +99,11 @@ const CreatePurchaseOrderPage: FC = () => {
     if (name === "item_id") {
       const selectedItem = items.find((i) => i.id == parseInt(value));
       if (selectedItem) {
-        itemRow.unit_price = selectedItem.purchase_rate || 0;
-        itemRow.uom = selectedItem.uom || ''; // <-- UOM Yahan set ho raha hai
+        itemRow.unit_price = Number(selectedItem.purchase_rate) || 0;
+        itemRow.uom = selectedItem.unit || '';
       } else {
-        itemRow.uom = ''; // Agar item deselect ho to UOM clear karein
+        itemRow.unit_price = 0;
+        itemRow.uom = '';
       }
     }
     setPoData(prev => ({ ...prev, items: newItems }));
@@ -123,17 +112,7 @@ const CreatePurchaseOrderPage: FC = () => {
   const addItemRow = () => {
     setPoData(prev => ({
       ...prev,
-      items: [
-        ...prev.items, 
-        { 
-          item_id: "", 
-          ordered_qty: 1, 
-          unit_price: 0, 
-          discount_percent: 0, 
-          tax_percent: 0, 
-          uom: "" // <-- Default UOM value
-        }
-      ],
+      items: [ ...prev.items, { item_id: "", ordered_qty: 1, unit_price: 0, discount_percent: 0, tax_percent: 0, uom: "" }],
     }));
   };
 
@@ -148,7 +127,6 @@ const CreatePurchaseOrderPage: FC = () => {
       const discountAmount = (lineAmount * row.discount_percent) / 100;
       const taxableAmount = lineAmount - discountAmount;
       const taxAmount = (taxableAmount * row.tax_percent) / 100;
-
       subtotal += lineAmount;
       totalDiscount += discountAmount;
       totalTax += taxAmount;
@@ -158,29 +136,28 @@ const CreatePurchaseOrderPage: FC = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
     if (!poData.supplier_id || !poData.warehouse_id || poData.items.length === 0) {
       setFlash({ type: "danger", message: "Supplier, Warehouse and at least one item are required." });
       return;
     }
     setSubmitting(true);
     
-    // Payload mein ab UOM bhi jayega
     const payload = {
       supplier_id: Number(poData.supplier_id),
       warehouse_id: Number(poData.warehouse_id),
-      po_date: poData.po_date,
-      expected_delivery_date: poData.expected_delivery_date || undefined,
+      order_date: poData.order_date,
+      expected_date: poData.expected_date || undefined,
+      status: poData.status,
       terms_and_conditions: poData.terms_and_conditions,
       remarks: poData.remarks,
-      status: poData.status,
       items: poData.items.map(item => ({
         item_id: Number(item.item_id),
-        ordered_qty: item.ordered_qty,
-        unit_price: item.unit_price,
-        discount_percent: item.discount_percent,
-        tax_percent: item.tax_percent,
-        uom: item.uom, // <-- UOM server ko bheja ja raha hai
+        ordered_qty: Number(item.ordered_qty),
+        unit_price: Number(item.unit_price),
+        uom: item.uom,
+        // ✅ डिस्काउंट और टैक्स को पेलोड में जोड़ा गया
+        discount_percent: Number(item.discount_percent) || 0,
+        tax_percent: Number(item.tax_percent) || 0,
       })),
     };
  
@@ -191,9 +168,9 @@ const CreatePurchaseOrderPage: FC = () => {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`},
         body: JSON.stringify(payload),
       });
- 
       if (res.ok) {
         Cookies.set("flashMessage", "Purchase Order created successfully!", { path: "/" });
+        Cookies.set("flashType", "success", { path: "/" });
         router.push("/purchase-orders");
       } else {
         const err = await res.json();
@@ -217,23 +194,19 @@ const CreatePurchaseOrderPage: FC = () => {
 
   return (
     <div className="container-fluid">
-      {/* Flash Message Display */}
       {flash.message && (
           <div className={`alert alert-${flash.type} alert-dismissible fade show`} role="alert">
               {flash.message}
               <button type="button" className="btn-close" onClick={() => setFlash({type: '', message: ''})}></button>
           </div>
       )}
-
       <div className="d-flex justify-content-between align-items-center mb-4">
           <h1 className="h3">Create Purchase Order</h1>
           <Link href="/purchase-orders" className="btn btn-secondary">
               <i className="bi bi-arrow-left me-2"></i>Back to List
           </Link>
       </div>
-
       <form onSubmit={handleSubmit} noValidate>
-        {/* PO Details Card */}
         <div className="card mb-4">
           <div className="card-header"><h5 className="mb-0">Purchase Order Details</h5></div>
           <div className="card-body">
@@ -253,27 +226,27 @@ const CreatePurchaseOrderPage: FC = () => {
                 </select>
               </div>
               <div className="col-md-2 mb-3">
-                <label htmlFor="po_date" className="form-label">PO Date *</label>
-                <input type="date" id="po_date" className="form-control" required value={poData.po_date} onChange={handleHeaderChange} />
+                <label htmlFor="order_date" className="form-label">PO Date *</label>
+                <input type="date" id="order_date" className="form-control" required value={poData.order_date} onChange={handleHeaderChange} />
               </div>
               <div className="col-md-2 mb-3">
-                <label htmlFor="expected_delivery_date" className="form-label">Expected Delivery</label>
-                <input type="date" id="expected_delivery_date" className="form-control" value={poData.expected_delivery_date} onChange={handleHeaderChange} />
+                <label htmlFor="expected_date" className="form-label">Expected Delivery</label>
+                <input type="date" id="expected_date" className="form-control" value={poData.expected_date} onChange={handleHeaderChange} />
               </div>
             </div>
           </div>
         </div>
-
-        {/* Items Card */}
         <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">Items</h5>
-                <button type="button" className="btn btn-sm btn-success" onClick={addItemRow}><i className="bi bi-plus-circle me-2"></i>Add Item</button>
+                <button type="button" className="btn btn-sm btn-success" onClick={addItemRow}>
+                    <i className="bi bi-plus-circle me-2"></i>Add Item
+                </button>
             </div>
             <div className="card-body">
-                {poData.items.length === 0 
-                    ? <p className="text-center text-muted py-3">No items added yet.</p>
-                    : (
+                {poData.items.length === 0 ? (
+                    <p className="text-center text-muted py-3">No items added yet.</p>
+                ) : (
                     <div className="table-responsive">
                         <table className="table">
                             <thead>
@@ -289,26 +262,31 @@ const CreatePurchaseOrderPage: FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                            {poData.items.map((row, index) => (
-                                <tr key={index}>
-                                    <td><select name="item_id" className="form-select" value={row.item_id} onChange={(e) => handleItemChange(index, e)} required><option value="">Select Item</option>{items.map(it => <option key={it.id} value={it.id}>{it.item_name} ({it.item_code})</option>)}</select></td>
-                                    <td className="align-middle text-center"><span className="badge bg-secondary">{row.uom || 'N/A'}</span></td>
-                                    <td><input type="number" name="ordered_qty" className="form-control" value={row.ordered_qty} onChange={(e) => handleItemChange(index, e)} min="1" required/></td>
-                                    <td><input type="number" name="unit_price" className="form-control" value={row.unit_price} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" required/></td>
-                                    <td><input type="number" name="discount_percent" className="form-control" value={row.discount_percent} onChange={(e) => handleItemChange(index, e)} min="0" max="100"/></td>
-                                    <td><input type="number" name="tax_percent" className="form-control" value={row.tax_percent} onChange={(e) => handleItemChange(index, e)} min="0"/></td>
-                                    <td className="text-end align-middle"><strong>₹{calculateLineTotal(row)}</strong></td>
-                                    <td><button type="button" className="btn btn-danger btn-sm" onClick={() => removeItemRow(index)}><i className="bi bi-trash"></i></button></td>
-                                </tr>
-                            ))}
+                                {poData.items.map((row, index) => (
+                                    <tr key={index}>
+                                        <td>
+                                            <select name="item_id" className="form-select" value={row.item_id} onChange={(e) => handleItemChange(index, e)} required>
+                                                <option value="">Select Item</option>
+                                                {items.map(it => <option key={it.id} value={it.id}>{it.item_name} ({it.item_code})</option>)}
+                                            </select>
+                                        </td>
+                                        <td className="align-middle text-center">
+                                            <span className="badge bg-secondary">{row.uom || 'N/A'}</span>
+                                        </td>
+                                        <td><input type="number" name="ordered_qty" className="form-control" value={row.ordered_qty} onChange={(e) => handleItemChange(index, e)} min="1" required/></td>
+                                        <td><input type="number" name="unit_price" className="form-control" value={row.unit_price} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" required/></td>
+                                        <td><input type="number" name="discount_percent" className="form-control" value={row.discount_percent} onChange={(e) => handleItemChange(index, e)} min="0" max="100"/></td>
+                                        <td><input type="number" name="tax_percent" className="form-control" value={row.tax_percent} onChange={(e) => handleItemChange(index, e)} min="0"/></td>
+                                        <td className="text-end align-middle"><strong>₹{calculateLineTotal(row)}</strong></td>
+                                        <td><button type="button" className="btn btn-danger btn-sm" onClick={() => removeItemRow(index)}><i className="bi bi-trash"></i></button></td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
                 )}
             </div>
         </div>
-
-        {/* Summary and Actions */}
         <div className="row">
             <div className="col-lg-8 mb-4">
                 <div className="card">
@@ -334,10 +312,10 @@ const CreatePurchaseOrderPage: FC = () => {
                         <div className="d-flex justify-content-between h5"><strong>Total:</strong><strong>₹{summary.total.toFixed(2)}</strong></div>
                         <hr/>
                         <div className="d-grid gap-2">
-                                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                                    {submitting ? 'Creating...' : <><i className="bi bi-check-circle me-2"></i>Create Purchase Order</>}
-                                </button>
-                                <Link href="/purchase-orders" className="btn btn-outline-secondary">Cancel</Link>
+                            <button type="submit" className="btn btn-primary" disabled={submitting}>
+                                {submitting ? 'Creating...' : <><i className="bi bi-check-circle me-2"></i>Create Purchase Order</>}
+                            </button>
+                            <Link href="/purchase-orders" className="btn btn-outline-secondary">Cancel</Link>
                         </div>
                     </div>
                 </div>
