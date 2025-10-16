@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// erp-backend/src/purchase-orders/purchase-orders.service.ts
+
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindManyOptions } from 'typeorm';
+import { Repository, FindManyOptions, DataSource } from 'typeorm';
 import { PurchaseOrder } from './purchase-order.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
@@ -20,9 +26,161 @@ export class PurchaseOrdersService {
     private itemRepo: Repository<Item>,
     @InjectRepository(Warehouse)
     private warehouseRepo: Repository<Warehouse>,
+    private dataSource: DataSource, // Injected for transactions
   ) {}
 
-  // यह फंक्शन डेटा को फ्रंटएंड के लिए ट्रांसफॉर्म करता है
+  // Centralized function to calculate totals for a list of items
+  private calculateTotals(items: Partial<PurchaseOrderItem>[]) {
+    let grandTotal = 0;
+    for (const item of items) {
+      // ✅ FIX: Provide fallback values to prevent 'undefined' error.
+      const lineAmount = (item.ordered_qty || 0) * (item.unit_price || 0);
+      const discountAmount = (lineAmount * (item.discount_percent || 0)) / 100;
+      const taxableAmount = lineAmount - discountAmount;
+      const taxAmount = (taxableAmount * (item.tax_percent || 0)) / 100;
+      item.total_amount = taxableAmount + taxAmount;
+      grandTotal += item.total_amount;
+    }
+    return { items, grandTotal };
+  }
+
+  async create(dto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
+    // Validate related entities
+    const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id });
+    if (!supplier) {
+      throw new NotFoundException(
+        `Supplier with ID ${dto.supplier_id} not found`,
+      );
+    }
+    const warehouse = await this.warehouseRepo.findOneBy({
+      id: dto.warehouse_id,
+    });
+    if (!warehouse) {
+      throw new NotFoundException(
+        `Warehouse with ID ${dto.warehouse_id} not found`,
+      );
+    }
+
+    // Auto-generate PO number if not provided
+    if (!dto.po_number) {
+      const lastPO = await this.repo.findOne({
+        where: {},
+        order: { id: 'DESC' },
+      });
+      const nextId = (lastPO?.id || 0) + 1;
+      dto.po_number = `PO-${String(nextId).padStart(4, '0')}`;
+    }
+
+    const po = new PurchaseOrder();
+    Object.assign(po, dto); // Assign header details
+    po.supplier = supplier;
+    po.warehouse = warehouse;
+
+    // Process items
+    const poItems: PurchaseOrderItem[] = [];
+    for (const itemDto of dto.items) {
+      const item = await this.itemRepo.findOneBy({ id: itemDto.item_id });
+      if (!item) {
+        throw new NotFoundException(
+          `Item with ID ${itemDto.item_id} not found`,
+        );
+      }
+      const poItem = new PurchaseOrderItem();
+      Object.assign(poItem, itemDto);
+      poItem.item = item;
+      poItems.push(poItem);
+    }
+
+    // Calculate totals and assign to entities
+    const { grandTotal } = this.calculateTotals(poItems);
+    po.items = poItems;
+    po.total_amount = grandTotal;
+
+    return this.repo.save(po);
+  }
+  
+  async update(
+    id: number,
+    dto: UpdatePurchaseOrderDto,
+  ): Promise<PurchaseOrder> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const poToUpdate = await queryRunner.manager.findOne(PurchaseOrder, {
+        where: { id },
+        relations: ['items'],
+      });
+
+      if (!poToUpdate) {
+        throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+      }
+      if (poToUpdate.status !== 'draft') {
+        throw new BadRequestException('Only draft orders can be edited.');
+      }
+
+      // Update header-level properties from DTO
+      queryRunner.manager.merge(PurchaseOrder, poToUpdate, dto);
+      
+      if (dto.supplier_id) {
+          const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id });
+          if (!supplier) throw new NotFoundException(`Supplier with ID ${dto.supplier_id} not found`);
+          poToUpdate.supplier = supplier;
+      }
+      if (dto.warehouse_id) {
+          const warehouse = await this.warehouseRepo.findOneBy({ id: dto.warehouse_id });
+          if (!warehouse) throw new NotFoundException(`Warehouse with ID ${dto.warehouse_id} not found`);
+          poToUpdate.warehouse = warehouse;
+      }
+
+      if (dto.items) {
+        // ✅ FIX: Create a non-nullable const to help TypeScript's type inference.
+        const dtoItems = dto.items;
+        
+        // Delete items that are no longer in the DTO
+        const itemsToRemove = poToUpdate.items.filter(
+          (existingItem) => !dtoItems.some((dtoItem) => dtoItem.item_id === existingItem.item.id),
+        );
+        if (itemsToRemove.length > 0) {
+          await queryRunner.manager.remove(itemsToRemove);
+        }
+        
+        // Add or Update items
+        const updatedItems: PurchaseOrderItem[] = [];
+        for (const itemDto of dtoItems) {
+            const itemEntity = await this.itemRepo.findOneBy({ id: itemDto.item_id });
+            if (!itemEntity) throw new NotFoundException(`Item with ID ${itemDto.item_id} not found`);
+
+            let poItem = poToUpdate.items.find(pi => pi.item.id === itemDto.item_id);
+            if (poItem) { // Update existing item
+                Object.assign(poItem, itemDto);
+            } else { // Create new item
+                poItem = new PurchaseOrderItem();
+                Object.assign(poItem, itemDto);
+                poItem.item = itemEntity;
+                poItem.purchaseOrder = poToUpdate;
+            }
+            updatedItems.push(poItem);
+        }
+        poToUpdate.items = updatedItems;
+      }
+      
+      const { grandTotal } = this.calculateTotals(poToUpdate.items);
+      poToUpdate.total_amount = grandTotal;
+      
+      const updatedPo = await queryRunner.manager.save(poToUpdate);
+      await queryRunner.commitTransaction();
+      return updatedPo;
+
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   private transformPoForClient(po: PurchaseOrder): any {
     return {
       id: po.id,
@@ -37,7 +195,7 @@ export class PurchaseOrdersService {
       warehouse_id: po.warehouse?.id,
       terms_and_conditions: po.terms_and_conditions,
       remarks: po.remarks,
-      items: po.items?.map(item => ({
+      items: po.items?.map((item) => ({
         id: item.id,
         item_id: item.item?.id,
         item_name: item.item?.item_name || 'N/A',
@@ -49,76 +207,14 @@ export class PurchaseOrdersService {
         tax_percent: item.tax_percent,
         total_amount: item.total_amount,
       })),
+      created_at: po.created_at,
+      updated_at: po.updated_at,
     };
-  }
-
-  async create(dto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
-    const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id });
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${dto.supplier_id} not found`);
-    }
-
-    const warehouse = await this.warehouseRepo.findOneBy({ id: dto.warehouse_id });
-    if (!warehouse) {
-      throw new NotFoundException(`Warehouse with ID ${dto.warehouse_id} not found`);
-    }
-    
-    if (!dto.po_number) {
-        const lastPO = await this.repo.findOne({ where: {}, order: { id: 'DESC' } });
-        const nextId = (lastPO?.id || 0) + 1;
-        dto.po_number = `PO-${String(nextId).padStart(4, '0')}`;
-    }
-
-    const po = new PurchaseOrder();
-    let calculatedTotalAmount = 0;
-
-    const poItems: PurchaseOrderItem[] = [];
-    for (const itemDto of dto.items) {
-      const item = await this.itemRepo.findOneBy({ id: itemDto.item_id });
-      if (!item) {
-        throw new NotFoundException(`Item with ID ${itemDto.item_id} not found`);
-      }
-      
-      const poItem = new PurchaseOrderItem();
-      poItem.item = item;
-      poItem.ordered_qty = itemDto.ordered_qty;
-      poItem.unit_price = itemDto.unit_price;
-      poItem.uom = itemDto.uom ?? '';
-      
-      // ✅ डिस्काउंट और टैक्स प्रतिशत को सेव करें (अगर नहीं है तो 0)
-      poItem.discount_percent = itemDto.discount_percent || 0;
-      poItem.tax_percent = itemDto.tax_percent || 0;
-
-      // ✅ हर आइटम का टोटल अमाउंट सही से कैलकुलेट करें
-      const lineAmount = itemDto.ordered_qty * itemDto.unit_price;
-      const discountAmount = (lineAmount * poItem.discount_percent) / 100;
-      const taxableAmount = lineAmount - discountAmount;
-      const taxAmount = (taxableAmount * poItem.tax_percent) / 100;
-      
-      poItem.total_amount = taxableAmount + taxAmount;
-      poItems.push(poItem);
-      
-      // ✅ ग्रैंड टोटल में इस आइटम का टोटल अमाउंट जोड़ें
-      calculatedTotalAmount += poItem.total_amount;
-    }
-
-    po.po_number = dto.po_number;
-    po.supplier = supplier;
-    po.warehouse = warehouse;
-    po.order_date = new Date(dto.order_date);
-    po.expected_date = dto.expected_date ? new Date(dto.expected_date) : undefined;
-    po.status = dto.status || 'draft';
-    po.terms_and_conditions = dto.terms_and_conditions;
-    po.remarks = dto.remarks;
-    po.total_amount = calculatedTotalAmount;
-    po.items = poItems;
-
-    return this.repo.save(po);
   }
 
   async findAll(query: { status?: string; supplier?: string }): Promise<any[]> {
     const options: FindManyOptions<PurchaseOrder> = {
-      order: { order_date: 'DESC' },
+      order: { order_date: 'DESC', id: 'DESC' },
       relations: ['supplier', 'warehouse', 'items', 'items.item'],
       where: {},
     };
@@ -126,10 +222,13 @@ export class PurchaseOrdersService {
       options.where = { ...options.where, status: query.status };
     }
     if (query.supplier) {
-      options.where = { ...options.where, supplier: { id: parseInt(query.supplier, 10) } };
+      options.where = {
+        ...options.where,
+        supplier: { id: parseInt(query.supplier, 10) },
+      };
     }
     const purchaseOrders = await this.repo.find(options);
-    return purchaseOrders.map(po => this.transformPoForClient(po));
+    return purchaseOrders.map((po) => this.transformPoForClient(po));
   }
 
   async findOne(id: number): Promise<any> {
@@ -143,18 +242,45 @@ export class PurchaseOrdersService {
     return this.transformPoForClient(po);
   }
 
-  async update(id: number, dto: UpdatePurchaseOrderDto): Promise<PurchaseOrder> {
-    const poToUpdate = await this.repo.preload({ id, ...dto });
-    if (!poToUpdate) {
-        throw new NotFoundException(`Purchase Order with ID ${id} not found`);
-    }
-    return this.repo.save(poToUpdate);
-  }
-
   async remove(id: number): Promise<void> {
+    const po = await this.repo.findOneBy({id});
+    if (!po) {
+       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+    }
+    if (po.status !== 'draft') {
+        throw new BadRequestException('Only draft orders can be deleted.');
+    }
     const result = await this.repo.delete(id);
     if (result.affected === 0) {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
+  }
+
+  // --- Dashboard Helper Methods ---
+  async count(): Promise<number> {
+    return this.repo.count();
+  }
+
+  async getStatusCounts(): Promise<Record<string, number>> {
+    const rows = await this.repo
+      .createQueryBuilder('po')
+      .select('po.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('po.status')
+      .getRawMany();
+
+    return rows.reduce((acc, r) => {
+      acc[r.status] = Number(r.count);
+      return acc;
+    }, {});
+  }
+
+  async getRecent(limit = 5): Promise<any[]> {
+    const recentPOs = await this.repo.find({
+      relations: ['supplier', 'warehouse'],
+      order: { created_at: 'DESC' },
+      take: limit,
+    });
+    return recentPOs.map(this.transformPoForClient);
   }
 }

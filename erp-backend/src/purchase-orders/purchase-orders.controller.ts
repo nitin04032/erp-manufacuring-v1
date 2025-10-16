@@ -8,9 +8,11 @@ import {
   Param,
   Patch,
   Delete,
-  Query, // Query decorator ko import kiya gaya
+  Query,
   ParseIntPipe,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
@@ -27,10 +29,8 @@ export class PurchaseOrdersController {
     return this.service.create(dto);
   }
 
-  // ✅ YEH METHOD AB QUERY PARAMETERS KO HANDLE KARTA HAI
   @Get()
   findAll(@Query() query: { status?: string; supplier?: string }) {
-    // URL query params (jaise /purchase-orders?status=draft) ko capture karke service ko pass kiya ja raha hai.
     return this.service.findAll(query);
   }
 
@@ -48,6 +48,7 @@ export class PurchaseOrdersController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }

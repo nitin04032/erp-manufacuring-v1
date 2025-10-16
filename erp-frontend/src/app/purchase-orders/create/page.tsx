@@ -1,3 +1,4 @@
+// app/purchase-orders/create/page.tsx
 "use client";
 import { useState, useEffect, FC, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
@@ -20,7 +21,6 @@ interface PurchaseOrderData {
   expected_date: string;
   terms_and_conditions: string;
   remarks: string;
-  status: 'draft' | 'sent';
   items: PurchaseOrderItem[];
 }
 interface Summary {
@@ -31,10 +31,10 @@ interface Summary {
 }
 interface DropdownOption {
   id: number;
-  name: string;
-  item_name?: string;
+  name?: string; // For supplier/warehouse
+  item_name?: string; // For item
   item_code?: string;
-  purchase_rate?: number | string;
+  purchase_rate?: number;
   unit?: string;
 }
 interface FlashMessage {
@@ -52,7 +52,6 @@ const CreatePurchaseOrderPage: FC = () => {
     expected_date: "",
     terms_and_conditions: "",
     remarks: "",
-    status: "draft",
     items: [],
   });
 
@@ -89,22 +88,17 @@ const CreatePurchaseOrderPage: FC = () => {
   };
 
   const handleItemChange = (index: number, e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     const newItems = [...poData.items];
     const itemRow = newItems[index];
     
     // @ts-ignore
-    itemRow[name] = type === 'number' ? parseFloat(value) || 0 : value;
+    itemRow[name] = e.target.type === 'number' ? parseFloat(value) || 0 : value;
 
     if (name === "item_id") {
-      const selectedItem = items.find((i) => i.id == parseInt(value));
-      if (selectedItem) {
-        itemRow.unit_price = Number(selectedItem.purchase_rate) || 0;
-        itemRow.uom = selectedItem.unit || '';
-      } else {
-        itemRow.unit_price = 0;
-        itemRow.uom = '';
-      }
+      const selectedItem = items.find((i) => i.id === parseInt(value));
+      itemRow.unit_price = selectedItem?.purchase_rate || 0;
+      itemRow.uom = selectedItem?.unit || '';
     }
     setPoData(prev => ({ ...prev, items: newItems }));
   };
@@ -136,31 +130,27 @@ const CreatePurchaseOrderPage: FC = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!poData.supplier_id || !poData.warehouse_id || poData.items.length === 0) {
-      setFlash({ type: "danger", message: "Supplier, Warehouse and at least one item are required." });
+    if (!poData.supplier_id || !poData.warehouse_id || poData.items.length === 0 || poData.items.some(i => !i.item_id)) {
+      setFlash({ type: "danger", message: "Supplier, Warehouse and all selected items are required." });
       return;
     }
     setSubmitting(true);
     
     const payload = {
+      ...poData,
       supplier_id: Number(poData.supplier_id),
       warehouse_id: Number(poData.warehouse_id),
-      order_date: poData.order_date,
       expected_date: poData.expected_date || undefined,
-      status: poData.status,
-      terms_and_conditions: poData.terms_and_conditions,
-      remarks: poData.remarks,
       items: poData.items.map(item => ({
+        ...item,
         item_id: Number(item.item_id),
         ordered_qty: Number(item.ordered_qty),
         unit_price: Number(item.unit_price),
-        uom: item.uom,
-        // ✅ डिस्काउंट और टैक्स को पेलोड में जोड़ा गया
         discount_percent: Number(item.discount_percent) || 0,
         tax_percent: Number(item.tax_percent) || 0,
       })),
     };
- 
+  
     try {
       const token = Cookies.get("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/purchase-orders`, {
@@ -169,8 +159,8 @@ const CreatePurchaseOrderPage: FC = () => {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        Cookies.set("flashMessage", "Purchase Order created successfully!", { path: "/" });
-        Cookies.set("flashType", "success", { path: "/" });
+        Cookies.set("flashMessage", "Purchase Order created successfully!", { path: "/purchase-orders" });
+        Cookies.set("flashType", "success", { path: "/purchase-orders" });
         router.push("/purchase-orders");
       } else {
         const err = await res.json();
@@ -189,7 +179,7 @@ const CreatePurchaseOrderPage: FC = () => {
     const discountAmount = (lineAmount * row.discount_percent) / 100;
     const taxableAmount = lineAmount - discountAmount;
     const taxAmount = (taxableAmount * row.tax_percent) / 100;
-    return (taxableAmount + taxAmount).toFixed(2);
+    return (taxableAmount + taxAmount);
   };
 
   return (
@@ -207,7 +197,7 @@ const CreatePurchaseOrderPage: FC = () => {
           </Link>
       </div>
       <form onSubmit={handleSubmit} noValidate>
-        <div className="card mb-4">
+        <div className="card shadow-sm mb-4">
           <div className="card-header"><h5 className="mb-0">Purchase Order Details</h5></div>
           <div className="card-body">
             <div className="row">
@@ -236,19 +226,19 @@ const CreatePurchaseOrderPage: FC = () => {
             </div>
           </div>
         </div>
-        <div className="card mb-4">
+        <div className="card shadow-sm mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">Items</h5>
                 <button type="button" className="btn btn-sm btn-success" onClick={addItemRow}>
                     <i className="bi bi-plus-circle me-2"></i>Add Item
                 </button>
             </div>
-            <div className="card-body">
+            <div className="card-body p-0">
                 {poData.items.length === 0 ? (
                     <p className="text-center text-muted py-3">No items added yet.</p>
                 ) : (
                     <div className="table-responsive">
-                        <table className="table">
+                        <table className="table mb-0">
                             <thead>
                                 <tr>
                                     <th style={{width: "25%"}}>Item</th>
@@ -270,14 +260,12 @@ const CreatePurchaseOrderPage: FC = () => {
                                                 {items.map(it => <option key={it.id} value={it.id}>{it.item_name} ({it.item_code})</option>)}
                                             </select>
                                         </td>
-                                        <td className="align-middle text-center">
-                                            <span className="badge bg-secondary">{row.uom || 'N/A'}</span>
-                                        </td>
-                                        <td><input type="number" name="ordered_qty" className="form-control" value={row.ordered_qty} onChange={(e) => handleItemChange(index, e)} min="1" required/></td>
+                                        <td className="align-middle text-center"><span className="badge bg-secondary">{row.uom || 'N/A'}</span></td>
+                                        <td><input type="number" name="ordered_qty" className="form-control" value={row.ordered_qty} onChange={(e) => handleItemChange(index, e)} min="0.001" step="0.001" required/></td>
                                         <td><input type="number" name="unit_price" className="form-control" value={row.unit_price} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01" required/></td>
-                                        <td><input type="number" name="discount_percent" className="form-control" value={row.discount_percent} onChange={(e) => handleItemChange(index, e)} min="0" max="100"/></td>
-                                        <td><input type="number" name="tax_percent" className="form-control" value={row.tax_percent} onChange={(e) => handleItemChange(index, e)} min="0"/></td>
-                                        <td className="text-end align-middle"><strong>₹{calculateLineTotal(row)}</strong></td>
+                                        <td><input type="number" name="discount_percent" className="form-control" value={row.discount_percent} onChange={(e) => handleItemChange(index, e)} min="0" max="100" step="0.01"/></td>
+                                        <td><input type="number" name="tax_percent" className="form-control" value={row.tax_percent} onChange={(e) => handleItemChange(index, e)} min="0" step="0.01"/></td>
+                                        <td className="text-end align-middle"><strong>₹{calculateLineTotal(row).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
                                         <td><button type="button" className="btn btn-danger btn-sm" onClick={() => removeItemRow(index)}><i className="bi bi-trash"></i></button></td>
                                     </tr>
                                 ))}
@@ -289,13 +277,13 @@ const CreatePurchaseOrderPage: FC = () => {
         </div>
         <div className="row">
             <div className="col-lg-8 mb-4">
-                <div className="card">
+                <div className="card shadow-sm">
                     <div className="card-body">
                         <div className="mb-3">
                             <label htmlFor="terms_and_conditions" className="form-label">Terms & Conditions</label>
                             <textarea id="terms_and_conditions" className="form-control" rows={2} value={poData.terms_and_conditions} onChange={handleHeaderChange}></textarea>
                         </div>
-                        <div className="mb-0">
+                        <div>
                             <label htmlFor="remarks" className="form-label">Remarks</label>
                             <textarea id="remarks" className="form-control" rows={2} value={poData.remarks} onChange={handleHeaderChange}></textarea>
                         </div>
@@ -303,13 +291,13 @@ const CreatePurchaseOrderPage: FC = () => {
                 </div>
             </div>
             <div className="col-lg-4 mb-4">
-                <div className="card">
+                <div className="card shadow-sm">
                     <div className="card-body">
-                        <div className="d-flex justify-content-between mb-2"><span>Subtotal:</span><span>₹{summary.subtotal.toFixed(2)}</span></div>
-                        <div className="d-flex justify-content-between mb-2"><span>Discount:</span><span>₹{summary.discount.toFixed(2)}</span></div>
-                        <div className="d-flex justify-content-between mb-2"><span>Tax:</span><span>₹{summary.tax.toFixed(2)}</span></div>
+                        <div className="d-flex justify-content-between mb-2"><span>Subtotal:</span><span>₹{summary.subtotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
+                        <div className="d-flex justify-content-between mb-2"><span>Discount:</span><span>- ₹{summary.discount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
+                        <div className="d-flex justify-content-between mb-2"><span>Tax:</span><span>+ ₹{summary.tax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span></div>
                         <hr/>
-                        <div className="d-flex justify-content-between h5"><strong>Total:</strong><strong>₹{summary.total.toFixed(2)}</strong></div>
+                        <div className="d-flex justify-content-between h5"><strong>Total:</strong><strong>₹{summary.total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></div>
                         <hr/>
                         <div className="d-grid gap-2">
                             <button type="submit" className="btn btn-primary" disabled={submitting}>

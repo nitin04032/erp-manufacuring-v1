@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+// erp-backend/src/purchase-orders/purchase-order-item.entity.ts
+
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Item } from '../items/item.entity';
 
@@ -7,13 +9,14 @@ export class PurchaseOrderItem {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => PurchaseOrder, (po) => po.items)
+  @ManyToOne(() => PurchaseOrder, (po) => po.items, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'purchase_order_id' })
   purchaseOrder: PurchaseOrder;
 
-  @ManyToOne(() => Item, { eager: true })
+  @ManyToOne(() => Item, { eager: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'item_id' })
   item: Item;
-  
-  // ✅ ADD THIS COLUMN
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   uom: string;
 

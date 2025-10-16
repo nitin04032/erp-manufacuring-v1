@@ -1,3 +1,5 @@
+// erp-backend/src/purchase-orders/dto/create-purchase-order.dto.ts
+
 import {
   IsString,
   IsNotEmpty,
@@ -8,20 +10,21 @@ import {
   ValidateNested,
   IsNumber,
   Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-// नेस्टेड DTO: हर एक आइटम के लिए वैलिडेशन रूल्स
+// DTO for each item within a purchase order
 class CreatePurchaseOrderItemDto {
   @IsInt()
   @IsNotEmpty()
   item_id: number;
 
-  @IsNumber()
-  @Min(1)
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
   ordered_qty: number;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   unit_price: number;
 
@@ -29,26 +32,26 @@ class CreatePurchaseOrderItemDto {
   @IsOptional()
   uom?: string;
 
-  // ✅ नई फील्ड्स: डिस्काउंट और टैक्स प्रतिशत
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(100)
   @IsOptional()
   discount_percent?: number;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @IsOptional()
   tax_percent?: number;
 }
 
-// मुख्य DTO: Purchase Order बनाने के लिए
+// Main DTO for creating the purchase order
 export class CreatePurchaseOrderDto {
   @IsString()
   @IsOptional()
   po_number?: string;
 
   @IsInt()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'A supplier must be selected.' })
   supplier_id: number;
 
   @IsInt()
@@ -75,9 +78,9 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   remarks?: string;
 
-  // आइटम्स की ऐरे और उसके अंदर के ऑब्जेक्ट्स को वैलिडेट करने के लिए
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseOrderItemDto)
+  @IsNotEmpty()
   items: CreatePurchaseOrderItemDto[];
 }

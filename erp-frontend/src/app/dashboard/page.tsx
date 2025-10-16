@@ -1,8 +1,11 @@
 'use client';
 
-import { useApi } from '../../hooks/useApi'; // Apna custom hook import karein
+import { useApi } from '../../hooks/useApi';
 import Link from 'next/link';
-import { motion, Variants } from 'framer-motion';
+// Naya: Framer Motion ke aur hooks import karein
+import { motion, Variants, useAnimate, useInView } from 'framer-motion';
+// Naya: useEffect aur useRef ko import karein
+import { useEffect, useRef } from 'react';
 
 // API se aane waale data ka structure (example)
 interface DashboardStats {
@@ -39,7 +42,7 @@ const containerVariants: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.15, // Thoda slow kiya
+      staggerChildren: 0.1, // Thoda fast kiya
     },
   },
 };
@@ -50,16 +53,15 @@ const itemVariants: Variants = {
     y: 0,
     opacity: 1,
     transition: {
-      duration: 0.6, // Thoda smooth kiya
+      duration: 0.5,
+      ease: 'easeOut',
     },
   },
 };
 
 export default function DashboardPage() {
-  // Step 1: useApi hook se live data fetch karein
   const { data, loading, error } = useApi<DashboardData>('/dashboard/summary');
 
-  // Step 2: Loading state handle karein
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
@@ -70,7 +72,6 @@ export default function DashboardPage() {
     );
   }
 
-  // Step 3: Error state handle karein
   if (error) {
     return (
       <div className="container-fluid mt-4">
@@ -85,7 +86,6 @@ export default function DashboardPage() {
     );
   }
 
-  // Step 4: API se aaye data ya default values ka istemaal karein
   const stats = {
     suppliers: data?.stats?.suppliers ?? 0,
     items: data?.stats?.items ?? 0,
@@ -168,9 +168,16 @@ export default function DashboardPage() {
                   <h6 className="text-muted">No Recent Activities</h6>
                 </div>
               ) : (
-                <div className="timeline">
+                // Naya: List ke liye parent animation container
+                <motion.div
+                  className="timeline"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
                   {recentActivities.map((activity, index) => (
-                    <div className="timeline-item mb-3" key={index}>
+                    // Naya: Har list item ke liye animation
+                    <motion.div className="timeline-item mb-3" key={index} variants={itemVariants}>
                       <div className="d-flex">
                         <div className="flex-shrink-0">
                           <div className="bg-primary rounded-circle p-2">
@@ -189,9 +196,9 @@ export default function DashboardPage() {
                           </small>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </div>
           </div>
@@ -219,10 +226,13 @@ export default function DashboardPage() {
                       <span className={`badge bg-${statusColors[status] || 'secondary'}`}>{count}</span>
                     </div>
                     <div className="progress" style={{ height: '6px' }}>
-                      <div
+                      {/* Naya: Progress bar ke liye animation */}
+                      <motion.div
                         className={`progress-bar bg-${statusColors[status] || 'secondary'}`}
-                        style={{ width: `${(count / total) * 100}%` }}
-                      ></div>
+                        initial={{ width: '0%' }}
+                        animate={{ width: `${(count / total) * 100}%` }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                      ></motion.div>
                     </div>
                   </div>
                 ))
@@ -236,16 +246,43 @@ export default function DashboardPage() {
 }
 
 // Reusable Components
+// Naya: DashboardCard Component ko number animation ke liye update kiya gaya
 function DashboardCard({ icon, color, title, value, link }: { icon: string; color: string; title: string; value?: number | null; link: string; }) {
-  const displayValue = typeof value === 'number' ? value.toLocaleString() : '0';
+  const finalValue = value ?? 0;
+  const [ref, animate] = useAnimate();
+  const isInView = useInView(ref, { once: true });
+
+  useEffect(() => {
+    if (isInView) {
+      // Jab component screen par dikhe, tab animation start karein
+      animate(0, finalValue, {
+        duration: 1.5,
+        onUpdate(latest) {
+          if (ref.current) {
+            ref.current.textContent = latest.toLocaleString('en-US', {
+              maximumFractionDigits: 0,
+            });
+          }
+        },
+      });
+    }
+  }, [isInView, finalValue, animate, ref]);
+
   return (
-    <motion.div className="col-md-3 mb-3" variants={itemVariants} whileHover={{ scale: 1.05, y: -5 }}>
+    <motion.div
+      className="col-md-3 mb-3"
+      variants={itemVariants}
+      whileHover={{ scale: 1.05, y: -5, transition: { type: 'spring', stiffness: 300 } }}
+    >
       <div className="card border-0 shadow-sm h-100">
         <div className="card-body text-center">
           <div className="mb-3">
             <i className={`bi ${icon} display-4 text-${color}`}></i>
           </div>
-          <h3 className="card-title">{displayValue}</h3>
+          {/* Naya: ref yahan `h3` ko diya gaya hai */}
+          <h3 className="card-title" ref={ref}>
+            0
+          </h3>
           <p className="card-text text-muted">{title}</p>
           <Link href={link} className={`btn btn-outline-${color} btn-sm`}>
             <i className="bi bi-arrow-right me-1"></i>View Details
@@ -275,7 +312,7 @@ function QuickActions() {
           <div className="card-body">
             <div className="row text-center">
               {actions.map((action) => (
-                <motion.div className="col mb-2" key={action.label} whileHover={{ scale: 1.1 }}>
+                <motion.div className="col mb-2" key={action.label} whileHover={{ scale: 1.1, y: -3 }}>
                   <Link href={action.link} className={`btn btn-outline-${action.color} d-block p-3`}>
                     <i className={`bi ${action.icon} fs-1 mb-2`}></i>
                     <br />

@@ -1,16 +1,17 @@
+// app/purchase-orders/page.tsx
 "use client";
 
 import { useState, useEffect, FC } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
 
-// ✅ 1. Define detailed interfaces for your data
+// Interfaces to match backend response
 type POStatus = 'draft' | 'sent' | 'acknowledged' | 'partial' | 'completed' | 'cancelled';
 
 interface PurchaseOrder {
   id: number;
   po_number: string;
-  order_date: string; // API sends date as ISO string
+  order_date: string;
   supplier_name: string;
   warehouse_name: string;
   total_amount: number;
@@ -27,7 +28,7 @@ interface FlashMessage {
   message: string;
 }
 
-// ✅ 2. Create reusable components for clean UI states
+// Reusable components for UI states
 const NoDataDisplay: FC = () => (
   <div className="text-center py-5">
     <i className="bi bi-cart-x fs-1 text-muted"></i>
@@ -46,28 +47,24 @@ const LoadingSpinner: FC = () => (
     </div>
 );
 
-// ✅ 3. Convert the component to a typed FC with full state management
 const PurchaseOrdersPage: FC = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // States for server-side filtering
   const [status, setStatus] = useState<string>("");
   const [supplier, setSupplier] = useState<string>("");
 
-  // ✅ 4. Implement server-side filtering
+  // Refetch when filters change
   useEffect(() => {
     fetchPurchaseOrders();
-  }, [status, supplier]); // Refetch when filters change
+  }, [status, supplier]);
 
-  // Fetch initial data (suppliers) only once
+  // Fetch initial data and check for flash messages
   useEffect(() => {
     fetchSuppliers();
     
-    // Check for flash messages from redirects (e.g., after creation)
     const message = Cookies.get("flashMessage");
     const type = Cookies.get("flashType") as "success" | "danger" | "";
     if (message && type) {
@@ -108,9 +105,8 @@ const PurchaseOrdersPage: FC = () => {
     }
   };
 
-  // ✅ 5. Add a complete and robust handleDelete function
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this Purchase Order?")) return;
+    if (!confirm("Are you sure you want to delete this Purchase Order? This action cannot be undone.")) return;
 
     try {
       const token = Cookies.get("token");
@@ -121,7 +117,7 @@ const PurchaseOrdersPage: FC = () => {
 
       if (res.ok) {
         setFlash({ type: "success", message: "Purchase Order deleted successfully!" });
-        fetchPurchaseOrders(); // Refresh the list from the server
+        fetchPurchaseOrders(); // Refresh the list
       } else {
         const err = await res.json();
         setFlash({ type: "danger", message: err.message || "Failed to delete PO." });
@@ -153,7 +149,7 @@ const PurchaseOrdersPage: FC = () => {
       )}
 
       {/* Filters Card */}
-      <div className="card mb-4">
+      <div className="card shadow-sm mb-4">
           <div className="card-body">
               <form className="row g-3">
                   <div className="col-md-3">
@@ -185,7 +181,7 @@ const PurchaseOrdersPage: FC = () => {
       </div>
 
       {/* Table Card */}
-      <div className="card">
+      <div className="card shadow-sm">
         <div className="card-header"><h5 className="mb-0"><i className="bi bi-list-ul"></i> PO List <span className="badge bg-primary ms-2">{purchaseOrders.length}</span></h5></div>
         <div className="card-body">
           {loading ? <LoadingSpinner />
@@ -212,7 +208,7 @@ const PurchaseOrdersPage: FC = () => {
                       <td>{new Date(po.order_date).toLocaleDateString("en-GB")}</td>
                       <td>{po.supplier_name}</td>
                       <td>{po.warehouse_name}</td>
-                      <td>₹{Number(po.total_amount).toLocaleString('en-IN')}</td>
+                      <td>₹{Number(po.total_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                       <td>
                         <span className={`badge bg-${statusClass[po.status] || "secondary"}`}>
                           {po.status.charAt(0).toUpperCase() + po.status.slice(1)}
@@ -222,9 +218,11 @@ const PurchaseOrdersPage: FC = () => {
                         <div className="btn-group btn-group-sm">
                             <Link href={`/purchase-orders/${po.id}`} className="btn btn-outline-primary" title="View"><i className="bi bi-eye"></i></Link>
                             {po.status === "draft" && (
-                                <Link href={`/purchase-orders/${po.id}/edit`} className="btn btn-outline-secondary" title="Edit"><i className="bi bi-pencil"></i></Link>
+                                <>
+                                  <Link href={`/purchase-orders/${po.id}/edit`} className="btn btn-outline-secondary" title="Edit"><i className="bi bi-pencil"></i></Link>
+                                  <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(po.id)} title="Delete"><i className="bi bi-trash"></i></button>
+                                </>
                             )}
-                            <button type="button" className="btn btn-outline-danger" onClick={() => handleDelete(po.id)} title="Delete"><i className="bi bi-trash"></i></button>
                         </div>
                       </td>
                     </tr>
