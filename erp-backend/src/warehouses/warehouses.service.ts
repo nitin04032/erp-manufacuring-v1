@@ -1,104 +1,111 @@
-// erp-backend/src/warehouses/warehouses.service.ts
 import {
   Injectable,
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { Warehouse } from './warehouse.entity';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
-import { FindManyOptions } from 'typeorm';
 
 @Injectable()
 export class WarehousesService {
   constructor(
     @InjectRepository(Warehouse)
-    private readonly warehouseRepository: Repository<Warehouse>,
+    private readonly repo: Repository<Warehouse>,
   ) {}
 
+  /**
+   * Create a warehouse. If no code provided, auto-generate as WH-001 style.
+   */
   async create(dto: CreateWarehouseDto): Promise<Warehouse> {
-    
-    // Automatic code generation logic
-    if (!dto.code) {
-        const lastWarehouse = await this.warehouseRepository.findOne({
-            order: { id: 'DESC' },
-            where: {}, // Empty where condition is required for TypeORM v0.3.x
-        });
+    // 1. Create a new object to hold all data, starting with the DTO.
+    const dataToSave: Partial<Warehouse> = { ...dto };
 
-        let newCode = 'WH-001';
-        if (lastWarehouse && lastWarehouse.code) {
-            const lastNum = parseInt(lastWarehouse.code.split('-')[1]);
-            const nextNum = lastNum + 1;
-            newCode = `WH-${String(nextNum).padStart(3, '0')}`;
-        }
-        dto.code = newCode;
+    // 2. Generate the code and add it to our new object.
+    if (!dataToSave.code) {
+      const last = await this.repo.findOne({
+        order: { id: 'DESC' },
+        withDeleted: false,
+      });
+      const nextNum = last?.code
+        ? parseInt(String(last.code).split('-').pop() || '0', 10) + 1
+        : 1;
+      dataToSave.code = `WH-${String(nextNum).padStart(3, '0')}`;
     }
 
-    // Duplicate code check
-    const existingWarehouse = await this.warehouseRepository.findOne({
-      where: { code: dto.code },
+    // 3. Check for conflicts using the final code.
+    const existing = await this.repo.findOne({
+      where: [{ code: dataToSave.code }, { name: dataToSave.name }],
     });
-
-    if (existingWarehouse) {
-      throw new ConflictException('Warehouse with this code already exists');
+    if (existing) {
+      throw new ConflictException(
+        'Warehouse with same code or name already exists.',
+      );
     }
 
-    const warehouse = this.warehouseRepository.create(dto);
-    return this.warehouseRepository.save(warehouse);
+    // 4. Pass the complete object directly to save().
+    // This creates and saves the entity in one step and correctly returns a single Warehouse.
+    return this.repo.save(dataToSave);
   }
 
-  // findAll function with filtering
-  findAll(query?: { status?: string, search?: string }): Promise<Warehouse[]> {
-    const options: FindManyOptions<Warehouse> = {
-        order: { name: 'ASC' }
-    };
-    
+  /**
+   * Find all warehouses with optional filters: status (active/inactive), search (name/code/city)
+   */
+  async findAll(params?: {
+    status?: string;
+    search?: string;
+  }): Promise<Warehouse[]> {
     const where: any = {};
 
-    if (query?.status) {
-      where.is_active = query.status === 'active';
-    }
-    
-    if (query?.search) {
-      const searchQuery = Like(`%${query.search}%`);
-      options.where = [
-          { ...where, name: searchQuery },
-          { ...where, code: searchQuery },
-          { ...where, contact_person: searchQuery }
-      ];
-    } else if (Object.keys(where).length > 0) {
-        options.where = where;
+    if (params?.status) {
+      where.is_active = params.status === 'active';
     }
 
-    return this.warehouseRepository.find(options);
+    if (params?.search) {
+      const q = params.search;
+      return this.repo.find({
+        where: [
+          { ...where, name: ILike(`%${q}%`) },
+          { ...where, code: ILike(`%${q}%`) },
+          { ...where, city: ILike(`%${q}%`) },
+        ],
+        order: { name: 'ASC' },
+      });
+    }
+
+    return this.repo.find({ where, order: { name: 'ASC' } });
   }
 
   async findOne(id: number): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.findOneBy({ id });
-    if (!warehouse) {
-      throw new NotFoundException(`Warehouse with ID #${id} not found`);
-    }
-    return warehouse;
+    const w = await this.repo.findOne({ where: { id } });
+    if (!w) throw new NotFoundException('Warehouse not found.');
+    return w;
   }
 
   async update(id: number, dto: UpdateWarehouseDto): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.preload({ id, ...dto });
-    if (!warehouse) {
-      throw new NotFoundException(`Warehouse with ID #${id} not found`);
+    const existing = await this.repo.findOne({ where: { id } });
+    if (!existing) throw new NotFoundException('Warehouse not found.');
+
+    if (dto.code && dto.code !== existing.code) {
+      const codeExists = await this.repo.findOne({ where: { code: dto.code } });
+      if (codeExists) throw new ConflictException('Code already in use.');
     }
-    return this.warehouseRepository.save(warehouse);
+
+    Object.assign(existing, dto);
+    return this.repo.save(existing);
   }
 
+  /**
+   * Soft delete (keeps data for audits)
+   */
   async remove(id: number): Promise<void> {
-    const result = await this.warehouseRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Warehouse with ID #${id} not found`);
-    }
+    const res = await this.repo.softDelete(id);
+    if (!res.affected) throw new NotFoundException('Warehouse not found');
   }
 
-  count(): Promise<number> {
-    return this.warehouseRepository.count();
+  async count(): Promise<number> {
+    return this.repo.count();
   }
 }

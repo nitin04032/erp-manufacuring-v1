@@ -8,7 +8,6 @@ import { WarehousesController } from './warehouses.controller';
   imports: [TypeOrmModule.forFeature([Warehouse])],
   providers: [WarehousesService],
   controllers: [WarehousesController],
-  // Export the service so other modules (like Dashboard) can use it
   exports: [WarehousesService],
 })
 export class WarehousesModule {}

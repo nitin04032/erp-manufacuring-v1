@@ -1,66 +1,82 @@
 import {
-  IsString,
   IsNotEmpty,
   IsOptional,
+  IsString,
   MaxLength,
+  IsPostalCode,
   IsBoolean,
-  IsEmail, // ✅ IsEmail import kiya gaya
+  IsPhoneNumber,
+  ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+export const Trim = () =>
+  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
 
 export class CreateWarehouseDto {
-  @IsString()
   @IsOptional()
-  @MaxLength(100)
+  @IsString()
+  @MaxLength(50)
+  @Trim()
   code?: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  @Trim()
+  name!: string;
 
   @IsOptional()
   @IsString()
-  description?: string; // ✅ description field add kiya gaya
+  @MaxLength(500)
+  @Trim()
+  description?: string;
 
   @IsOptional()
   @IsString()
+  @Trim()
   address?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
+  @Trim()
   city?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
+  @Trim()
   state?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  country?: string; // ✅ country field add kiya gaya
+  @Trim()
+  country?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(10) // ✅ Pincode ki length 10 set ki gayi
+  @IsPostalCode('IN')
   pincode?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(255)
+  @Trim()
+  contact_person?: string;
+
+  @IsOptional()
+  @IsPhoneNumber('IN')
   phone?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  contact_person?: string;
-
-  @IsOptional()
-  @IsEmail() // ✅ Email validation add kiya gaya
-  email?: string; // ✅ email field add kiya gaya
+  @Trim()
+  email?: string;
 
   @IsOptional()
   @IsBoolean()
-  is_active?: boolean;
+  @ValidateIf(o => o.is_active !== undefined)
+  is_active?: boolean = true;
 }
