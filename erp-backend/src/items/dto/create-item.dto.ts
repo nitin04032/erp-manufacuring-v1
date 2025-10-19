@@ -1,61 +1,42 @@
-import { IsString, IsOptional, IsNotEmpty, MaxLength, IsNumber, Min, IsIn, IsBoolean } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsNotEmpty, IsString, IsOptional, MaxLength, IsNumber, Min, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+export const Trim = () =>
+  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
 
 export class CreateItemDto {
-  @IsString()
   @IsOptional()
-  @MaxLength(100)
-  item_code?: string;
+  @IsString()
+  @MaxLength(50)
+  @Trim()
+  sku?: string; // optional, auto-generate if missing
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  item_name: string;
+  @Trim()
+  name!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  @Trim()
   description?: string;
 
-  @IsString()
   @IsOptional()
-  @IsIn(['raw_material', 'semi_finished', 'finished_goods', 'consumable', 'service'])
-  item_type?: string;
-
-  // ✅ SUDHAR YAHAN HAI (FIX IS HERE)
   @IsString()
-  @IsOptional()
   @MaxLength(100)
-  category?: string; // 'item_category' ko 'category' kar diya gaya hai
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(20)
+  @Trim()
   unit?: string;
 
-  @IsString()
   @IsOptional()
-  @MaxLength(50)
-  hsn_code?: string;
-
-  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
-  sale_rate?: number;
-
-  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
-  gst_rate?: number;
-
-  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
-  purchase_rate?: number;
-
-  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
-  minimum_stock?: number;
-
-  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
-  maximum_stock?: number;
-
-  @Type(() => Number) @IsNumber() @Min(0) @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   reorder_level?: number;
 
-  @IsBoolean()
   @IsOptional()
-  is_active?: boolean;
+  @IsBoolean()
+  @Transform(({ value }) => (value === undefined ? true : value))
+  is_active?: boolean = true;
 }
