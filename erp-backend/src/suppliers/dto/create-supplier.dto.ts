@@ -11,13 +11,17 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-export function Trim() {
-  return Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+export const Trim = () =>
+  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+
+export enum SupplierStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
 }
 
 export class CreateSupplierDto {
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(100)
   @Trim()
   supplier_code?: string;
@@ -26,21 +30,21 @@ export class CreateSupplierDto {
   @IsNotEmpty()
   @MaxLength(255)
   @Trim()
-  name: string;
+  name!: string;
 
   @IsString()
-  @IsNotEmpty() // Contact person is now required
+  @IsNotEmpty()
   @MaxLength(255)
   @Trim()
-  contact_person: string;
+  contact_person!: string;
 
   @IsEmail()
   @IsNotEmpty()
   @Trim()
-  email: string;
+  email!: string;
 
   @IsOptional()
-  @IsPhoneNumber('IN') // Validates Indian phone numbers
+  @IsPhoneNumber('IN')
   phone?: string;
 
   @IsOptional()
@@ -51,34 +55,43 @@ export class CreateSupplierDto {
   @Trim()
   gst_number?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @Trim()
   address?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(100)
   @Trim()
   city?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(100)
   @Trim()
   state?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(100)
   @Trim()
   country?: string;
 
   @IsOptional()
-  @IsPostalCode('IN') // Validates Indian pincodes
+  @IsPostalCode('IN')
   pincode?: string;
 
-  @IsBoolean()
   @IsOptional()
+  @IsBoolean()
   is_active?: boolean;
+}
+
+export class QuerySupplierDto {
+  @IsOptional()
+  status?: SupplierStatus;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

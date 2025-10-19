@@ -4,122 +4,87 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindManyOptions, Not } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { Supplier } from './supplier.entity';
-import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { CreateSupplierDto, QuerySupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
-import { QuerySupplierDto } from './dto/query-supplier.dto';
 
 @Injectable()
 export class SuppliersService {
   constructor(
     @InjectRepository(Supplier)
-    private suppliersRepository: Repository<Supplier>,
+    private readonly repo: Repository<Supplier>,
   ) {}
 
-  async create(createSupplierDto: CreateSupplierDto): Promise<Supplier> {
-    // Auto-generate supplier code if not provided
-    if (!createSupplierDto.supplier_code) {
-      const lastSupplier = await this.suppliersRepository.findOne({
+  async create(dto: CreateSupplierDto): Promise<Supplier> {
+    if (!dto.supplier_code) {
+      const last = await this.repo.findOne({
         order: { id: 'DESC' },
-        where: {}, // Necessary for TypeORM versions < 0.3
+        withDeleted: false,
       });
-      let newCode = 'SUP-001';
-      if (lastSupplier && lastSupplier.supplier_code) {
-        const lastNum = parseInt(lastSupplier.supplier_code.split('-')[1]);
-        const nextNum = lastNum + 1;
-        newCode = `SUP-${String(nextNum).padStart(3, '0')}`;
-      }
-      createSupplierDto.supplier_code = newCode;
+      const nextNum = last?.supplier_code
+        ? parseInt(last.supplier_code.split('-')[1]) + 1
+        : 1;
+      dto.supplier_code = `SUP-${String(nextNum).padStart(3, '0')}`;
     }
 
-    // Check for duplicate code or email before creating
-    const existing = await this.suppliersRepository.findOne({
-      where: [
-        { email: createSupplierDto.email },
-        { supplier_code: createSupplierDto.supplier_code },
-      ],
+    const duplicate = await this.repo.findOne({
+      where: [{ email: dto.email }, { supplier_code: dto.supplier_code }],
     });
+    if (duplicate)
+      throw new ConflictException('Supplier with this email or code exists.');
 
-    if (existing) {
-      throw new ConflictException(
-        'Supplier with this email or code already exists',
-      );
-    }
-
-    const newSupplier = this.suppliersRepository.create(createSupplierDto);
-    return this.suppliersRepository.save(newSupplier);
+    const entity = this.repo.create(dto);
+    return this.repo.save(entity);
   }
 
-  // Server-side filtering and searching
-  findAll(query: QuerySupplierDto): Promise<Supplier[]> {
-    const { status, search } = query;
-    const options: FindManyOptions<Supplier> = {
-      order: { name: 'ASC' },
-    };
+  async findAll(query: QuerySupplierDto): Promise<Supplier[]> {
     const where: any = {};
 
-    if (status) {
-      where.is_active = status === 'active';
+    if (query.status)
+      where.is_active = query.status === 'active' ? true : false;
+
+    if (query.search) {
+      return this.repo.find({
+        where: [
+          { ...where, name: ILike(`%${query.search}%`) },
+          { ...where, supplier_code: ILike(`%${query.search}%`) },
+          { ...where, contact_person: ILike(`%${query.search}%`) },
+          { ...where, email: ILike(`%${query.search}%`) },
+        ],
+        order: { name: 'ASC' },
+      });
     }
 
-    if (search) {
-      const searchQuery = Like(`%${search}%`);
-      // Apply search across multiple fields, combined with status filter
-      options.where = [
-        { ...where, name: searchQuery },
-        { ...where, supplier_code: searchQuery },
-        { ...where, contact_person: searchQuery },
-        { ...where, email: searchQuery },
-      ];
-    } else if (Object.keys(where).length > 0) {
-      // Apply only the status filter if no search term is provided
-      options.where = where;
-    }
-
-    return this.suppliersRepository.find(options);
+    return this.repo.find({ where, order: { name: 'ASC' } });
   }
 
   async findOne(id: number): Promise<Supplier> {
-    const supplier = await this.suppliersRepository.findOneBy({ id });
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID #${id} not found`);
-    }
+    const supplier = await this.repo.findOne({ where: { id } });
+    if (!supplier) throw new NotFoundException('Supplier not found');
     return supplier;
   }
 
-  async update(
-    id: number,
-    updateSupplierDto: UpdateSupplierDto,
-  ): Promise<Supplier> {
-    // Check for email conflict on update, excluding the current supplier
-    if (updateSupplierDto.email) {
-      const existing = await this.suppliersRepository.findOne({
-        where: { email: updateSupplierDto.email, id: Not(id) },
-      });
-      if (existing) {
-        throw new ConflictException('Email is already in use by another supplier.');
-      }
+  async update(id: number, dto: UpdateSupplierDto): Promise<Supplier> {
+    const existing = await this.repo.findOne({ where: { id } });
+    if (!existing) throw new NotFoundException('Supplier not found');
+
+    if (dto.email && dto.email !== existing.email) {
+      const emailExists = await this.repo.findOne({ where: { email: dto.email } });
+      if (emailExists)
+        throw new ConflictException('Email already used by another supplier');
     }
 
-    const supplier = await this.suppliersRepository.preload({
-      id,
-      ...updateSupplierDto,
-    });
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID #${id} not found`);
-    }
-    return this.suppliersRepository.save(supplier);
+    Object.assign(existing, dto);
+    return this.repo.save(existing);
   }
 
   async remove(id: number): Promise<void> {
-    const result = await this.suppliersRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Supplier with ID #${id} not found`);
-    }
+    const res = await this.repo.softDelete(id);
+    if (!res.affected) throw new NotFoundException('Supplier not found');
   }
 
-  count(): Promise<number> {
-    return this.suppliersRepository.count();
+  async count(): Promise<number> {
+    return this.repo.count();
   }
 }

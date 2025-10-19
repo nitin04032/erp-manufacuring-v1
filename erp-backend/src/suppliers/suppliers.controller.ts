@@ -6,52 +6,53 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
   ParseIntPipe,
   Query,
+  UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
-import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { CreateSupplierDto, QuerySupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { QuerySupplierDto } from './dto/query-supplier.dto';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('suppliers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class SuppliersController {
-  constructor(private readonly suppliersService: SuppliersService) {}
+  constructor(private readonly service: SuppliersService) {}
 
+  @Roles('admin', 'manager')
   @Post()
-  create(@Body() createSupplierDto: CreateSupplierDto) {
-    return this.suppliersService.create(createSupplierDto);
+  create(@Body() dto: CreateSupplierDto) {
+    return this.service.create(dto);
   }
 
   @Get()
   findAll(@Query(new ValidationPipe({ transform: true })) query: QuerySupplierDto) {
-    return this.suppliersService.findAll(query);
+    return this.service.findAll(query);
   }
 
   @Get('count')
-  getCount() {
-    return this.suppliersService.count();
+  count() {
+    return this.service.count();
   }
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.suppliersService.findOne(id);
+    return this.service.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateSupplierDto: UpdateSupplierDto,
-  ) {
-    return this.suppliersService.update(id, updateSupplierDto);
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSupplierDto) {
+    return this.service.update(id, dto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
-    return this.suppliersService.remove(id);
+    return this.service.remove(id);
   }
 }
