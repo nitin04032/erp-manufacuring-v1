@@ -1,57 +1,34 @@
+import { IsNotEmpty, IsArray, ValidateNested, IsDateString, IsOptional, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsDateString,
-  IsInt,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsPositive,
-  IsString,
-  ValidateNested,
-} from 'class-validator';
 
-// A helper DTO for each item in the GRN
-class GrnItemDto {
-  @IsString()
+class CreateGrnItemDto {
   @IsNotEmpty()
-  item_id: string;
+  @IsInt()
+  item_id!: number;
 
-  @IsString()
   @IsNotEmpty()
-  item_name: string;
+  @IsInt()
+  @Min(1)
+  received_qty!: number;
 
-  @IsNumber()
-  @IsPositive()
-  received_qty: number;
-
-  @IsString()
-  @IsNotEmpty()
-  uom: string;
+  @IsOptional()
+  remarks?: string;
 }
 
 export class CreateGrnDto {
-  @IsString()
-  @IsNotEmpty()
-  grn_number: string;
-
-  @IsInt()
-  @IsPositive()
-  purchaseOrderId: number;
-
   @IsDateString()
-  received_date: string;
+  grn_date!: string;
 
-  @IsString()
   @IsNotEmpty()
-  warehouse_name: string;
+  @IsInt()
+  warehouse_id!: number;
+
+  @IsOptional()
+  @IsNotEmpty()
+  supplier_ref?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => GrnItemDto)
-  items: GrnItemDto[];
-
-  @IsOptional()
-  @IsString()
-  remarks?: string;
+  @Type(() => CreateGrnItemDto)
+  items!: CreateGrnItemDto[];
 }

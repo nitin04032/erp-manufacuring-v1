@@ -1,170 +1,108 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository,EntityManager, DataSource } from 'typeorm';
-import { Grn } from './grn.entity';
+import { Repository, DataSource } from 'typeorm';
+import { Grn } from './entities/grn.entity';
+import { GrnItem } from './entities/grn-item.entity';
 import { CreateGrnDto } from './dto/create-grn.dto';
 import { UpdateGrnDto } from './dto/update-grn.dto';
-import { PurchaseOrder } from '../purchase-orders/purchase-order.entity';
-import { StocksService } from '../stocks/stocks.service';
-import { GrnItem } from './grn-item.entity';
 import { Item } from '../items/item.entity';
+import { Warehouse } from '../warehouses/warehouse.entity';
 
 @Injectable()
 export class GrnService {
   constructor(
-    @InjectRepository(Grn)
-    private repo: Repository<Grn>,
-    @InjectRepository(PurchaseOrder)
-    private poRepo: Repository<PurchaseOrder>,
-    private stocksService: StocksService,
-    // Inject DataSource to manage database transactions
-    private dataSource: DataSource,
+    @InjectRepository(Grn) private readonly grnRepo: Repository<Grn>,
+    @InjectRepository(GrnItem) private readonly grnItemRepo: Repository<GrnItem>,
+    @InjectRepository(Item) private readonly itemRepo: Repository<Item>,
+    @InjectRepository(Warehouse) private readonly warehouseRepo: Repository<Warehouse>,
+    private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Creates a new GRN and updates stock levels within a single database transaction.
-   */
+  private async generateGrnNumber(): Promise<string> {
+    const last = await this.grnRepo.findOne({ order: { id: 'DESC' } });
+    const next = last ? last.id + 1 : 1;
+    return `GRN-${String(next).padStart(6, '0')}`;
+  }
+
   async create(dto: CreateGrnDto): Promise<Grn> {
-    // 1. Fetch the Purchase Order with all its related items and warehouse info.
-    const po = await this.poRepo.findOne({
-      where: { id: dto.purchaseOrderId },
-      relations: ['items', 'items.item', 'warehouse'], // Ensure warehouse is loaded
-    });
-    if (!po) {
-      throw new NotFoundException(
-        `Purchase Order #${dto.purchaseOrderId} not found`,
-      );
-    }
-    if (!po.warehouse) {
-      throw new BadRequestException(
-        `Purchase Order #${po.id} does not have a warehouse assigned.`,
-      );
-    }
+    const warehouse = await this.warehouseRepo.findOne({ where: { id: dto.warehouse_id } });
+    if (!warehouse) throw new NotFoundException('Warehouse not found.');
 
-    // Resolve a warehouse_name string from the PO's warehouse object.
-    // Try common property names and fall back to the id to avoid TS errors.
-    const warehouseName =
-      (po.warehouse as any).warehouse_name ??
-      (po.warehouse as any).name ??
-      (po.warehouse as any).warehouse ??
-      String((po.warehouse as any).id);
+    // Validate items exist
+    const itemIds = dto.items.map(i => i.item_id);
+    const items = await this.itemRepo.findByIds(itemIds);
+    if (items.length !== itemIds.length) throw new BadRequestException('One or more items not found.');
 
-    // 2. Use a database transaction for safety.
-    // This ensures that either everything succeeds or everything fails together.
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-
     try {
-      // 3. Create the main GRN entity.
-      const grn = new Grn();
-      grn.purchaseOrder = po;
-      grn.received_date = new Date(dto.received_date);
-      grn.remarks = dto.remarks;
-      grn.status = 'completed'; // Set status upon creation.
+      const grnNumber = await this.generateGrnNumber();
+      const grn = this.grnRepo.create({
+        grn_number: grnNumber,
+        grn_date: dto.grn_date,
+        warehouse,
+        supplier_ref: dto.supplier_ref,
+        status: 'pending' as any,
+      });
 
-      let totalReceivedValue = 0;
-      const grnItems: GrnItem[] = [];
+      const savedGrn = await queryRunner.manager.save(Grn, grn);
 
-      // 4. Process each item from the incoming data.
-      for (const itemDto of dto.items) {
-        // Find the matching item in the original PO for validation.
-        const poItem = po.items.find(
-          (i) => i.item.id === Number(itemDto.item_id),
-        );
-        if (!poItem) {
-          throw new BadRequestException(
-            `Item ID #${itemDto.item_id} was not found in the original PO.`,
-          );
-        }
+      const grnItems: GrnItem[] = dto.items.map(i => {
+        const item = items.find(it => it.id === i.item_id)!;
+        return this.grnItemRepo.create({
+          grn: savedGrn,
+          item,
+          received_qty: i.received_qty,
+          remarks: i.remarks,
+        });
+      });
 
-        // Validate that the received quantity is not more than ordered.
-        if (itemDto.received_qty > poItem.ordered_qty) {
-          throw new BadRequestException(
-            `Received quantity for item '${poItem.item.item_name}' (${itemDto.received_qty}) exceeds the ordered quantity (${poItem.ordered_qty}).`,
-          );
-        }
-
-        // Create a specific GRN Item entity to be saved.
-        const grnItem = new GrnItem();
-        grnItem.item = poItem.item;
-        grnItem.ordered_qty = poItem.ordered_qty;
-        grnItem.received_qty = itemDto.received_qty;
-        grnItem.unit_price = poItem.unit_price; // Store price at time of GRN
-        grnItem.total_value = itemDto.received_qty * poItem.unit_price;
-
-        grnItems.push(grnItem);
-        totalReceivedValue += grnItem.total_value;
-
-        // 5. Increase the stock level for this item.
-        // Pass the queryRunner's manager to make this part of the transaction.
-        await this.stocksService.increaseStock(
-          poItem.item.id,
-          warehouseName, // resolved warehouse name (fallbacks applied)
-          itemDto.received_qty,
-          queryRunner.manager, // optional manager to keep operation inside the same transaction
-        );
-      }
-
-      grn.items = grnItems;
-      grn.total_received_value = totalReceivedValue;
-
-      // 6. Save the new GRN and its associated GrnItems.
-      const savedGrn = await queryRunner.manager.save(grn);
-
-      // TODO: Update the PO status based on received quantities (e.g., to 'partially_received' or 'completed')
-
-      // 7. If everything is successful, commit the transaction.
+      await queryRunner.manager.save(GrnItem, grnItems);
       await queryRunner.commitTransaction();
-      return savedGrn;
+
+      return this.grnRepo.findOne({ where: { id: savedGrn.id } });
     } catch (err) {
-      // 8. If any error occurs, roll back all changes.
       await queryRunner.rollbackTransaction();
-      throw err; // Re-throw the original error.
+      throw err;
     } finally {
-      // 9. Always release the query runner to free up the database connection.
       await queryRunner.release();
     }
   }
 
-  // --- Other Methods ---
-
-  findAll(): Promise<Grn[]> {
-    return this.repo.find({
-      relations: ['purchaseOrder', 'items', 'items.item'],
-      order: { received_date: 'DESC' },
-    });
+  async findAll(params?: { status?: string; search?: string }): Promise<Grn[]> {
+    const qb = this.grnRepo.createQueryBuilder('grn').leftJoinAndSelect('grn.items', 'items').leftJoinAndSelect('grn.warehouse', 'warehouse');
+    if (params?.status) qb.andWhere('grn.status = :status', { status: params.status });
+    if (params?.search) qb.andWhere('(grn.grn_number ILIKE :q OR warehouse.name ILIKE :q)', { q: `%${params.search}%` });
+    qb.orderBy('grn.grn_date', 'DESC');
+    return qb.getMany();
   }
 
   async findOne(id: number): Promise<Grn> {
-    const grn = await this.repo.findOne({
-      where: { id },
-      relations: ['purchaseOrder', 'items', 'items.item', 'purchaseOrder.supplier', 'purchaseOrder.warehouse'],
-    });
-    if (!grn) throw new NotFoundException(`GRN #${id} not found`);
+    const grn = await this.grnRepo.findOne({ where: { id } });
+    if (!grn) throw new NotFoundException('GRN not found.');
     return grn;
   }
 
-  /**
-   * NOTE: A real-world 'update' or 'remove' operation is highly complex.
-   * It would require reversing the original stock movements and applying
-   * the new ones, which can cause cascading issues in an accounting system.
-   * These operations should be handled with extreme care, often by creating
-   * reversal entries rather than updating or deleting records.
-   */
   async update(id: number, dto: UpdateGrnDto): Promise<Grn> {
-    throw new BadRequestException('Updating a completed GRN is not supported. Please create a reversal document instead.');
+    const grn = await this.grnRepo.findOne({ where: { id } });
+    if (!grn) throw new NotFoundException('GRN not found.');
+
+    if (dto.warehouse_id) {
+      const warehouse = await this.warehouseRepo.findOne({ where: { id: dto.warehouse_id } });
+      if (!warehouse) throw new NotFoundException('Warehouse not found.');
+      grn.warehouse = warehouse;
+    }
+
+    if (dto.grn_date) grn.grn_date = dto.grn_date;
+    if (dto.supplier_ref !== undefined) grn.supplier_ref = dto.supplier_ref;
+    if (dto.status) grn.status = dto.status as any;
+
+    return this.grnRepo.save(grn);
   }
 
   async remove(id: number): Promise<void> {
-    throw new BadRequestException('Deleting a completed GRN is not supported. Please create a reversal document instead.');
-  }
-  
-  count(): Promise<number> {
-    return this.repo.count();
+    const res = await this.grnRepo.delete(id);
+    if (!res.affected) throw new NotFoundException('GRN not found.');
   }
 }
