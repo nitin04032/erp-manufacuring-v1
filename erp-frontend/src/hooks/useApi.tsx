@@ -54,17 +54,20 @@ export function useApi<T = any>(endpoint: string): UseApiReturn<T> {
         // Fallback: simple concatenation
         url = `${base}${endpoint}`;
       }
+      console.log('Constructed API URL:', url);
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const response = await fetch(url, { headers });
+      console.log('API Response Status:', response.status);
 
       if (!response.ok) {
         // Try to parse JSON error if available
         let errorMsg = 'Something went wrong with the request';
         try {
           const errorData = await response.json();
+          console.error('API Error Data:', errorData);
           errorMsg = errorData.message || errorData.error || errorMsg;
         } catch (e) {
           // ignore JSON parse error
@@ -74,8 +77,11 @@ export function useApi<T = any>(endpoint: string): UseApiReturn<T> {
       // Parse JSON safely
       let result: any = null;
       try {
-        result = await response.json();
+        const text = await response.text();
+        console.log('API Response Text:', text);
+        result = JSON.parse(text);
       } catch (e) {
+        console.error('JSON Parsing Error:', e);
         result = null;
       }
       setData(result as T);
@@ -83,8 +89,10 @@ export function useApi<T = any>(endpoint: string): UseApiReturn<T> {
       // Error handling ko type-safe banaya gaya hai
       if (err instanceof Error) {
         setError(err.message);
+        console.error('API Hook Error:', err.message);
       } else {
         setError('An unknown error occurred.');
+        console.error('API Hook Unknown Error:', err);
       }
     } finally {
       setLoading(false);
