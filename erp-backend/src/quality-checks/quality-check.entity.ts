@@ -7,7 +7,7 @@ import {
   ManyToOne,
   OneToMany,
 } from 'typeorm';
-import { Grn } from '../grn/grn.entity';
+import { Grn } from '../grn/entities/grn.entity';
 import { QualityCheckItem } from './quality-check-item.entity';
 
 @Entity('quality_checks')

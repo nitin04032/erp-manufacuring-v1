@@ -21,7 +21,7 @@ export class ItemsService {
     const existing = await this.repo.findOne({ where: [{ sku: dto.sku }, { name: dto.name }] });
     if (existing) throw new ConflictException('Item with same SKU or name already exists.');
 
-    const entity = this.repo.create(dto as any);
+    const entity = this.repo.create(dto as any) as unknown as Item;
     return this.repo.save(entity);
   }
 

@@ -52,9 +52,9 @@ export class QualityCheckService {
         grn,
         inspector: dto.inspector,
         remarks: dto.remarks,
-        status: dto.status ?? 'pending',
+        status: (dto.status ?? 'pending') as any,
       });
-      const savedQc = await queryRunner.manager.save(QualityCheck, qc);
+      const savedQc = (await queryRunner.manager.save(QualityCheck, qc)) as QualityCheck;
 
       // Create QC items and update grn_item.qc_checked_qty
       for (const it of dto.items) {
@@ -77,7 +77,7 @@ export class QualityCheckService {
       }
 
       await queryRunner.commitTransaction();
-      return this.qcRepo.findOne({ where: { id: savedQc.id } });
+      return (await this.qcRepo.findOne({ where: { id: savedQc.id } })) as QualityCheck;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -95,7 +95,7 @@ export class QualityCheckService {
   }
 
   async findOne(id: number) {
-    const qc = await this.qcRepo.findOne({ where: { id } });
+    const qc = (await this.qcRepo.findOne({ where: { id } })) as QualityCheck | null;
     if (!qc) throw new NotFoundException('Quality check not found.');
     return qc;
   }
