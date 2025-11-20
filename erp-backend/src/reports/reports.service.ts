@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PurchaseOrder } from '../purchase-orders/purchase-order.entity';
-import { Grn } from '../grn/grn.entity';
+import { Grn } from '../grn/entities/grn.entity';
 import { DispatchOrder } from '../dispatch/dispatch.entity';
 import { Stock } from '../stocks/stock.entity';
 import * as ExcelJS from 'exceljs';

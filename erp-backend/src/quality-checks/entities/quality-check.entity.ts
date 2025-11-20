@@ -1,49 +1,51 @@
-import { IsNotEmpty, IsArray, ValidateNested, IsDateString, IsInt, Min, IsString, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
+import { Grn } from '../../grn/entities/grn.entity';
+import { QCItem } from './qc-item.entity';
 
-class CreateQCItemDto {
-  @IsNotEmpty()
-  @IsInt()
-  grn_item_id!: number;
+@Entity('quality_checks')
+export class QualityCheck {
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-  @IsInt()
-  @Min(0)
-  checked_qty!: number;
+  @Column({ unique: true })
+  qc_number!: string;
 
-  @IsInt()
-  @Min(0)
-  passed_qty!: number;
-
-  @IsInt()
-  @Min(0)
-  failed_qty!: number;
-
-  @IsOptional()
-  @IsString()
-  remarks?: string;
-}
-
-export class CreateQualityCheckDto {
-  @IsDateString()
+  @Column({ type: 'date' })
   qc_date!: string;
 
-  @IsNotEmpty()
-  @IsInt()
-  grn_id!: number;
+  @ManyToOne(() => Grn, { eager: true })
+  grn!: Grn;
 
-  @IsNotEmpty()
-  @IsString()
+  @Column()
   inspector!: string;
 
-  @IsOptional()
-  @IsString()
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  })
+  status!: 'pending' | 'approved' | 'rejected';
+
+  @Column({ type: 'text', nullable: true })
   remarks?: string;
 
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateQCItemDto)
-  items!: CreateQCItemDto[];
+  @OneToMany(() => QCItem, (item) => item.quality_check, {
+    cascade: true,
+    eager: true,
+  })
+  items!: QCItem[];
 
-  @IsOptional()
-  status?: 'pending' | 'approved' | 'rejected';
+  @CreateDateColumn()
+  created_at!: Date;
+
+  @UpdateDateColumn()
+  updated_at!: Date;
 }

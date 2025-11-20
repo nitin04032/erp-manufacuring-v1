@@ -50,7 +50,7 @@ export class StocksService {
       throw new NotFoundException(`Stock not found for item ID ${itemId} in warehouse ${warehouse_name}`);
     if (stock.quantity < qty)
       throw new BadRequestException(
-        `Insufficient stock for item ${stock.item.item_code}. Available: ${stock.quantity}, Required: ${qty}`,
+        `Insufficient stock for item ${stock.item.sku}. Available: ${stock.quantity}, Required: ${qty}`,
       );
 
     stock.quantity = Number(stock.quantity) - Number(qty);

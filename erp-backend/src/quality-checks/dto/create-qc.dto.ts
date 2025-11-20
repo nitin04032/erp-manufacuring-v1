@@ -16,7 +16,7 @@ import {
 class CreateQcItemDto {
   @IsInt()
   @IsPositive()
-  item_id: number;
+  grn_item_id: number;
 
   @IsNumber()
   @Min(0)

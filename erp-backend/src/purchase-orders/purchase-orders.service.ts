@@ -198,8 +198,8 @@ export class PurchaseOrdersService {
       items: po.items?.map((item) => ({
         id: item.id,
         item_id: item.item?.id,
-        item_name: item.item?.item_name || 'N/A',
-        item_code: item.item?.item_code || 'N/A',
+        item_name: item.item?.name || 'N/A',
+        item_code: item.item?.sku || 'N/A',
         ordered_qty: item.ordered_qty,
         unit_price: item.unit_price,
         uom: item.uom,

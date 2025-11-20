@@ -61,7 +61,7 @@ export class GrnService {
       await queryRunner.manager.save(GrnItem, grnItems);
       await queryRunner.commitTransaction();
 
-      return this.grnRepo.findOne({ where: { id: savedGrn.id } });
+      return this.grnRepo.findOne({ where: { id: savedGrn.id } }) as Promise<Grn>;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -104,5 +104,9 @@ export class GrnService {
   async remove(id: number): Promise<void> {
     const res = await this.grnRepo.delete(id);
     if (!res.affected) throw new NotFoundException('GRN not found.');
+  }
+
+  async count(): Promise<number> {
+    return this.grnRepo.count();
   }
 }
