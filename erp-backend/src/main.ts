@@ -16,11 +16,14 @@ async function bootstrap() {
     await app.listen(port);
     console.log(`Nest application is listening on port ${port}`);
   } catch (err: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (err && err.code === 'EADDRINUSE') {
-      console.error(`Port ${port} is already in use. Please stop the process using that port or set PORT env variable to a different port.`);
+      console.error(
+        `Port ${port} is already in use. Please stop the process using that port or set PORT env variable to a different port.`,
+      );
       process.exit(1);
     }
     throw err;
   }
 }
-bootstrap();
+void bootstrap();

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Grn } from './entities/grn.entity';
@@ -12,9 +16,11 @@ import { Warehouse } from '../warehouses/warehouse.entity';
 export class GrnService {
   constructor(
     @InjectRepository(Grn) private readonly grnRepo: Repository<Grn>,
-    @InjectRepository(GrnItem) private readonly grnItemRepo: Repository<GrnItem>,
+    @InjectRepository(GrnItem)
+    private readonly grnItemRepo: Repository<GrnItem>,
     @InjectRepository(Item) private readonly itemRepo: Repository<Item>,
-    @InjectRepository(Warehouse) private readonly warehouseRepo: Repository<Warehouse>,
+    @InjectRepository(Warehouse)
+    private readonly warehouseRepo: Repository<Warehouse>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -25,13 +31,16 @@ export class GrnService {
   }
 
   async create(dto: CreateGrnDto): Promise<Grn> {
-    const warehouse = await this.warehouseRepo.findOne({ where: { id: dto.warehouse_id } });
+    const warehouse = await this.warehouseRepo.findOne({
+      where: { id: dto.warehouse_id },
+    });
     if (!warehouse) throw new NotFoundException('Warehouse not found.');
 
     // Validate items exist
-    const itemIds = dto.items.map(i => i.item_id);
+    const itemIds = dto.items.map((i) => i.item_id);
     const items = await this.itemRepo.findByIds(itemIds);
-    if (items.length !== itemIds.length) throw new BadRequestException('One or more items not found.');
+    if (items.length !== itemIds.length)
+      throw new BadRequestException('One or more items not found.');
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -43,13 +52,13 @@ export class GrnService {
         grn_date: dto.grn_date,
         warehouse,
         supplier_ref: dto.supplier_ref,
-        status: 'pending' as any,
+        status: 'pending',
       });
 
       const savedGrn = await queryRunner.manager.save(Grn, grn);
 
-      const grnItems: GrnItem[] = dto.items.map(i => {
-        const item = items.find(it => it.id === i.item_id)!;
+      const grnItems: GrnItem[] = dto.items.map((i) => {
+        const item = items.find((it) => it.id === i.item_id)!;
         return this.grnItemRepo.create({
           grn: savedGrn,
           item,
@@ -61,7 +70,9 @@ export class GrnService {
       await queryRunner.manager.save(GrnItem, grnItems);
       await queryRunner.commitTransaction();
 
-      return this.grnRepo.findOne({ where: { id: savedGrn.id } }) as Promise<Grn>;
+      return this.grnRepo.findOne({
+        where: { id: savedGrn.id },
+      }) as Promise<Grn>;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -71,9 +82,16 @@ export class GrnService {
   }
 
   async findAll(params?: { status?: string; search?: string }): Promise<Grn[]> {
-    const qb = this.grnRepo.createQueryBuilder('grn').leftJoinAndSelect('grn.items', 'items').leftJoinAndSelect('grn.warehouse', 'warehouse');
-    if (params?.status) qb.andWhere('grn.status = :status', { status: params.status });
-    if (params?.search) qb.andWhere('(grn.grn_number ILIKE :q OR warehouse.name ILIKE :q)', { q: `%${params.search}%` });
+    const qb = this.grnRepo
+      .createQueryBuilder('grn')
+      .leftJoinAndSelect('grn.items', 'items')
+      .leftJoinAndSelect('grn.warehouse', 'warehouse');
+    if (params?.status)
+      qb.andWhere('grn.status = :status', { status: params.status });
+    if (params?.search)
+      qb.andWhere('(grn.grn_number ILIKE :q OR warehouse.name ILIKE :q)', {
+        q: `%${params.search}%`,
+      });
     qb.orderBy('grn.grn_date', 'DESC');
     return qb.getMany();
   }
@@ -89,14 +107,16 @@ export class GrnService {
     if (!grn) throw new NotFoundException('GRN not found.');
 
     if (dto.warehouse_id) {
-      const warehouse = await this.warehouseRepo.findOne({ where: { id: dto.warehouse_id } });
+      const warehouse = await this.warehouseRepo.findOne({
+        where: { id: dto.warehouse_id },
+      });
       if (!warehouse) throw new NotFoundException('Warehouse not found.');
       grn.warehouse = warehouse;
     }
 
     if (dto.grn_date) grn.grn_date = dto.grn_date;
     if (dto.supplier_ref !== undefined) grn.supplier_ref = dto.supplier_ref;
-    if (dto.status) grn.status = dto.status as any;
+    if (dto.status) grn.status = dto.status;
 
     return this.grnRepo.save(grn);
   }

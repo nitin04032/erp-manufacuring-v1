@@ -1,4 +1,11 @@
-import { IsString, IsDateString, IsNumber, IsEnum, IsOptional, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsDateString,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsNotEmpty,
+} from 'class-validator';
 
 export class CreateFgrDto {
   @IsString()

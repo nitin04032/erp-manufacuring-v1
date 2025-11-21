@@ -5,18 +5,11 @@ import { SystemService } from './system.service';
 import { Supplier } from '../suppliers/supplier.entity';
 import { User } from '../users/user.entity';
 import { Warehouse } from '../warehouses/warehouse.entity';
-import { Item } from '../items/item.entity';  
+import { Item } from '../items/item.entity';
 // import { Location } from '../locations/location.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      Supplier, 
-      User, 
-      Warehouse, 
-      Item,
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([Supplier, User, Warehouse, Item])],
   controllers: [SystemController],
   providers: [SystemService],
 })

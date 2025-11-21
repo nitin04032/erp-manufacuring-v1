@@ -26,16 +26,34 @@ export class ReportsController {
         { header: 'Supplier', key: 'supplier.name', width: 25 },
         { header: 'Order Date', key: 'order_date', width: 15 },
         { header: 'Status', key: 'status', width: 15 },
-        { header: 'Total', key: 'total_amount', width: 15, style: { numFmt: '#,##0.00' } },
+        {
+          header: 'Total',
+          key: 'total_amount',
+          width: 15,
+          style: { numFmt: '#,##0.00' },
+        },
       ];
       const title = 'Purchase Orders Report';
-      const flattenedData = data.map(po => ({ ...po, 'supplier.name': po.supplier?.name }));
+      const flattenedData = data.map((po) => ({
+        ...po,
+        'supplier.name': po.supplier?.name,
+      }));
 
       if (exportType === 'excel') {
-        return this.reportsService.exportToExcel(res, flattenedData, 'Purchase_Orders', columns);
+        return this.reportsService.exportToExcel(
+          res,
+          flattenedData,
+          'Purchase_Orders',
+          columns,
+        );
       }
       if (exportType === 'pdf') {
-        return this.reportsService.exportToPdf(res, data, title, columns.map(c => ({...c, width: 110})));
+        return this.reportsService.exportToPdf(
+          res,
+          data,
+          title,
+          columns.map((c) => ({ ...c, width: 110 })),
+        );
       }
     }
     return res.json(data);
@@ -60,13 +78,26 @@ export class ReportsController {
         { header: 'Remarks', key: 'remarks', width: 40 },
       ];
       const title = 'GRN Report';
-      const flattenedData = data.map(grn => ({...grn, 'purchaseOrder.po_number': grn.purchaseOrder?.po_number}));
-      
+      const flattenedData = data.map((grn) => ({
+        ...grn,
+        'purchaseOrder.po_number': grn.purchaseOrder?.po_number,
+      }));
+
       if (exportType === 'excel') {
-        return this.reportsService.exportToExcel(res, flattenedData, 'GRN_Report', columns);
+        return this.reportsService.exportToExcel(
+          res,
+          flattenedData,
+          'GRN_Report',
+          columns,
+        );
       }
       if (exportType === 'pdf') {
-        return this.reportsService.exportToPdf(res, data, title, columns.map(c => ({...c, width: 150})));
+        return this.reportsService.exportToPdf(
+          res,
+          data,
+          title,
+          columns.map((c) => ({ ...c, width: 150 })),
+        );
       }
     }
     return res.json(data);
@@ -82,7 +113,7 @@ export class ReportsController {
   ) {
     const filters = { customer, from, to };
     const data = await this.reportsService.getDispatchReport(filters);
-    
+
     if (exportType) {
       const columns = [
         { header: 'Dispatch No.', key: 'dispatch_number', width: 20 },
@@ -91,19 +122,32 @@ export class ReportsController {
         { header: 'Status', key: 'status', width: 20 },
       ];
       const title = 'Dispatch Report';
-      
+
       if (exportType === 'excel') {
-        return this.reportsService.exportToExcel(res, data, 'Dispatch_Report', columns);
+        return this.reportsService.exportToExcel(
+          res,
+          data,
+          'Dispatch_Report',
+          columns,
+        );
       }
       if (exportType === 'pdf') {
-        return this.reportsService.exportToPdf(res, data, title, columns.map(c => ({...c, width: 150})));
+        return this.reportsService.exportToPdf(
+          res,
+          data,
+          title,
+          columns.map((c) => ({ ...c, width: 150 })),
+        );
       }
     }
     return res.json(data);
   }
 
   @Get('stock')
-  async getStockReport(@Res() res: Response, @Query('export') exportType?: string) {
+  async getStockReport(
+    @Res() res: Response,
+    @Query('export') exportType?: string,
+  ) {
     const data = await this.reportsService.getStockReport();
 
     if (exportType) {
@@ -111,17 +155,35 @@ export class ReportsController {
         { header: 'Item Code', key: 'item.sku', width: 20 },
         { header: 'Item Name', key: 'item_name', width: 30 },
         { header: 'Warehouse', key: 'warehouse_name', width: 25 },
-        { header: 'Quantity', key: 'quantity', width: 15, style: { numFmt: '#,##0.00' } },
+        {
+          header: 'Quantity',
+          key: 'quantity',
+          width: 15,
+          style: { numFmt: '#,##0.00' },
+        },
         { header: 'UOM', key: 'uom', width: 15 },
       ];
       const title = 'Current Stock Report';
-      const flattenedData = data.map(s => ({...s, 'item.sku': s.item?.sku}));
-      
+      const flattenedData = data.map((s) => ({
+        ...s,
+        'item.sku': s.item?.sku,
+      }));
+
       if (exportType === 'excel') {
-        return this.reportsService.exportToExcel(res, flattenedData, 'Stock_Report', columns);
+        return this.reportsService.exportToExcel(
+          res,
+          flattenedData,
+          'Stock_Report',
+          columns,
+        );
       }
       if (exportType === 'pdf') {
-        return this.reportsService.exportToPdf(res, data, title, columns.map(c => ({...c, width: 120})));
+        return this.reportsService.exportToPdf(
+          res,
+          data,
+          title,
+          columns.map((c) => ({ ...c, width: 120 })),
+        );
       }
     }
     return res.json(data);

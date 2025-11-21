@@ -1,9 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { QualityCheck } from './quality-check.entity';
 import { GrnItem } from '../../grn/entities/grn-item.entity';
 import { Item } from '../../items/item.entity';

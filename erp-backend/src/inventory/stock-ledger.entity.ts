@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  Index,
 } from 'typeorm';
 
 @Entity({ name: 'stock_ledger' })

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { QualityCheck } from './entities/quality-check.entity';
@@ -11,10 +15,12 @@ import { Item } from '../items/item.entity';
 @Injectable()
 export class QualityCheckService {
   constructor(
-    @InjectRepository(QualityCheck) private readonly qcRepo: Repository<QualityCheck>,
+    @InjectRepository(QualityCheck)
+    private readonly qcRepo: Repository<QualityCheck>,
     @InjectRepository(QCItem) private readonly qcItemRepo: Repository<QCItem>,
     @InjectRepository(Grn) private readonly grnRepo: Repository<Grn>,
-    @InjectRepository(GrnItem) private readonly grnItemRepo: Repository<GrnItem>,
+    @InjectRepository(GrnItem)
+    private readonly grnItemRepo: Repository<GrnItem>,
     @InjectRepository(Item) private readonly itemRepo: Repository<Item>,
     private readonly dataSource: DataSource,
   ) {}
@@ -26,19 +32,31 @@ export class QualityCheckService {
   }
 
   async create(dto: CreateQualityCheckDto): Promise<QualityCheck> {
-    const grn = await this.grnRepo.findOne({ where: { id: dto.grn_id }, relations: ['items'] });
+    const grn = await this.grnRepo.findOne({
+      where: { id: dto.grn_id },
+      relations: ['items'],
+    });
     if (!grn) throw new NotFoundException('GRN not found.');
 
     // Build map of grn items
     const grnItemMap = new Map<number, GrnItem>();
-    grn.items.forEach(i => grnItemMap.set(i.id, i));
+    grn.items.forEach((i) => grnItemMap.set(i.id, i));
 
     // Validate each qc item references a grn item
     for (const it of dto.items) {
       const gi = grnItemMap.get(it.grn_item_id);
-      if (!gi) throw new BadRequestException(`GRN item ${it.grn_item_id} does not belong to GRN ${dto.grn_id}`);
-      if (it.checked_qty > gi.received_qty) throw new BadRequestException('Checked quantity cannot exceed received quantity.');
-      if (it.passed_qty + it.failed_qty !== it.checked_qty) throw new BadRequestException('Passed + Failed must equal Checked quantity.');
+      if (!gi)
+        throw new BadRequestException(
+          `GRN item ${it.grn_item_id} does not belong to GRN ${dto.grn_id}`,
+        );
+      if (it.checked_qty > gi.received_qty)
+        throw new BadRequestException(
+          'Checked quantity cannot exceed received quantity.',
+        );
+      if (it.passed_qty + it.failed_qty !== it.checked_qty)
+        throw new BadRequestException(
+          'Passed + Failed must equal Checked quantity.',
+        );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -52,9 +70,10 @@ export class QualityCheckService {
         grn,
         inspector: dto.inspector,
         remarks: dto.remarks,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         status: (dto.status ?? 'pending') as any,
       });
-      const savedQc = (await queryRunner.manager.save(QualityCheck, qc)) as QualityCheck;
+      const savedQc = await queryRunner.manager.save(QualityCheck, qc);
 
       // Create QC items and update grn_item.qc_checked_qty
       for (const it of dto.items) {
@@ -77,7 +96,9 @@ export class QualityCheckService {
       }
 
       await queryRunner.commitTransaction();
-      return (await this.qcRepo.findOne({ where: { id: savedQc.id } })) as QualityCheck;
+      return (await this.qcRepo.findOne({
+        where: { id: savedQc.id },
+      })) as QualityCheck;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -87,26 +108,36 @@ export class QualityCheckService {
   }
 
   async findAll(params?: { status?: string; grn_id?: number }) {
-    const qb = this.qcRepo.createQueryBuilder('qc').leftJoinAndSelect('qc.items', 'items').leftJoinAndSelect('qc.grn', 'grn');
-    if (params?.status) qb.andWhere('qc.status = :status', { status: params.status });
+    const qb = this.qcRepo
+      .createQueryBuilder('qc')
+      .leftJoinAndSelect('qc.items', 'items')
+      .leftJoinAndSelect('qc.grn', 'grn');
+    if (params?.status)
+      qb.andWhere('qc.status = :status', { status: params.status });
     if (params?.grn_id) qb.andWhere('grn.id = :gid', { gid: params.grn_id });
     qb.orderBy('qc.qc_date', 'DESC');
     return qb.getMany();
   }
 
   async findOne(id: number) {
-    const qc = (await this.qcRepo.findOne({ where: { id } })) as QualityCheck | null;
+    const qc = await this.qcRepo.findOne({
+      where: { id },
+    });
     if (!qc) throw new NotFoundException('Quality check not found.');
     return qc;
   }
 
   async update(id: number, dto: Partial<CreateQualityCheckDto>) {
-    const qc = await this.qcRepo.findOne({ where: { id }, relations: ['items'] });
+    const qc = await this.qcRepo.findOne({
+      where: { id },
+      relations: ['items'],
+    });
     if (!qc) throw new NotFoundException('Quality check not found.');
 
     // For simplicity allow updating metadata/status only. Item-level edits are possible but more complex
     if (dto.inspector) qc.inspector = dto.inspector;
     if (dto.remarks !== undefined) qc.remarks = dto.remarks;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     if (dto.status) qc.status = dto.status as any;
     if (dto.qc_date) qc.qc_date = dto.qc_date;
 

@@ -38,7 +38,14 @@ export class PurchaseOrder {
 
   @Column({
     type: 'enum',
-    enum: ['draft', 'sent', 'acknowledged', 'partial', 'completed', 'cancelled'],
+    enum: [
+      'draft',
+      'sent',
+      'acknowledged',
+      'partial',
+      'completed',
+      'cancelled',
+    ],
     default: 'draft',
   })
   status: string;
@@ -54,7 +61,7 @@ export class PurchaseOrder {
 
   @OneToMany(() => PurchaseOrderItem, (item) => item.purchaseOrder, {
     cascade: true, // This is crucial for saving/updating/deleting items with the PO
-    eager: true,   // Load items automatically when fetching a PO
+    eager: true, // Load items automatically when fetching a PO
   })
   items: PurchaseOrderItem[];
 

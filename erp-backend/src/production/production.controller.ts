@@ -33,7 +33,10 @@ export class ProductionController {
   }
 
   @Put(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProductionOrderDto) {
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateProductionOrderDto,
+  ) {
     return this.service.update(id, dto);
   }
 
@@ -43,7 +46,10 @@ export class ProductionController {
   }
 
   @Put(':id/complete')
-  async complete(@Param('id', ParseIntPipe) id: number, @Body() dto: CompleteProductionOrderDto) {
+  async complete(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CompleteProductionOrderDto,
+  ) {
     return this.service.complete(id, dto);
   }
 
@@ -55,7 +61,7 @@ export class ProductionController {
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     // simple delete - you may prefer soft delete
-    const po = await this.service.findOne(id);
+    await this.service.findOne(id);
     // optional check: cannot delete completed
     return { success: true };
   }

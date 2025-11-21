@@ -9,7 +9,9 @@ import { GrnItem } from '../grn/entities/grn-item.entity';
 import { Item } from '../items/item.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([QualityCheck, QCItem, Grn, GrnItem, Item])],
+  imports: [
+    TypeOrmModule.forFeature([QualityCheck, QCItem, Grn, GrnItem, Item]),
+  ],
   providers: [QualityCheckService],
   controllers: [QualityCheckController],
   exports: [QualityCheckService],

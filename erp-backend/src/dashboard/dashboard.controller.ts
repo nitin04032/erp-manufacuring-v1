@@ -34,7 +34,7 @@ export class DashboardController {
       grnCount,
       dispatchCount,
       fgrCount,
-      
+
       // Detailed Summaries
       poStatusSummary,
       recentPurchaseOrders,

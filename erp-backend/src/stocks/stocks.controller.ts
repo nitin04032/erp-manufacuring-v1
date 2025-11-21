@@ -1,4 +1,10 @@
-import { Controller, Get, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { StocksService } from './stocks.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -13,15 +19,15 @@ export class StocksController {
   }
 
   @Get('warehouse/:name')
-findByWarehouse(@Param('name') warehouse_name: string) {
-  return this.service.findByWarehouse(warehouse_name);
-}
+  findByWarehouse(@Param('name') warehouse_name: string) {
+    return this.service.findByWarehouse(warehouse_name);
+  }
 
-@Get(':item_id/:warehouse')
-findOne(
-  @Param('item_id', ParseIntPipe) itemId: number,
-  @Param('warehouse') warehouse: string,
-) {
-  return this.service.findOne(itemId, warehouse);
+  @Get(':item_id/:warehouse')
+  findOne(
+    @Param('item_id', ParseIntPipe) itemId: number,
+    @Param('warehouse') warehouse: string,
+  ) {
+    return this.service.findOne(itemId, warehouse);
+  }
 }
-};

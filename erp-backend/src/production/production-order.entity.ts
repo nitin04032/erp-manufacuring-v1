@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-// Use a type-only import to avoid circular/runtime resolution issues
+import { ProductionOrderItem } from './production-order-item.entity';
 
 export type ProductionOrderStatus =
   | 'draft'
@@ -38,16 +38,11 @@ export class ProductionOrder {
   @Column({ type: 'text', nullable: true })
   remarks: string | null;
 
-  @OneToMany(
-    // require at runtime to avoid circular import problems during type checking
-    () => require('./production-order-item.entity').ProductionOrderItem,
-  (item: any) => item.productionOrder,
-    {
-      cascade: true,
-      eager: true,
-    },
-  )
-  items: any[];
+  @OneToMany(() => ProductionOrderItem, (item) => item.productionOrder, {
+    cascade: true,
+    eager: true,
+  })
+  items: ProductionOrderItem[];
 
   @CreateDateColumn()
   created_at: Date;
