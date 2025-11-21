@@ -10,7 +10,7 @@ export class ItemsService {
   constructor(@InjectRepository(Item) private readonly repo: Repository<Item>) {}
 
   private async generateSku(): Promise<string> {
-    const last = await this.repo.findOne({ order: { id: 'DESC' }, withDeleted: false });
+    const last = await this.repo.findOne({where: {}, order: { id: 'DESC' }, withDeleted: false });
     const nextNum = last?.sku ? parseInt(String(last.sku).split('-').pop() || '0', 10) + 1 : 1;
     return `ITEM-${String(nextNum).padStart(5, '0')}`;
   }
