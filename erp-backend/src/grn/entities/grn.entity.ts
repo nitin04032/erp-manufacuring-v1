@@ -20,7 +20,6 @@ export class Grn {
   id!: number;
 
   @Column({ type: 'varchar', length: 50, unique: true })
-  @Index()
   grn_number!: string;
 
   @Column({ type: 'date' })
