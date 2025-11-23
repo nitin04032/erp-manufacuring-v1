@@ -7,8 +7,8 @@ import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 // 1. Define TypeScript interfaces
 interface Item {
   id: number;
-  item_code: string;
-  item_name: string;
+  sku: string;
+  name: string;
   description?: string;
   unit: string;
   category?: string;
@@ -198,8 +198,8 @@ const ItemsPage: FC = () => {
                 <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
                   {items.map((item) => (
                     <motion.tr key={item.id} variants={itemVariants}>
-                      <td><strong>{item.item_code}</strong></td>
-                      <td>{item.item_name}</td>
+                      <td><strong>{item.sku}</strong></td>
+                      <td>{item.name}</td>
                       <td>{item.unit}</td>
                       <td>{item.category || "N/A"}</td>
                       <td>
