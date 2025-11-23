@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { CreateDispatchDto } from './dto/create-dispatch.dto';
 import { UpdateDispatchDto } from './dto/update-dispatch.dto';
@@ -25,7 +35,10 @@ export class DispatchController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateDispatchDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateDispatchDto,
+  ) {
     return this.service.update(id, dto);
   }
 

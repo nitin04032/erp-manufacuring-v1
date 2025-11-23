@@ -11,7 +11,7 @@ import {
 import { Transform } from 'class-transformer';
 
 export const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
 
 export class CreateWarehouseDto {
   @IsOptional()
@@ -77,6 +77,7 @@ export class CreateWarehouseDto {
 
   @IsOptional()
   @IsBoolean()
-  @ValidateIf(o => o.is_active !== undefined)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  @ValidateIf((o) => o.is_active !== undefined)
   is_active?: boolean = true;
 }

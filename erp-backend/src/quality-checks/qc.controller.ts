@@ -1,4 +1,16 @@
-import { Controller, Post, Body, Get, Query, Param, ParseIntPipe, Patch, Delete, UseGuards, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Query,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Delete,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import { QualityCheckService } from './qc.service';
 import { CreateQualityCheckDto } from './dto/create-qc.dto';
 import { UpdateQualityCheckDto } from './dto/update-qc.dto';
@@ -13,13 +25,18 @@ export class QualityCheckController {
 
   @Roles('admin', 'quality', 'manager')
   @Post()
-  create(@Body(new ValidationPipe({ transform: true })) dto: CreateQualityCheckDto) {
+  create(
+    @Body(new ValidationPipe({ transform: true })) dto: CreateQualityCheckDto,
+  ) {
     return this.service.create(dto);
   }
 
   @Get()
   findAll(@Query() query: { status?: string; grn_id?: string }) {
-    return this.service.findAll({ status: query.status, grn_id: query.grn_id ? Number(query.grn_id) : undefined });
+    return this.service.findAll({
+      status: query.status,
+      grn_id: query.grn_id ? Number(query.grn_id) : undefined,
+    });
   }
 
   @Get(':id')
@@ -29,7 +46,10 @@ export class QualityCheckController {
 
   @Roles('admin', 'quality', 'manager')
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateQualityCheckDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateQualityCheckDto,
+  ) {
     return this.service.update(id, dto);
   }
 

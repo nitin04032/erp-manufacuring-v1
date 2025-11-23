@@ -10,7 +10,8 @@ export class SomeController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'store')
   @Get('me')
-  getProfile(@Req() req) {
+  getProfile(@Req() req: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     return { user: req.user };
   }
 }

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Put,
+  Delete,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { BomService } from './bom.service';
 import { CreateBomDto } from './dto/create-bom.dto';
 import { UpdateBomDto } from './dto/update-bom.dto';
@@ -25,7 +35,10 @@ export class BomController {
   }
 
   @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateDto: UpdateBomDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDto: UpdateBomDto,
+  ) {
     return this.bomService.update(id, updateDto);
   }
 

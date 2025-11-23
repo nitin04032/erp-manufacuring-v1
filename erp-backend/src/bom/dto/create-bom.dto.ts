@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsArray, ArrayMinSize, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  ArrayMinSize,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class BomItemDto {

@@ -1,5 +1,15 @@
 import { Warehouse } from '../warehouses/warehouse.entity';
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 
 @Entity('locations')
 export class Location {
@@ -15,7 +25,11 @@ export class Location {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'enum', enum: ['area', 'rack', 'bin', 'floor', 'cold_storage', 'quarantine'], default: 'rack' })
+  @Column({
+    type: 'enum',
+    enum: ['area', 'rack', 'bin', 'floor', 'cold_storage', 'quarantine'],
+    default: 'rack',
+  })
   location_type: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 3, default: 0 })
@@ -33,12 +47,14 @@ export class Location {
   warehouse: Warehouse;
 
   // Self-referencing for Parent-Child relationship
-  @ManyToOne(() => Location, location => location.childLocations, { nullable: true })
+  @ManyToOne(() => Location, (location) => location.childLocations, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'parent_location_id' })
   // ✅ FIX: Yahan '| null' add kiya gaya hai taaki yeh null ho sake
   parentLocation: Location | null;
 
-  @OneToMany(() => Location, location => location.parentLocation)
+  @OneToMany(() => Location, (location) => location.parentLocation)
   childLocations: Location[];
 
   @CreateDateColumn()

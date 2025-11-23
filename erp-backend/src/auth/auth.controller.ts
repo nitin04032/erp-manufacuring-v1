@@ -38,17 +38,19 @@ export class AuthController {
         message: 'User registered successfully',
         user,
       };
-    } catch (error) {
+    } catch (error: any) {
       // Agar 'users.service' se 'ConflictException' (409) aati hai (duplicate email/username)
       if (error instanceof ConflictException) {
         throw new HttpException(error.message, HttpStatus.CONFLICT);
       }
 
       // Agar class-validator se koi validation error aata hai
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (error?.response?.message) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const messages = Array.isArray(error.response.message)
-          ? error.response.message.join(', ')
-          : error.response.message;
+          ? error.response.message.join(', ') // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          : error.response.message; // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         throw new HttpException(messages, HttpStatus.BAD_REQUEST);
       }
 

@@ -45,11 +45,17 @@ export class BomService {
   }
 
   async findAll() {
-    return this.bomRepo.find({ relations: ['items'], order: { created_at: 'DESC' } });
+    return this.bomRepo.find({
+      relations: ['items'],
+      order: { created_at: 'DESC' },
+    });
   }
 
   async findOne(id: number) {
-    const bom = await this.bomRepo.findOne({ where: { id }, relations: ['items'] });
+    const bom = await this.bomRepo.findOne({
+      where: { id },
+      relations: ['items'],
+    });
     if (!bom) {
       throw new NotFoundException('BOM not found');
     }
@@ -58,7 +64,9 @@ export class BomService {
 
   async update(id: number, updateDto: UpdateBomDto) {
     return this.dataSource.transaction(async (transactionalEntityManager) => {
-      const bom = await transactionalEntityManager.findOne(Bom, { where: { id } });
+      const bom = await transactionalEntityManager.findOne(Bom, {
+        where: { id },
+      });
       if (!bom) {
         throw new NotFoundException('BOM not found');
       }
@@ -91,13 +99,13 @@ export class BomService {
   async remove(id: number) {
     // डिलीट करने से पहले चेक करें कि BOM मौजूद है या नहीं
     await this.findOne(id);
-    
+
     // **नोट**: सबसे अच्छे तरीके के लिए, अपनी Bom Entity में onDelete: 'CASCADE' सेट करें।
     // इससे संबंधित सभी BomItem अपने आप डिलीट हो जाएंगे।
-    
+
     // अब BOM को डिलीट करें
     const res = await this.bomRepo.delete(id);
-    
+
     // Optional chaining (?) का उपयोग करना ज्यादा सुरक्षित है
     return !!(res && res.affected && res.affected > 0);
   }

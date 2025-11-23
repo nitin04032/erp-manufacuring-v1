@@ -30,7 +30,13 @@ export class WarehousesController {
   }
 
   @Get()
-  findAll(@Query(new ValidationPipe({ transform: true })) query: { status?: string; search?: string }) {
+  findAll(
+    @Query(new ValidationPipe({ transform: true }))
+    query: {
+      status?: string;
+      search?: string;
+    },
+  ) {
     return this.service.findAll(query);
   }
 
@@ -46,7 +52,10 @@ export class WarehousesController {
 
   @Roles('admin', 'manager')
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateWarehouseDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateWarehouseDto,
+  ) {
     return this.service.update(id, dto);
   }
 

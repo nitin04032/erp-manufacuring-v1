@@ -30,7 +30,9 @@ export class SuppliersController {
   }
 
   @Get()
-  findAll(@Query(new ValidationPipe({ transform: true })) query: QuerySupplierDto) {
+  findAll(
+    @Query(new ValidationPipe({ transform: true })) query: QuerySupplierDto,
+  ) {
     return this.service.findAll(query);
   }
 
@@ -46,7 +48,10 @@ export class SuppliersController {
 
   @Roles('admin')
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSupplierDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateSupplierDto,
+  ) {
     return this.service.update(id, dto);
   }
 

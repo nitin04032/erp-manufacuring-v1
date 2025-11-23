@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { ProductionOrder } from './production-order.entity';
@@ -62,7 +66,9 @@ export class ProductionService {
   async update(id: number, dto: UpdateProductionOrderDto) {
     const po = await this.findOne(id);
     if (po.status === 'completed' || po.status === 'in_progress') {
-      throw new BadRequestException('Cannot update an order in progress or completed');
+      throw new BadRequestException(
+        'Cannot update an order in progress or completed',
+      );
     }
 
     po.fg_item_id = dto.fg_item_id ?? po.fg_item_id;
@@ -114,9 +120,12 @@ export class ProductionService {
     await queryRunner.startTransaction();
 
     try {
-      const po = await queryRunner.manager.findOne(ProductionOrder, { where: { id } });
+      const po = await queryRunner.manager.findOne(ProductionOrder, {
+        where: { id },
+      });
       if (!po) throw new NotFoundException('Production order not found');
-      if (po.status === 'completed') throw new BadRequestException('Already completed');
+      if (po.status === 'completed')
+        throw new BadRequestException('Already completed');
 
       const items = await queryRunner.manager.find(ProductionOrderItem, {
         where: { production_order_id: id },
@@ -124,7 +133,12 @@ export class ProductionService {
 
       // 1) Validate availability for each raw material
       for (const item of items) {
-        await this.inventoryService.checkAvailability(item.item_id, po.warehouse_id, Number(item.required_qty), queryRunner);
+        await this.inventoryService.checkAvailability(
+          item.item_id,
+          po.warehouse_id,
+          Number(item.required_qty),
+          queryRunner,
+        );
       }
 
       // 2) Decrease raw materials (issue to production) & update issued_qty

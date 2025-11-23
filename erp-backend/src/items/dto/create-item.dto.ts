@@ -1,8 +1,16 @@
-import { IsNotEmpty, IsString, IsOptional, MaxLength, IsNumber, Min, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  MaxLength,
+  IsNumber,
+  Min,
+  IsBoolean,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
 
 export class CreateItemDto {
   @IsOptional()
@@ -37,6 +45,6 @@ export class CreateItemDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => (value === undefined ? true : value))
+  @Transform(({ value }) => (value === undefined ? true : value)) // eslint-disable-line @typescript-eslint/no-unsafe-return
   is_active?: boolean = true;
 }

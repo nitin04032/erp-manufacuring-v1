@@ -60,6 +60,7 @@ export class WarehousesService {
     const where: any = {};
 
     if (params?.status) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       where.is_active = params.status === 'active';
     }
 
@@ -68,7 +69,9 @@ export class WarehousesService {
       return this.repo.find({
         where: [
           { ...where, name: ILike(`%${q}%`) },
+
           { ...where, code: ILike(`%${q}%`) },
+
           { ...where, city: ILike(`%${q}%`) },
         ],
         order: { name: 'ASC' },

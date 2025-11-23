@@ -30,7 +30,15 @@ export class ItemsController {
   }
 
   @Get()
-  findAll(@Query(new ValidationPipe({ transform: true })) query: { search?: string; status?: string; limit?: string; offset?: string }) {
+  findAll(
+    @Query(new ValidationPipe({ transform: true }))
+    query: {
+      search?: string;
+      status?: string;
+      limit?: string;
+      offset?: string;
+    },
+  ) {
     const params = {
       search: query.search,
       status: query.status,

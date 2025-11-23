@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, Index, Unique } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
 @Entity({ name: 'stock_items' })
 @Unique(['item_id', 'warehouse_id'])

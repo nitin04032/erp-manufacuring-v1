@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, EntityManager } from 'typeorm';
 import { Stock } from './stock.entity';
@@ -25,7 +29,9 @@ export class StocksService {
     // Use provided manager's repository when inside a transaction, otherwise use the service repo
     const repo = manager ? manager.getRepository(Stock) : this.repo;
 
-    const stock = await repo.findOne({ where: { item: { id: itemId }, warehouse_name } });
+    const stock = await repo.findOne({
+      where: { item: { id: itemId }, warehouse_name },
+    });
     if (stock) {
       stock.quantity = (stock.quantity || 0) + qty;
       await repo.save(stock);
@@ -40,14 +46,20 @@ export class StocksService {
     }
   }
 
-  async decreaseStock(itemId: number, warehouse_name: string, qty: number): Promise<Stock> {
+  async decreaseStock(
+    itemId: number,
+    warehouse_name: string,
+    qty: number,
+  ): Promise<Stock> {
     const stock = await this.repo.findOne({
       where: { item: { id: itemId }, warehouse_name },
       relations: ['item'],
     });
 
     if (!stock)
-      throw new NotFoundException(`Stock not found for item ID ${itemId} in warehouse ${warehouse_name}`);
+      throw new NotFoundException(
+        `Stock not found for item ID ${itemId} in warehouse ${warehouse_name}`,
+      );
     if (stock.quantity < qty)
       throw new BadRequestException(
         `Insufficient stock for item ${stock.item.sku}. Available: ${stock.quantity}, Required: ${qty}`,
@@ -81,7 +93,9 @@ export class StocksService {
     });
 
     if (!stock)
-      throw new NotFoundException(`No stock found for item ID ${itemId} in warehouse ${warehouse_name}`);
+      throw new NotFoundException(
+        `No stock found for item ID ${itemId} in warehouse ${warehouse_name}`,
+      );
     return stock;
   }
 
@@ -92,12 +106,14 @@ export class StocksService {
   }
 
   async getTotalStockValue(): Promise<number> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const result = await this.repo
       .createQueryBuilder('stock')
       .leftJoin('stock.item', 'item')
       .select('SUM(stock.quantity * item.purchase_rate)', 'totalValue')
       .getRawOne();
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
     return parseFloat(result.totalValue) || 0;
   }
 

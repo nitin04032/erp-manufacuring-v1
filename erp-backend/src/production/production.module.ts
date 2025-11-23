@@ -7,7 +7,10 @@ import { ProductionController } from './production.controller';
 import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ProductionOrder, ProductionOrderItem]), InventoryModule],
+  imports: [
+    TypeOrmModule.forFeature([ProductionOrder, ProductionOrderItem]),
+    InventoryModule,
+  ],
   providers: [ProductionService],
   controllers: [ProductionController],
   exports: [ProductionService],

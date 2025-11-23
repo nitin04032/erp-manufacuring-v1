@@ -1,6 +1,12 @@
 // erp-backend/src/purchase-orders/purchase-order-item.entity.ts
 
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Item } from '../items/item.entity';
 
