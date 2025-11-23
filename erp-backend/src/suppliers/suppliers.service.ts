@@ -19,7 +19,6 @@ export class SuppliersService {
   async create(dto: CreateSupplierDto): Promise<Supplier> {
     if (!dto.supplier_code) {
       const last = await this.repo.findOne({
-        where: {},
         order: { id: 'DESC' },
         withDeleted: false,
       });

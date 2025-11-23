@@ -1,5 +1,3 @@
-// erp-backend/src/items/item.entity.ts (Corrected Code with purchase_rate)
-
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -15,17 +13,13 @@ export class Item {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  // SKU: Unique index ठीक है।
   @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
+  @Index()
   sku!: string | null;
 
   @Column({ type: 'varchar', length: 255 })
   @Index()
   name!: string;
-
-  // --- यह नई लाइन जोड़ें (Add this new line) ---
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  purchase_rate!: number;
 
   @Column({ type: 'text', nullable: true })
   description?: string;

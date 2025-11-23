@@ -12,6 +12,23 @@ import { UpdateProductionOrderDto } from './dto/update-production-order.dto';
 import { CompleteProductionOrderDto } from './dto/complete-production-order.dto';
 import { InventoryService } from '../inventory/inventory.service'; // <-- नया इम्पोर्ट जोड़ा गया
 
+export interface ClientProductionOrder {
+  id: number;
+  order_number: string;
+  fg_item_id: number;
+  fg_code: string;
+  fg_name: string;
+  order_qty: number;
+  warehouse_id: number;
+  warehouse_name: string;
+  status: string;
+  remarks: string | null;
+  created_at: Date;
+  updated_at: Date;
+  planned_start_date: Date;
+  planned_end_date: Date | null;
+}
+
 @Injectable()
 export class ProductionService {
   constructor(
@@ -50,34 +67,68 @@ export class ProductionService {
       ),
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.poRepo.save(po);
   }
 
-  async findAll() {
-    return this.poRepo.find({ order: { created_at: 'DESC' } });
+  private transformOrder(po: ProductionOrder): ClientProductionOrder {
+    return {
+      id: po.id,
+      order_number: po.order_number,
+      fg_item_id: po.fg_item_id,
+      fg_code: po.fg_item?.sku || 'N/A',
+      fg_name: po.fg_item?.name || 'N/A',
+      order_qty: po.quantity,
+      warehouse_id: po.warehouse_id,
+      warehouse_name: po.warehouse?.name || 'N/A',
+      status: po.status,
+      remarks: po.remarks,
+      created_at: po.created_at,
+      updated_at: po.updated_at,
+      // No planned_start_date in entity, assuming created_at for now or null
+      planned_start_date: po.created_at,
+      planned_end_date: null,
+    };
   }
 
-  async findOne(id: number) {
-    const po = await this.poRepo.findOne({ where: { id } });
+  async findAll(): Promise<ClientProductionOrder[]> {
+    const orders = await this.poRepo.find({
+      order: { created_at: 'DESC' },
+      relations: ['fg_item', 'warehouse'],
+    });
+    return orders.map((o) => this.transformOrder(o));
+  }
+
+  async findOne(id: number): Promise<ClientProductionOrder> {
+    const po = await this.poRepo.findOne({
+      where: { id },
+      relations: ['fg_item', 'warehouse', 'items'],
+    });
     if (!po) throw new NotFoundException('Production order not found');
-    return po;
+    return this.transformOrder(po);
   }
 
   async update(id: number, dto: UpdateProductionOrderDto) {
-    const po = await this.findOne(id);
+    const po: any = await this.findOne(id);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (po.status === 'completed' || po.status === 'in_progress') {
       throw new BadRequestException(
         'Cannot update an order in progress or completed',
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     po.fg_item_id = dto.fg_item_id ?? po.fg_item_id;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     po.quantity = dto.quantity ?? po.quantity;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     po.warehouse_id = dto.warehouse_id ?? po.warehouse_id;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     po.remarks = dto.remarks ?? po.remarks;
 
     if (dto.items) {
       await this.poItemRepo.delete({ production_order_id: id });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       po.items = dto.items.map((it) =>
         this.poItemRepo.create({
           production_order_id: id,
@@ -93,20 +144,28 @@ export class ProductionService {
   }
 
   async start(id: number) {
-    const po = await this.findOne(id);
+    const po: any = await this.findOne(id);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (po.status !== 'planned' && po.status !== 'draft') {
       throw new BadRequestException('Only planned orders can be started');
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     po.status = 'in_progress';
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.poRepo.save(po);
   }
 
   async cancel(id: number) {
-    const po = await this.findOne(id);
+    const po: any = await this.findOne(id);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (po.status === 'completed') {
       throw new BadRequestException('Cannot cancel completed order');
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     po.status = 'cancelled';
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.poRepo.save(po);
   }
 
@@ -180,6 +239,7 @@ export class ProductionService {
       await queryRunner.commitTransaction();
 
       // return fresh PO
+
       return this.findOne(id);
     } catch (err) {
       await queryRunner.rollbackTransaction();

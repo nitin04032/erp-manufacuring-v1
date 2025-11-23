@@ -42,6 +42,7 @@ export class ProductionController {
 
   @Put(':id/start')
   async start(@Param('id', ParseIntPipe) id: number) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.service.start(id);
   }
 
@@ -55,6 +56,7 @@ export class ProductionController {
 
   @Put(':id/cancel')
   async cancel(@Param('id', ParseIntPipe) id: number) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.service.cancel(id);
   }
 

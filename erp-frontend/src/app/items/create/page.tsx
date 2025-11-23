@@ -8,7 +8,7 @@ import { motion, Variants } from "framer-motion"; // Framer Motion import karein
 // Interface for the form data
 interface ItemFormData {
   item_code: string;
-  name: string;
+  item_name: string;
   item_type: 'raw_material' | 'semi_finished' | 'finished_goods' | 'consumable' | 'service';
   item_category: string;
   unit: string;
@@ -51,7 +51,7 @@ const CreateItemPage: FC = () => {
 
   const initialFormState: ItemFormData = {
     item_code: "",
-    name: "",
+    item_name: "",
     item_type: "raw_material",
     item_category: "",
     unit: "pcs",
@@ -83,7 +83,7 @@ const CreateItemPage: FC = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!form.name) {
+    if (!form.item_name) {
         setFlash({ type: "danger", message: "Item Name is a required field." });
         return;
     }
@@ -150,8 +150,8 @@ const CreateItemPage: FC = () => {
               <div className="card-body">
                 <div className="row">
                   <div className="col-md-6 mb-3">
-                    <label htmlFor="name" className="form-label">Item Name <span className="text-danger">*</span></label>
-                    <input type="text" id="name" className="form-control" value={form.name} onChange={handleChange} required />
+                    <label htmlFor="item_name" className="form-label">Item Name <span className="text-danger">*</span></label>
+                    <input type="text" id="item_name" className="form-control" value={form.item_name} onChange={handleChange} required />
                   </div>
                   <div className="col-md-6 mb-3">
                     <label htmlFor="item_code" className="form-label">Item Code</label>
