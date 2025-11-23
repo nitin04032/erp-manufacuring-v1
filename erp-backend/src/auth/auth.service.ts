@@ -1,11 +1,8 @@
 // erp-backend/src/auth/auth.service.ts
 
-import {
-  Injectable,
-  UnauthorizedException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
+
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
@@ -26,12 +23,16 @@ export class AuthService {
     const { username, email, password, full_name, role } = payload;
 
     // 1. Password ki basic validation
+
     if (!password || password.trim().length < 6) {
-      throw new BadRequestException('Password must be at least 6 characters long.');
+      throw new BadRequestException(
+        'Password must be at least 6 characters long.',
+      );
     }
 
     // 2. Password ko hash karein
-    const password_hash = await bcrypt.hash(password, 10);
+
+    const password_hash = await (bcrypt as any).hash(password, 10);
 
     // 3. UsersService ke 'create' function ka istemaal karein
     // UsersService.create ko is tarah design karna chahiye ki woh password_hash return na kare.
@@ -61,12 +62,14 @@ export class AuthService {
     }
 
     // 2. Diye gaye password ko hash ke saath compare karein
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     const isMatch = await bcrypt.compare(pass, user.password_hash);
     if (!isMatch) {
       return null;
     }
 
     // 3. (Sabse Zaroori) Safal validation par, password hash ke bina user object return karein
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...result } = user;
     return result;
   }
@@ -89,6 +92,7 @@ export class AuthService {
 
     // 3. User ka last login time update karein (background mein)
     // Hum iska result wait nahi karenge taaki response jaldi jaaye
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     this.usersService.updateLastLogin(userPayload.id);
 
     // 4. Token aur user data return karein

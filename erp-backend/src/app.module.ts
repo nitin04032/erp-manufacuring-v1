@@ -19,10 +19,8 @@ import { BomModule } from './bom/bom.module';
 import { ProductionModule } from './production/production.module';
 import { StocksModule } from './stocks/stocks.module';
 import { InventoryModule } from './inventory/inventory.module';
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { LocationsModule } from './locations/locations.module';
 import { QualityCheckModule } from './quality-checks/quality-check.module';
-
 
 @Module({
   imports: [
@@ -34,7 +32,7 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
     // Step 2: Configure TypeORM for the database connection
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule], // Import ConfigModule to use its service
-      inject: [ConfigService],  // Inject ConfigService into the factory
+      inject: [ConfigService], // Inject ConfigService into the factory
       useFactory: (configService: ConfigService) => ({
         type: 'mysql',
         host: configService.get<string>('DB_HOST') ?? 'localhost',
@@ -63,8 +61,8 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
     StocksModule,
     InventoryModule,
     LocationsModule,
-    QualityCheckModule,  
-  // TypeOrmModule already configured above with forRootAsync
+    QualityCheckModule,
+    // TypeOrmModule already configured above with forRootAsync
   ],
   controllers: [AppController],
   providers: [AppService],

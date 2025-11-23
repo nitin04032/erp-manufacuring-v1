@@ -98,7 +98,7 @@ export class PurchaseOrdersService {
 
     return this.repo.save(po);
   }
-  
+
   async update(
     id: number,
     dto: UpdatePurchaseOrderDto,
@@ -122,57 +122,80 @@ export class PurchaseOrdersService {
 
       // Update header-level properties from DTO
       queryRunner.manager.merge(PurchaseOrder, poToUpdate, dto);
-      
+
       if (dto.supplier_id) {
-          const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id });
-          if (!supplier) throw new NotFoundException(`Supplier with ID ${dto.supplier_id} not found`);
-          poToUpdate.supplier = supplier;
+        const supplier = await this.supplierRepo.findOneBy({
+          id: dto.supplier_id,
+        });
+        if (!supplier)
+          throw new NotFoundException(
+            `Supplier with ID ${dto.supplier_id} not found`,
+          );
+        poToUpdate.supplier = supplier;
       }
       if (dto.warehouse_id) {
-          const warehouse = await this.warehouseRepo.findOneBy({ id: dto.warehouse_id });
-          if (!warehouse) throw new NotFoundException(`Warehouse with ID ${dto.warehouse_id} not found`);
-          poToUpdate.warehouse = warehouse;
+        const warehouse = await this.warehouseRepo.findOneBy({
+          id: dto.warehouse_id,
+        });
+        if (!warehouse)
+          throw new NotFoundException(
+            `Warehouse with ID ${dto.warehouse_id} not found`,
+          );
+        poToUpdate.warehouse = warehouse;
       }
 
       if (dto.items) {
         // ✅ FIX: Create a non-nullable const to help TypeScript's type inference.
         const dtoItems = dto.items;
-        
+
         // Delete items that are no longer in the DTO
         const itemsToRemove = poToUpdate.items.filter(
-          (existingItem) => !dtoItems.some((dtoItem) => dtoItem.item_id === existingItem.item.id),
+          (existingItem) =>
+            !dtoItems.some(
+              (dtoItem) => dtoItem.item_id === existingItem.item.id,
+            ),
         );
         if (itemsToRemove.length > 0) {
           await queryRunner.manager.remove(itemsToRemove);
         }
-        
+
         // Add or Update items
         const updatedItems: PurchaseOrderItem[] = [];
         for (const itemDto of dtoItems) {
-            const itemEntity = await this.itemRepo.findOneBy({ id: itemDto.item_id });
-            if (!itemEntity) throw new NotFoundException(`Item with ID ${itemDto.item_id} not found`);
+          const itemEntity = await this.itemRepo.findOneBy({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+            id: (itemDto as any).item_id,
+          });
+          if (!itemEntity)
+            throw new NotFoundException(
+              `Item with ID ${itemDto.item_id} not found`,
+            );
 
-            let poItem = poToUpdate.items.find(pi => pi.item.id === itemDto.item_id);
-            if (poItem) { // Update existing item
-                Object.assign(poItem, itemDto);
-            } else { // Create new item
-                poItem = new PurchaseOrderItem();
-                Object.assign(poItem, itemDto);
-                poItem.item = itemEntity;
-                poItem.purchaseOrder = poToUpdate;
-            }
-            updatedItems.push(poItem);
+          let poItem = poToUpdate.items.find(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (pi) => pi.item.id === (itemDto as any).item_id,
+          );
+          if (poItem) {
+            // Update existing item
+            Object.assign(poItem, itemDto);
+          } else {
+            // Create new item
+            poItem = new PurchaseOrderItem();
+            Object.assign(poItem, itemDto);
+            poItem.item = itemEntity;
+            poItem.purchaseOrder = poToUpdate;
+          }
+          updatedItems.push(poItem);
         }
         poToUpdate.items = updatedItems;
       }
-      
+
       const { grandTotal } = this.calculateTotals(poToUpdate.items);
       poToUpdate.total_amount = grandTotal;
-      
+
       const updatedPo = await queryRunner.manager.save(poToUpdate);
       await queryRunner.commitTransaction();
       return updatedPo;
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -243,12 +266,12 @@ export class PurchaseOrdersService {
   }
 
   async remove(id: number): Promise<void> {
-    const po = await this.repo.findOneBy({id});
+    const po = await this.repo.findOneBy({ id });
     if (!po) {
-       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+      throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
     if (po.status !== 'draft') {
-        throw new BadRequestException('Only draft orders can be deleted.');
+      throw new BadRequestException('Only draft orders can be deleted.');
     }
     const result = await this.repo.delete(id);
     if (result.affected === 0) {
@@ -269,7 +292,8 @@ export class PurchaseOrdersService {
       .groupBy('po.status')
       .getRawMany();
 
-    return rows.reduce((acc, r) => {
+    return rows.reduce((acc: Record<string, number>, r: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       acc[r.status] = Number(r.count);
       return acc;
     }, {});

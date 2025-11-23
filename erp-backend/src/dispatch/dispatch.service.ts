@@ -12,7 +12,7 @@ export class DispatchService {
     @InjectRepository(DispatchOrder)
     private repo: Repository<DispatchOrder>,
     private stocksService: StocksService,
-  ) { }
+  ) {}
 
   async create(dto: CreateDispatchDto): Promise<DispatchOrder> {
     const dispatch = this.repo.create({
@@ -26,8 +26,12 @@ export class DispatchService {
     // After saving the dispatch, decrease the stock for each item
     for (const item of dto.items) {
       // DTO uses item_code and dispatched_qty; resolve to item id
-      const it = await (this.stocksService as any).itemsService.findByCode(item.item_code);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const it = await (this.stocksService as any).itemsService.findByCode(
+        item.item_code,
+      );
       await this.stocksService.decreaseStock(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
         it.id,
         dto.warehouse_name,
         item.dispatched_qty,
@@ -58,7 +62,8 @@ export class DispatchService {
   async remove(id: number): Promise<void> {
     // Note: A real-world delete should reverse the stock subtractions (i.e., add the stock back).
     const res = await this.repo.delete(id);
-    if (res.affected === 0) throw new NotFoundException(`Dispatch order #${id} not found`);
+    if (res.affected === 0)
+      throw new NotFoundException(`Dispatch order #${id} not found`);
   }
 
   count(): Promise<number> {

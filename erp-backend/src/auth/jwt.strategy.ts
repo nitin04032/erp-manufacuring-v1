@@ -30,12 +30,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * Iska return value NestJS dwara 'request.user' object mein daal diya jaata hai.
    * @param payload - JWT token ke andar ka decoded data.
    */
-  async validate(payload: {
+  validate(payload: {
     sub: number;
     username: string;
     email: string;
     role: string;
-  }) {
+  }): { id: number; username: string; email: string; role: string } {
     // Hum yahan se jo object return karenge, woh hamare sabhi protected routes mein
     // @Req() req -> req.user ke roop mein available hoga.
     return {

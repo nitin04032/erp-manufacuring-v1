@@ -9,7 +9,9 @@ import { ReportsService } from './reports.service';
 import { ReportsController } from './reports.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PurchaseOrder, Grn, DispatchOrder, Stock])],
+  imports: [
+    TypeOrmModule.forFeature([PurchaseOrder, Grn, DispatchOrder, Stock]),
+  ],
   providers: [ReportsService],
   controllers: [ReportsController],
 })

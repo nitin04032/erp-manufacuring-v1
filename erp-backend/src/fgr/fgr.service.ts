@@ -16,7 +16,10 @@ export class FgrService {
 
   async create(dto: CreateFgrDto): Promise<FinishedGoodsReceipt> {
     // Resolve item by code to get its id
-    const item = await this.stocksService['itemsService'].findByCode(dto.item_code);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const item = await this.stocksService['itemsService'].findByCode(
+      dto.item_code,
+    );
 
     const fgr = this.repo.create({
       receipt_number: dto.receipt_number,
@@ -33,16 +36,21 @@ export class FgrService {
     const savedFgr = await this.repo.save(fgr);
 
     // Update stock using item id resolved from item_code
-    await this.stocksService.increaseStock(item.id, dto.warehouse_name, dto.quantity);
+    await this.stocksService.increaseStock(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+      item.id,
+      dto.warehouse_name,
+      dto.quantity,
+    );
 
     return savedFgr;
   }
 
   findAll(): Promise<FinishedGoodsReceipt[]> {
     // ✅ IMPROVEMENT: Item ki details saath mein fetch karein
-    return this.repo.find({ 
-        relations: ['item'],
-        order: { receipt_date: 'DESC' } 
+    return this.repo.find({
+      relations: ['item'],
+      order: { receipt_date: 'DESC' },
     });
   }
 

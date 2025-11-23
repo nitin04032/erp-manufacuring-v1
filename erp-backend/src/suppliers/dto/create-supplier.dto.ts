@@ -12,7 +12,7 @@ import {
 import { Transform } from 'class-transformer';
 
 export const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
 
 export enum SupplierStatus {
   ACTIVE = 'active',

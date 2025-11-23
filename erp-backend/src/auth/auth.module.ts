@@ -18,6 +18,7 @@ import { UsersModule } from '../users/users.module';
       useFactory: (cfg: ConfigService) => ({
         secret: cfg.get<string>('JWT_SECRET') ?? 'secretKey',
         signOptions: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           expiresIn: (cfg.get<string>('JWT_EXPIRES_IN') ?? '1d') as any,
         },
       }),

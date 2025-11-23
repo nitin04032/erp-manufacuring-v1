@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, ParseIntPipe, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  ParseIntPipe,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { LocationsService } from './locations.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
@@ -26,7 +37,10 @@ export class LocationsController {
   }
 
   @Put(':id') // Note: Generally PATCH is preferred for updates
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLocationDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateLocationDto,
+  ) {
     return this.locationsService.update(id, dto);
   }
 

@@ -34,7 +34,7 @@ export class SystemService {
       const userCount = await this.usersRepository.count();
       const warehouseCount = await this.warehousesRepository.count();
       const itemCount = await this.itemsRepository.count();
-  const locationCount = 0;
+      const locationCount = 0;
 
       return {
         dbStatus,

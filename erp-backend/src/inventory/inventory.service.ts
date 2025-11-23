@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { Repository, QueryRunner } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { StockItem } from './stock-item.entity';
@@ -32,11 +32,18 @@ export class InventoryService {
   }
 
   // check availability (throws if not enough)
-  async checkAvailability(item_id: number, warehouse_id: number, qty: number, qr?: QueryRunner) {
+  async checkAvailability(
+    item_id: number,
+    warehouse_id: number,
+    qty: number,
+    qr?: QueryRunner,
+  ) {
     const row = await this.findStockRow(item_id, warehouse_id, qr);
     const available = row ? Number(row.quantity) : 0;
     if (available < qty) {
-      throw new BadRequestException(`Insufficient stock for item ${item_id} in warehouse ${warehouse_id}. Available ${available}, required ${qty}`);
+      throw new BadRequestException(
+        `Insufficient stock for item ${item_id} in warehouse ${warehouse_id}. Available ${available}, required ${qty}`,
+      );
     }
     return true;
   }
@@ -46,19 +53,35 @@ export class InventoryService {
     item_id: number,
     warehouse_id: number,
     qty: number,
-    opts: { reference_type?: string; reference_id?: number; remarks?: string; queryRunner?: QueryRunner } = {},
+    opts: {
+      reference_type?: string;
+      reference_id?: number;
+      remarks?: string;
+      queryRunner?: QueryRunner;
+    } = {},
   ) {
     if (qty <= 0) throw new BadRequestException('Quantity must be > 0');
 
-    const { reference_type = 'unknown', reference_id = null, remarks = null, queryRunner } = opts;
-    const repo = queryRunner ? queryRunner.manager.getRepository(StockItem) : this.stockItemRepo;
-    const ledgerRepo = queryRunner ? queryRunner.manager.getRepository(StockLedger) : this.stockLedgerRepo;
+    const {
+      reference_type = 'unknown',
+      reference_id = null,
+      remarks = null,
+      queryRunner,
+    } = opts;
+    const repo = queryRunner
+      ? queryRunner.manager.getRepository(StockItem)
+      : this.stockItemRepo;
+    const ledgerRepo = queryRunner
+      ? queryRunner.manager.getRepository(StockLedger)
+      : this.stockLedgerRepo;
 
     // lock/select for update if queryRunner used (depends on DB isolation)
     let row = await repo.findOne({ where: { item_id, warehouse_id } });
     const prevQty = row ? Number(row.quantity) : 0;
     if (prevQty < qty) {
-      throw new BadRequestException(`Insufficient stock. Item ${item_id} in warehouse ${warehouse_id}.`);
+      throw new BadRequestException(
+        `Insufficient stock. Item ${item_id} in warehouse ${warehouse_id}.`,
+      );
     }
 
     const newQty = prevQty - qty;
@@ -94,13 +117,27 @@ export class InventoryService {
     item_id: number,
     warehouse_id: number,
     qty: number,
-    opts: { reference_type?: string; reference_id?: number; remarks?: string; queryRunner?: QueryRunner } = {},
+    opts: {
+      reference_type?: string;
+      reference_id?: number;
+      remarks?: string;
+      queryRunner?: QueryRunner;
+    } = {},
   ) {
     if (qty <= 0) throw new BadRequestException('Quantity must be > 0');
 
-    const { reference_type = 'unknown', reference_id = null, remarks = null, queryRunner } = opts;
-    const repo = queryRunner ? queryRunner.manager.getRepository(StockItem) : this.stockItemRepo;
-    const ledgerRepo = queryRunner ? queryRunner.manager.getRepository(StockLedger) : this.stockLedgerRepo;
+    const {
+      reference_type = 'unknown',
+      reference_id = null,
+      remarks = null,
+      queryRunner,
+    } = opts;
+    const repo = queryRunner
+      ? queryRunner.manager.getRepository(StockItem)
+      : this.stockItemRepo;
+    const ledgerRepo = queryRunner
+      ? queryRunner.manager.getRepository(StockLedger)
+      : this.stockLedgerRepo;
 
     let row = await repo.findOne({ where: { item_id, warehouse_id } });
     const prevQty = row ? Number(row.quantity) : 0;

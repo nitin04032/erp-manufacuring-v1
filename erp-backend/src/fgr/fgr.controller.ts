@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { FgrService } from './fgr.service';
 import { CreateFgrDto } from './dto/create-fgr.dto';
 import { UpdateFgrDto } from './dto/update-fgr.dto';

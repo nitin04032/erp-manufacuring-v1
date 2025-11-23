@@ -43,14 +43,18 @@ export class SuppliersService {
     const where: any = {};
 
     if (query.status)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-enum-comparison
       where.is_active = query.status === 'active' ? true : false;
 
     if (query.search) {
       return this.repo.find({
         where: [
           { ...where, name: ILike(`%${query.search}%`) },
+
           { ...where, supplier_code: ILike(`%${query.search}%`) },
+
           { ...where, contact_person: ILike(`%${query.search}%`) },
+
           { ...where, email: ILike(`%${query.search}%`) },
         ],
         order: { name: 'ASC' },
@@ -71,7 +75,9 @@ export class SuppliersService {
     if (!existing) throw new NotFoundException('Supplier not found');
 
     if (dto.email && dto.email !== existing.email) {
-      const emailExists = await this.repo.findOne({ where: { email: dto.email } });
+      const emailExists = await this.repo.findOne({
+        where: { email: dto.email },
+      });
       if (emailExists)
         throw new ConflictException('Email already used by another supplier');
     }

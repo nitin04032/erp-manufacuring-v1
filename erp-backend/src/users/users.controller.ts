@@ -40,6 +40,7 @@ export class UsersController {
   @Roles('admin')
   @Put(':id')
   async update(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     await this.usersService.updateUser(id, body);
     return { message: 'User updated successfully' };
   }

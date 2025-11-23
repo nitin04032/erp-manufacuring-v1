@@ -6,7 +6,7 @@ import {
   ForbiddenException,
   UnauthorizedException, // Isko import karein
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core'; 
+import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
@@ -27,21 +27,27 @@ export class RolesGuard implements CanActivate {
     }
 
     // 3. Request object se 'user' ko nikaalo, jise JwtAuthGuard ne set kiya hoga.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { user } = context.switchToHttp().getRequest();
 
     // 4. Agar 'user' object hi nahi hai, iska matlab user authenticated (login) hi nahi hai.
     // Isliye 401 Unauthorized error bhejo.
     if (!user) {
-      throw new UnauthorizedException('You must be logged in to access this resource.');
+      throw new UnauthorizedException(
+        'You must be logged in to access this resource.',
+      );
     }
 
     // 5. Check karo ki user ka role zaroori roles ki list mein hai ya nahi.
     // .some() ka istemaal zyaada flexible hai agar user ke paas multiple roles ho.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     const hasPermission = requiredRoles.includes(user.role);
 
     if (!hasPermission) {
       // Agar user login hai lekin uske paas permission nahi hai, toh 403 Forbidden error bhejo.
-      throw new ForbiddenException(`You do not have permission. Required role: ${requiredRoles.join(' or ')}`);
+      throw new ForbiddenException(
+        `You do not have permission. Required role: ${requiredRoles.join(' or ')}`,
+      );
     }
 
     // 6. Agar sab theek hai, toh access de do.
