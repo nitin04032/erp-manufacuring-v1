@@ -16,15 +16,17 @@ export class ItemsService {
   ) {}
 
   private async generateSku(): Promise<string> {
+    // ✅ FIX: केवल एक बार declare करें और 'where: {}' का उपयोग करें
     const last = await this.repo.findOne({
+      where: {}, // TypeORM fix
       order: { id: 'DESC' },
       withDeleted: false,
     });
+    
     const nextNum = last?.sku
       ? parseInt(String(last.sku).split('-').pop() || '0', 10) + 1
       : 1;
-    const last = await this.repo.findOne({where: {}, order: { id: 'DESC' }, withDeleted: false });
-    const nextNum = last?.sku ? parseInt(String(last.sku).split('-').pop() || '0', 10) + 1 : 1;
+      
     return `ITEM-${String(nextNum).padStart(5, '0')}`;
   }
 
@@ -57,9 +59,7 @@ export class ItemsService {
       return this.repo.find({
         where: [
           { ...where, name: ILike(`%${q}%`) },
-
           { ...where, sku: ILike(`%${q}%`) },
-
           { ...where, description: ILike(`%${q}%`) },
         ],
         order: { name: 'ASC' },
