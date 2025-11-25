@@ -1,11 +1,7 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, Index } from 'typeorm';
 
 @Entity({ name: 'stock_ledger' })
+@Index(['item_id', 'warehouse_id'])
 export class StockLedger {
   @PrimaryGeneratedColumn()
   id: number;
@@ -16,24 +12,24 @@ export class StockLedger {
   @Column()
   warehouse_id: number;
 
-  @Column({ type: 'decimal', precision: 18, scale: 3 })
-  qty_in: string;
+  @Column({ type: 'decimal', precision: 18, scale: 3, default: 0 })
+  qty_in: number;
 
-  @Column({ type: 'decimal', precision: 18, scale: 3 })
-  qty_out: string;
+  @Column({ type: 'decimal', precision: 18, scale: 3, default: 0 })
+  qty_out: number;
 
-  @Column({ type: 'decimal', precision: 18, scale: 3 })
-  balance: string;
+  @Column({ type: 'decimal', precision: 18, scale: 3, default: 0 })
+  balance: number;
 
-  @Column({ length: 64 })
-  reference_type: string; // e.g. 'production', 'purchase', 'adjustment'
+  @Column({ nullable: true })
+  reference_type: string;
 
-  @Column({ type: 'int', nullable: true })
-  reference_id: number | null;
+  @Column({ nullable: true })
+  reference_id: number;
 
   @Column({ type: 'text', nullable: true })
-  remarks: string | null;
+  remarks: string;
 
-  @CreateDateColumn()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 }

@@ -13,7 +13,7 @@ export class StockItem {
   warehouse_id: number;
 
   @Column({ type: 'decimal', precision: 18, scale: 3, default: 0 })
-  quantity: string; // store as string to avoid JS float rounding
+  quantity: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updated_at: Date;

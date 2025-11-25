@@ -41,7 +41,7 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
         password: configService.get<string>('DB_PASSWORD') ?? '',
         database: configService.get<string>('DB_DATABASE') ?? 'erp',
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // IMPORTANT: Set to false in production!
+        synchronize: false, // IMPORTANT: Set to false in production!
       }),
     }),
 

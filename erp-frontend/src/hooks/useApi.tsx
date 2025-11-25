@@ -40,11 +40,11 @@ export function useApi<T = any>(endpoint: string): UseApiReturn<T> {
           // Default to backend dev server on port 3001 when running locally
           // If in production, fallback to same origin
           const isProd = process.env.NODE_ENV === 'production';
-          const origin = window.location.origin;
+          const origin = typeof window !== 'undefined' ? window.location.origin : '';
           if (!isProd) {
             // prefer backend on port 3001 during local dev
-            const host = window.location.hostname;
-            baseForUrl = `${window.location.protocol}//${host}:3001`;
+            const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+            baseForUrl = `http://${host}:3001`;
           } else {
             baseForUrl = origin;
           }
