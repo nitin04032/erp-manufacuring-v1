@@ -87,13 +87,13 @@ export class InventoryService {
     const newQty = prevQty - qty;
 
     if (row) {
-      row.quantity = newQty.toFixed(3);
+      row.quantity = newQty;
       row.updated_at = new Date();
       await repo.save(row);
     } else {
       // this case won't normally happen because prevQty < qty caught earlier,
       // but handle for safety.
-      row = repo.create({ item_id, warehouse_id, quantity: (0).toFixed(3) });
+      row = repo.create({ item_id, warehouse_id, quantity: 0 });
       await repo.save(row);
     }
 
@@ -101,9 +101,9 @@ export class InventoryService {
     const ledger = ledgerRepo.create({
       item_id: item_id,
       warehouse_id: warehouse_id,
-      qty_in: (0).toFixed(3),
-      qty_out: qty.toFixed(3),
-      balance: newQty.toFixed(3),
+      qty_in: 0,
+      qty_out: qty,
+      balance: newQty,
       reference_type: reference_type,
       reference_id: reference_id ?? null,
       remarks: remarks ?? null,
@@ -144,20 +144,20 @@ export class InventoryService {
     const newQty = prevQty + qty;
 
     if (row) {
-      row.quantity = newQty.toFixed(3);
+      row.quantity = newQty;
       row.updated_at = new Date();
       await repo.save(row);
     } else {
-      row = repo.create({ item_id, warehouse_id, quantity: newQty.toFixed(3) });
+      row = repo.create({ item_id, warehouse_id, quantity: newQty });
       await repo.save(row);
     }
 
     const ledger = ledgerRepo.create({
       item_id: item_id,
       warehouse_id: warehouse_id,
-      qty_in: qty.toFixed(3),
-      qty_out: (0).toFixed(3),
-      balance: newQty.toFixed(3),
+      qty_in: qty,
+      qty_out: 0,
+      balance: newQty,
       reference_type: reference_type,
       reference_id: reference_id ?? null,
       remarks: remarks ?? null,
