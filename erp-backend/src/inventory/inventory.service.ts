@@ -99,15 +99,15 @@ export class InventoryService {
 
     // push ledger
     const ledger = ledgerRepo.create({
-      item_id: item_id,
-      warehouse_id: warehouse_id,
+      item_id,
+      warehouse_id,
       qty_in: 0,
       qty_out: qty,
       balance: newQty,
-      reference_type: reference_type,
+      reference_type,
       reference_id: reference_id ?? null,
       remarks: remarks ?? null,
-    });
+    } as StockLedger);
     await ledgerRepo.save(ledger);
     return { newQty };
   }
@@ -148,20 +148,24 @@ export class InventoryService {
       row.updated_at = new Date();
       await repo.save(row);
     } else {
-      row = repo.create({ item_id, warehouse_id, quantity: newQty });
+      row = repo.create({
+        item_id,
+        warehouse_id,
+        quantity: newQty,
+      });
       await repo.save(row);
     }
 
     const ledger = ledgerRepo.create({
-      item_id: item_id,
-      warehouse_id: warehouse_id,
+      item_id,
+      warehouse_id,
       qty_in: qty,
       qty_out: 0,
       balance: newQty,
-      reference_type: reference_type,
+      reference_type,
       reference_id: reference_id ?? null,
       remarks: remarks ?? null,
-    });
+    } as StockLedger);
     await ledgerRepo.save(ledger);
     return { newQty };
   }
