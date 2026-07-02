@@ -8,7 +8,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
-import { DashboardModule } from './dashboard/dashboard.module'; // Naye module ko import karein
+import { DashboardModule } from './dashboard/dashboard.module'; 
 import { ItemsModule } from './items/items.module';
 import { WarehousesModule } from './warehouses/warehouses.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
@@ -29,19 +29,20 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
       isGlobal: true, // Makes ConfigService available everywhere
     }),
 
-    // Step 2: Configure TypeORM for the database connection
+    // Step 2: Configure TypeORM for the Supabase (PostgreSQL) connection
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule], // Import ConfigModule to use its service
-      inject: [ConfigService], // Inject ConfigService into the factory
+      imports: [ConfigModule], 
+      inject: [ConfigService], 
       useFactory: (configService: ConfigService) => ({
-        type: 'mysql',
-        host: configService.get<string>('DB_HOST') ?? 'localhost',
-        port: parseInt(configService.get<string>('DB_PORT') ?? '3306', 10),
-        username: configService.get<string>('DB_USERNAME') ?? 'root',
-        password: configService.get<string>('DB_PASSWORD') ?? '',
-        database: configService.get<string>('DB_DATABASE') ?? 'erp',
+        type: 'postgres', // <--- Yahan 'mysql' se badalkar 'postgres' kar diya
+        host: configService.get<string>('DB_HOST'),
+        port: parseInt(configService.get<string>('DB_PORT') ?? '5432', 10), // <--- Default port 5432 kar diya
+        username: configService.get<string>('DB_USERNAME') ?? 'postgres',
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_DATABASE') ?? 'postgres',
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // IMPORTANT: Set to false in production!
+        // Pehli baar connect karte waqt ise true kar dete hain taaki Supabase me saare tables automatic ban jayein
+        synchronize: true, 
       }),
     }),
 
@@ -62,7 +63,6 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
     InventoryModule,
     LocationsModule,
     QualityCheckModule,
-    // TypeOrmModule already configured above with forRootAsync
   ],
   controllers: [AppController],
   providers: [AppService],
