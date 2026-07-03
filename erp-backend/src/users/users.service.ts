@@ -5,6 +5,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
@@ -102,4 +103,14 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
   }
+
+  // src/users/users.service.ts ke andar class me add karo:
+
+async updateRefreshToken(userId: number, refreshToken: string | null) {
+  let hash = null;
+  if (refreshToken) {
+    hash = await bcrypt.hash(refreshToken, 10);
+  }
+  await this.usersRepository.update(userId, { refresh_token_hash: hash });
+}
 }

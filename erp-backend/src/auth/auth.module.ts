@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { RefreshStrategy } from './refresh.strategy'; // 🔹 Naya import add kiya
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -33,8 +34,10 @@ import { UsersModule } from '../users/users.module';
     }),
     UsersModule,
   ],
-  providers: [AuthService, JwtStrategy],
+  // 🔹 RefreshStrategy ko providers me add kar diya hai taaki NestJS isko recognize kare
+  providers: [AuthService, JwtStrategy, RefreshStrategy],
   controllers: [AuthController],
-  exports: [AuthService, JwtStrategy, JwtModule], // ✅ make sure you export these
+  // ✅ Agar kisi aur module me custom Guard lagana ho, toh RefreshStrategy ko bhi export kar sakte hain
+  exports: [AuthService, JwtStrategy, RefreshStrategy, JwtModule], 
 })
 export class AuthModule {}

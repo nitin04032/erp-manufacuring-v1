@@ -36,4 +36,9 @@ export class User {
 
   @UpdateDateColumn() // Automatically update the date on change
   updated_at: Date;
+
+  // src/users/user.entity.ts ke andar add karo:
+
+@Column({ type: 'varchar', nullable: true })
+refresh_token_hash: string | null;
 }

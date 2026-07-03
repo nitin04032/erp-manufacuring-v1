@@ -9,7 +9,10 @@ import {
   HttpException,
   UnauthorizedException,
   ConflictException,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -84,5 +87,29 @@ export class AuthController {
 
     // 3. Agar user valid hai, toh authService.login se token aur user data generate karke bhejte hain.
     return this.authService.login(user);
+  }
+
+  /**
+   * POST /auth/refresh
+   * Refresh token ke jariye naye Access aur Refresh tokens generate karne ke liye endpoint.
+   */
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt-refresh'))
+  async refresh(@Req() req: any) {
+    // Strategy se request me 'user' object attach hota hai jisme id aur refreshToken hota hai
+    return this.authService.refreshTokens(req.user.id, req.user.refreshToken);
+  }
+
+  /**
+   * POST /auth/logout
+   * User ko logout karne ke liye aur unka refresh token database/redis se remove karne ke liye.
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt')) // Standard Access Token verification guard
+  async logout(@Req() req: any) {
+    // Strategy se mile user id ke base par token clear karenge
+    return this.authService.logout(req.user.id);
   }
 }
