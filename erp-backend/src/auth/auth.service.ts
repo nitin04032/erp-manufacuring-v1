@@ -20,10 +20,9 @@ export class AuthService {
    * Yeh password ko hash karta hai aur duplicate username/email check ke liye UsersService ka istemal karta hai.
    */
   async register(payload: RegisterDto): Promise<Omit<User, 'password_hash'>> {
-    const { username, email, password, full_name, role } = payload;
+    const { username, email, password, full_name } = payload; // 👈 DTO se 'role' nikalna band kar diya
 
     // 1. Password ki basic validation
-
     if (!password || password.trim().length < 6) {
       throw new BadRequestException(
         'Password must be at least 6 characters long.',
@@ -31,17 +30,16 @@ export class AuthService {
     }
 
     // 2. Password ko hash karein
-
     const password_hash = await (bcrypt as any).hash(password, 10);
 
     // 3. UsersService ke 'create' function ka istemaal karein
-    // UsersService.create ko is tarah design karna chahiye ki woh password_hash return na kare.
+    // 📋 PRIVILEGE ESCALATION FIX: Yahan 'role' ko payload se na lekar strictly hardcode 'USER' kar diya hai.
     const createdUser = await this.usersService.create({
       username,
       email,
       password_hash,
       full_name,
-      role: role || 'user', // Default role 'user' set karein agar nahi diya hai
+      role: 'USER', // 👈 Ab koi hacker API se role: 'ADMIN' bhejega toh bhi vo normal user hi banega!
     });
 
     return createdUser;

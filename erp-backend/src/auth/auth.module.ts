@@ -15,13 +15,21 @@ import { UsersModule } from '../users/users.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => ({
-        secret: cfg.get<string>('JWT_SECRET') ?? 'secretKey',
-        signOptions: {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          expiresIn: (cfg.get<string>('JWT_EXPIRES_IN') ?? '1d') as any,
-        },
-      }),
+      useFactory: (cfg: ConfigService) => {
+        const secret = cfg.get<string>('JWT_SECRET');
+
+        if (!secret) {
+          throw new Error('JWT_SECRET environment variable is required.');
+        }
+
+        return {
+          secret,
+          signOptions: {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            expiresIn: (cfg.get<string>('JWT_EXPIRES_IN') ?? '1d') as any,
+          },
+        };
+      },
     }),
     UsersModule,
   ],

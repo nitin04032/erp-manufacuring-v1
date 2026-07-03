@@ -16,19 +16,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // 1. Request ke 'Authorization' header se Bearer Token ko nikaalo.
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 
-      // 2. Expired tokens ko reject karo. true karne par expired token bhi pass ho jaate.
+      // 2. Expired tokens ko reject karo.
       ignoreExpiration: false,
 
-      // 3. Token ko verify karne ke liye secret key.
-      // Yeh key .env file se aani chahiye taaki yeh secure rahe.
-      secretOrKey: configService.get<string>('JWT_SECRET') ?? 'secretKey',
+      // 3. Token ko verify karne ke liye strict secret key check.
+      secretOrKey: (() => {
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET environment variable is required.');
+        }
+        return secret;
+      })(),
     });
   }
 
   /**
    * Token safalta se verify hone ke baad yeh function chalta hai.
    * Iska return value NestJS dwara 'request.user' object mein daal diya jaata hai.
-   * @param payload - JWT token ke andar ka decoded data.
    */
   validate(payload: {
     sub: number;
@@ -36,10 +40,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     email: string;
     role: string;
   }): { id: number; username: string; email: string; role: string } {
-    // Hum yahan se jo object return karenge, woh hamare sabhi protected routes mein
-    // @Req() req -> req.user ke roop mein available hoga.
     return {
-      id: payload.sub, // 'sub' (subject) aam taur par user ID hota hai.
+      id: payload.sub,
       username: payload.username,
       email: payload.email,
       role: payload.role,
