@@ -1,7 +1,7 @@
 // erp-backend/src/app.module.ts
 
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -26,24 +26,58 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
   imports: [
     // Step 1: Configure ConfigModule to be global
     ConfigModule.forRoot({
-      isGlobal: true, // Makes ConfigService available everywhere
+      isGlobal: true,
+      envFilePath: '.env', // Makes ConfigService available everywhere
     }),
 
     // Step 2: Configure TypeORM for the Supabase (PostgreSQL) connection
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule], 
-      inject: [ConfigService], 
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres', // <--- Yahan 'mysql' se badalkar 'postgres' kar diya
-        host: configService.get<string>('DB_HOST'),
-        port: parseInt(configService.get<string>('DB_PORT') ?? '5432', 10), // <--- Default port 5432 kar diya
-        username: configService.get<string>('DB_USERNAME') ?? 'postgres',
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_DATABASE') ?? 'postgres',
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        // Pehli baar connect karte waqt ise true kar dete hain taaki Supabase me saare tables automatic ban jayein
-        synchronize: true, 
-      }),
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
+        const dbType = configService.get<string>('DB_TYPE') ?? 'postgres';
+
+        // SQLite local/dev fallback
+        if (dbType === 'sqlite') {
+          return {
+            type: 'sqlite',
+            database: configService.get<string>('DB_DATABASE') ?? 'data/sqlite.db',
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            synchronize: true,
+          } as TypeOrmModuleOptions;
+        }
+
+        // Postgres (Supabase) configuration
+        if (configService.get<string>('DATABASE_URL')) {
+          return {
+            type: 'postgres',
+            url: configService.get<string>('DATABASE_URL'),
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            synchronize: true,
+            ssl: configService.get<string>('DB_SSL') === 'true' || false,
+            extra:
+              configService.get<string>('DB_SSL') === 'true'
+                ? { ssl: { rejectUnauthorized: false } }
+                : undefined,
+          } as TypeOrmModuleOptions;
+        }
+
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DB_HOST'),
+          port: parseInt(configService.get<string>('DB_PORT') ?? '5432', 10),
+          username: configService.get<string>('DB_USERNAME') ?? 'postgres',
+          password: configService.get<string>('DB_PASSWORD'),
+          database: configService.get<string>('DB_DATABASE') ?? 'postgres',
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: true,
+          ssl: configService.get<string>('DB_SSL') === 'true' || false,
+          extra:
+            configService.get<string>('DB_SSL') === 'true'
+              ? { ssl: { rejectUnauthorized: false } }
+              : undefined,
+        } as TypeOrmModuleOptions;
+      },
     }),
 
     // Step 3: Import all your application's feature module
