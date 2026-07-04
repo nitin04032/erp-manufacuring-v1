@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
 import { User } from '../users/user.entity';
+import { UserRole, UserStatus } from '../users/enums/user.enum';
 
 @Injectable()
 export class AuthService {
@@ -25,8 +26,12 @@ export class AuthService {
       email,
       password_hash,
       full_name,
-      role: 'USER',
+      role: UserRole.USER,
+      status: UserStatus.ACTIVE,
+      created_by: null,
+      updated_by: null,
       refresh_token_hash: null,
+      deleted_at: null,
     });
     return createdUser;
   }
@@ -42,7 +47,7 @@ export class AuthService {
     return result;
   }
 
-  // 🔹 Commit 2 & 3: Generate Access + Refresh Token
+  // 🔹 Generate Access + Refresh Token
   async login(userPayload: Omit<User, 'password_hash'>) {
     const accessTokenPayload = {
       sub: userPayload.id,
@@ -72,16 +77,18 @@ export class AuthService {
     };
   }
 
-  // 🔹 Commit 4: Handle Refresh Logic
+  // 🔹 Optimized Refresh Logic using UsersService validation flow
   async refreshTokens(userId: number, refreshToken: string) {
-    const user = await this.usersService.findById(userId); // use findById from UsersService
-    if (!user || !user.refresh_token_hash) {
-      throw new UnauthorizedException('Access Denied');
+    // P0 - Strictly using validateRefreshToken from UsersService
+    const isTokenValid = await this.usersService.validateRefreshToken(userId, refreshToken);
+    if (!isTokenValid) {
+      throw new UnauthorizedException('Access Denied - Invalid Refresh Token');
     }
 
-    const isTokenMatch = await bcrypt.compare(refreshToken, user.refresh_token_hash);
-    if (!isTokenMatch) {
-      throw new UnauthorizedException('Access Denied');
+    // Gaining user data safely through current UsersService method (findById)
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
     const accessTokenPayload = {
@@ -96,7 +103,7 @@ export class AuthService {
     return { accessToken: newAccessToken };
   }
 
-  // 🔹 Commit 6: Enterprise Logout
+  // 🔹 Enterprise Logout
   async logout(userId: number) {
     await this.usersService.updateRefreshToken(userId, null);
     return { message: 'Logged out successfully' };

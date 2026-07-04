@@ -1,14 +1,15 @@
-// erp-backend/src/users/user.entity.ts (CORRECTED CODE)
-
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
+// src/users/user.entity.ts
+import { 
+  Entity, 
+  PrimaryGeneratedColumn, 
+  Column, 
+  CreateDateColumn, 
+  UpdateDateColumn, 
+  DeleteDateColumn 
 } from 'typeorm';
+import { UserRole, UserStatus } from './enums/user.enum';
 
-@Entity('users') // This should match your database table name
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
@@ -25,20 +26,35 @@ export class User {
   @Column({ nullable: true })
   full_name: string;
 
-  @Column({ default: 'user' })
-  role: string;
+  // P1 - Role Enum Implementation
+  @Column({ type: 'varchar', default: UserRole.USER })
+  role: UserRole;
 
-  @Column({ type: 'timestamp', nullable: true })
-  last_login: Date | null;
+  // P1 - User Status Integration
+  @Column({ type: 'varchar', default: UserStatus.ACTIVE })
+  status: UserStatus;
 
-  @CreateDateColumn() // Automatically set the creation date
+  // P0 - Refresh Token Hash with safe length 255
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  refresh_token_hash: string | null;
+
+  @Column({ nullable: true })
+  last_login: Date;
+
+  // P2 - Audit Fields for Enterprise ERP
+  @Column({ nullable: true })
+  created_by: number;
+
+  @Column({ nullable: true })
+  updated_by: number;
+
+  @CreateDateColumn()
   created_at: Date;
 
-  @UpdateDateColumn() // Automatically update the date on change
+  @UpdateDateColumn()
   updated_at: Date;
 
-  // src/users/user.entity.ts ke andar add karo:
-
-@Column({ type: 'varchar', nullable: true })
-refresh_token_hash: string | null;
+  // P1 - Soft Delete Column
+  @DeleteDateColumn()
+  deleted_at: Date;
 }

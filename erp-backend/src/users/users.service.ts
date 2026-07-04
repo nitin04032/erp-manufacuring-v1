@@ -1,4 +1,4 @@
-// erp-backend/src/users/users.service.ts (UPDATED CODE)
+// erp-backend/src/users/users.service.ts
 
 import {
   Injectable,
@@ -20,7 +20,6 @@ export class UsersService {
   /**
    * Ek naya user banata hai.
    */
-  // ✅ THE FIX IS IN THE LINE BELOW
   async create(
     payload: Omit<User, 'id' | 'last_login' | 'created_at' | 'updated_at'>,
   ): Promise<Omit<User, 'password_hash'>> {
@@ -49,7 +48,9 @@ export class UsersService {
       where: [{ username: identifier }, { email: identifier }],
     });
     return user ?? undefined;
-  } /**
+  }
+
+  /**
    * User ko ID se dhoondhta hai (password hash ke bina).
    * Yeh public requests ke liye safe hai.
    */
@@ -61,13 +62,13 @@ export class UsersService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...safeUser } = user;
     return safeUser;
-  } /**
+  }
+
+  /**
    * Sabhi users ki list deta hai (password hash ke bina).
    */
-
   async listAll(): Promise<Omit<User, 'password_hash'>[]> {
     return this.usersRepository.find({
-      // Select all columns from the User entity except 'password_hash'
       select: [
         'id',
         'email',
@@ -79,38 +80,57 @@ export class UsersService {
         'updated_at',
       ],
     });
-  } /**
+  }
+
+  /**
    * User ka last login time update karta hai.
    */
-
   async updateLastLogin(id: number): Promise<void> {
     await this.usersRepository.update(id, { last_login: new Date() });
-  } /**
-   * User ko update karta hai.
-   */
+  }
 
-  async updateUser(id: number, updates: Partial<User>): Promise<void> {
-    // Password update karne se rokein is function se
-    delete updates.password_hash;
-    await this.usersRepository.update(id, updates);
-  } /**
-   * User ko delete karta hai.
+  /**
+   * User ko update karta hai (Dynamic DTO / Partial support ke sath).
    */
+  async updateUser(id: number, updates: Partial<User>): Promise<any> {
+    // Security check: Password update karne se rokein is function se
+    delete (updates as any).password_hash;
+    return this.usersRepository.update(id, updates);
+  }
 
+  /**
+   * User ko delete karta hai (Hard delete ki jagah Soft Delete).
+   * Table se row completely udegi nahi, sirf deleted_at flag set hoga.
+   */
   async deleteById(id: number): Promise<void> {
-    const result = await this.usersRepository.delete(id);
+    const result = await this.usersRepository.softDelete(id);
     if (result.affected === 0) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
   }
 
-  // src/users/users.service.ts ke andar class me add karo:
-
-async updateRefreshToken(userId: number, refreshToken: string | null) {
-  let hash = null;
-  if (refreshToken) {
-    hash = await bcrypt.hash(refreshToken, 10);
+  /**
+   * 🔹 Refresh Token ko encrypt karke DB me save karta hai (ya null karta hai logout par)
+   */
+  async updateRefreshToken(userId: number, refreshToken: string | null) {
+    let hash = null;
+    if (refreshToken) {
+      hash = await bcrypt.hash(refreshToken, 10);
+    }
+    // Make sure aapki User entity me 'refresh_token_hash' column ho
+    await this.usersRepository.update(userId, { refresh_token_hash: hash } as any);
   }
-  await this.usersRepository.update(userId, { refresh_token_hash: hash });
-}
+
+  /**
+   * 🔹 P0 - Refresh Token Match/Validate Logic
+   * Database ke hash se incoming clear token compare karta hai.
+   */
+  async validateRefreshToken(userId: number, refreshToken: string): Promise<boolean> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    // User ya unka refresh_token_hash check karein (Type casting used in case entity structure differs slightly)
+    if (!user || !(user as any).refresh_token_hash) {
+      return false;
+    }
+    return bcrypt.compare(refreshToken, (user as any).refresh_token_hash);
+  }
 }
