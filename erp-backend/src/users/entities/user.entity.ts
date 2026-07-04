@@ -1,13 +1,16 @@
-// src/users/user.entity.ts
+// src/users/entities/user.entity.ts
 import { 
   Entity, 
   PrimaryGeneratedColumn, 
   Column, 
   CreateDateColumn, 
   UpdateDateColumn, 
-  DeleteDateColumn 
+  DeleteDateColumn,
+  ManyToOne,
+  JoinColumn
 } from 'typeorm';
-import { UserRole, UserStatus } from './enums/user.enum';
+import { UserRole, UserStatus } from '../enums/user.enum'; // 🛠️ Path Fix (Ek folder peeche)
+import { Role } from '../../rbac/roles/entities/role.entity'; // 🛠️ Path Fix (Do folder peeche)
 
 @Entity('users')
 export class User {
@@ -26,22 +29,24 @@ export class User {
   @Column({ nullable: true })
   full_name: string;
 
-  // P1 - Role Enum Implementation
   @Column({ type: 'varchar', default: UserRole.USER })
   role: UserRole;
 
-  // P1 - User Status Integration
+  @ManyToOne(() => Role, { nullable: true })
+  @JoinColumn({
+    name: 'role_id',
+  })
+  roleRelation?: Role; // 👈 HAHAN PAR '?' LAGAYA HAI TAAKI REGISTRATION KA CODE NA TOOTE
+
   @Column({ type: 'varchar', default: UserStatus.ACTIVE })
   status: UserStatus;
 
-  // P0 - Refresh Token Hash with safe length 255
   @Column({ type: 'varchar', length: 255, nullable: true })
   refresh_token_hash: string | null;
 
   @Column({ nullable: true })
   last_login: Date;
 
-  // P2 - Audit Fields for Enterprise ERP
   @Column({ nullable: true })
   created_by: number;
 
@@ -54,7 +59,6 @@ export class User {
   @UpdateDateColumn()
   updated_at: Date;
 
-  // P1 - Soft Delete Column
   @DeleteDateColumn()
   deleted_at: Date;
 }

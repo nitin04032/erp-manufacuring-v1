@@ -16,7 +16,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { User } from '../users/user.entity';
+import { User } from '../users/entities/user.entity';
 
 // '/auth' route par saare requests yahan aayenge
 @Controller('auth')
