@@ -1,29 +1,38 @@
+// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Yeh line bahut zaroori hai. Yeh सुनिश्चित karti hai ki sabhi DTOs automatically validate hon.
-  app.useGlobalPipes(new ValidationPipe());
+  // 1. Global Prefix (P1) -> /api/auth/login, /api/users
+  app.setGlobalPrefix('api');
 
-  // CORS ko enable karna taki frontend se request aa sake.
-  app.enableCors({ origin: true, credentials: true });
+  // 2. Strong ValidationPipe (P0) -> Secures payloads & auto-converts types
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Extra un-mapped properties ko hata dega
+      forbidNonWhitelisted: true, // Extra fields aane par request fail kar dega
+      transform: true, // Payloads ko target DTO types me convert karega
+      transformOptions: {
+        enableImplicitConversion: true, // Query/Param strings ko number/boolean bana dega
+      },
+    }),
+  );
 
-  const port = parseInt(process.env.PORT ?? '3001', 10);
-  try {
-    await app.listen(port);
-    console.log(`Nest application is listening on port ${port}`);
-  } catch (err: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (err && err.code === 'EADDRINUSE') {
-      console.error(
-        `Port ${port} is already in use. Please stop the process using that port or set PORT env variable to a different port.`,
-      );
-      process.exit(1);
-    }
-    throw err;
-  }
+  // 3. Global Exception Filter (P1)
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  // 4. Global Response Interceptor (P1)
+  app.useGlobalInterceptors(new TransformInterceptor());
+
+  // CORS Enabled (Just in case frontend interacts from another port)
+  app.enableCors();
+
+  await app.listen(3001);
+  console.log(`🚀 ERP Backend running on: http://localhost:3001/api`);
 }
-void bootstrap();
+bootstrap();

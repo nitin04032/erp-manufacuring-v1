@@ -36,6 +36,11 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
         const dbType = configService.get<string>('DB_TYPE') ?? 'postgres';
+        
+        // 🛡️ P0 - Production-Safe Condition Variable
+        const isProduction = configService.get<string>('NODE_ENV') === 'production';
+        // Production par schema automatic sync nahi hoga, migrations best strategy hain
+        const shouldSynchronize = !isProduction; 
 
         // SQLite local/dev fallback
         if (dbType === 'sqlite') {
@@ -43,17 +48,17 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
             type: 'sqlite',
             database: configService.get<string>('DB_DATABASE') ?? 'data/sqlite.db',
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true,
+            synchronize: shouldSynchronize, // 🛡️ Safe Option Applied
           } as TypeOrmModuleOptions;
         }
 
-        // Postgres (Supabase) configuration
+        // Postgres (Supabase) URL based configuration
         if (configService.get<string>('DATABASE_URL')) {
           return {
             type: 'postgres',
             url: configService.get<string>('DATABASE_URL'),
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true,
+            synchronize: shouldSynchronize, // 🛡️ Safe Option Applied
             ssl: configService.get<string>('DB_SSL') === 'true' || false,
             extra:
               configService.get<string>('DB_SSL') === 'true'
@@ -62,6 +67,7 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
           } as TypeOrmModuleOptions;
         }
 
+        // Standard Postgres configuration block
         return {
           type: 'postgres',
           host: configService.get<string>('DB_HOST'),
@@ -70,17 +76,17 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
           password: configService.get<string>('DB_PASSWORD'),
           database: configService.get<string>('DB_DATABASE') ?? 'postgres',
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: true,
+          synchronize: shouldSynchronize, // 🛡️ Safe Option Applied
           ssl: configService.get<string>('DB_SSL') === 'true' || false,
           extra:
             configService.get<string>('DB_SSL') === 'true'
               ? { ssl: { rejectUnauthorized: false } }
               : undefined,
-        } as TypeOrmModuleOptions;
+        };
       },
     }),
 
-    // Step 3: Import all your application's feature module
+    // Step 3: Import all your application's feature modules
     AuthModule,
     UsersModule,
     SuppliersModule,
