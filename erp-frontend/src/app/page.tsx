@@ -21,7 +21,6 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
-// ## TYPE ERROR SUDHAAR YAHAN HAI (TYPE ERROR FIX IS HERE) ##
 const containerVariants: Variants = {
   hidden: { opacity: 0, scale: 0.98 },
   visible: {
@@ -29,7 +28,6 @@ const containerVariants: Variants = {
     scale: 1,
     transition: {
       duration: 0.8,
-      // 'ease' value ke aage 'as const' lagane se type error theek ho jayega
       ease: [0.42, 0, 0.58, 1] as const,
       staggerChildren: 0.2,
     },
@@ -57,7 +55,6 @@ export default function LoginPage() {
   const { setToken, isAuth } = useUserStore();
 
   useEffect(() => {
-    // Agar user pehle se logged in hai, toh use dashboard par bhej do
     if (isAuth) {
       router.push('/dashboard');
     }
@@ -77,12 +74,22 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usernameOrEmail: email, password }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed.');
+      
+      const result = await response.json(); // Global formatted object catches here
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Login failed.');
       }
-      if (data.access_token) {
-        setToken(data.access_token);
+      
+      // 🛠️ FIX: Response interceptor wrapper pattern + camelCase match
+      if (result.data && result.data.accessToken) {
+        setToken(result.data.accessToken);
+        
+        // Refresh token ko local storage me save kar lo, dynamic refresh strategy me kaam aayega
+        if (result.data.refreshToken) {
+          localStorage.setItem('refreshToken', result.data.refreshToken);
+        }
+        
         router.push('/dashboard');
       } else {
         throw new Error('Token not found in response.');

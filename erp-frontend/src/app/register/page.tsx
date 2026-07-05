@@ -34,7 +34,6 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirm: "",
-    role: "user",
     terms: false,
   });
 
@@ -66,8 +65,9 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      // 🛠️ Note: Ensure NEXT_PUBLIC_API_URL includes '/api' in your .env (e.g., http://localhost:3001/api)
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -75,18 +75,20 @@ export default function RegisterPage() {
             email: form.email,
             password: form.password,
             full_name: form.name,
-            role: form.role,
+            // 🛡️ P0 Security Fix: 'role' field nikal diya hai taaki backend whitelist error na de!
           }),
           headers: { "Content-Type": "application/json" },
         }
       );
 
-      const data = await res.json();
-      if (res.ok) {
+      const result = await res.json(); // Global response pattern catch karega
+
+      if (res.ok && result.success) { // 🛠️ P1 Response Check integration
         setFlash({ type: "success", message: "Account created successfully!" });
-        setForm({ name: "", email: "", password: "", confirm: "", role: "user", terms: false });
+        setForm({ name: "", email: "", password: "", confirm: "", terms: false });
       } else {
-        setFlash({ type: "danger", message: data.message || "Registration failed." });
+        // Backend ka hamesha ek standard structured message aayega ab
+        setFlash({ type: "danger", message: result.message || "Registration failed." });
       }
     } catch (error) {
       setFlash({ type: "danger", message: "Server error. Try again later." });
@@ -95,11 +97,11 @@ export default function RegisterPage() {
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { id, value, type } = e.target as HTMLInputElement;
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { id, value, type } = e.target;
     setForm(prev => ({
         ...prev,
-        [id]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+        [id]: type === 'checkbox' ? e.target.checked : value
     }));
   };
 
@@ -168,14 +170,9 @@ export default function RegisterPage() {
                     </div>
                   </motion.div>
                 </div>
-                <motion.div variants={itemVariants} className="mb-3">
-                  <label htmlFor="role" className="form-label">Role</label>
-                  <select id="role" className="form-select" value={form.role} onChange={handleChange}>
-                    <option value="user">User</option>
-                    <option value="manager">Manager</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </motion.div>
+                
+                {/* 🛡️ Note: Role dropdown completely removed from registration to strictly prevent privilege escalation */}
+
                 <motion.div variants={itemVariants} className="mb-4 form-check">
                   <input type="checkbox" id="terms" className="form-check-input" checked={form.terms} onChange={handleChange} />
                   <label className="form-check-label small" htmlFor="terms">
