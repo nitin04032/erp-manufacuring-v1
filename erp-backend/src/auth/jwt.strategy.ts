@@ -1,17 +1,17 @@
 // erp-backend/src/auth/jwt.strategy.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
-  /**
-   * JwtStrategy JWTs ko validate karne ke liye responsible hai.
-   * Yeh Bearer Token ko header se nikaalta hai aur verify karta hai.
-   */
-  constructor(private readonly configService: ConfigService) {
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
+  ) {
     super({
       // 1. Request ke 'Authorization' header se Bearer Token ko nikaalo.
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -31,20 +31,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   /**
-   * Token safalta se verify hone ke baad yeh function chalta hai.
-   * Iska return value NestJS dwara 'request.user' object mein daal diya jaata hai.
+   * Token successfully verify hone ke baad yeh function runtime par chalta hai.
+   * Yeh database se Fresh Live Permissions load karke Express ke `req.user` me inject kar dega.
    */
-  validate(payload: {
-    sub: number;
-    username: string;
-    email: string;
-    role: string;
-  }): { id: number; username: string; email: string; role: string } {
+  async validate(payload: { sub: number; username: string; email: string; type: string }) {
+    // 🛡️ Security Check: Ensure standard access token block condition
+    if (payload.type !== 'access') {
+      throw new UnauthorizedException('Invalid token type provided');
+    }
+
+    // 🚀 LIVE DATABASE SYNC: Fetch live user row along with active role permissions paths
+    // identifier me string conversion bhej rahe hain kyunki findOne handle karta hai generic string queries
+    const user = await this.usersService.findOne(payload.username);
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists inside the application context');
+    }
+
+    // 🛡️ Flattening permissions: Database nodes se identifiers ko array context ['inventory.view', 'user.create'] me convert kiya
+    const permissions = user.roleRelation?.permissions?.map((p: any) => p.code || p.name) || [];
+
+    // Yeh return object seedhe controllers me `req.user` (`@Req() req`) ke roop me automatically accessible ho jayega
     return {
-      id: payload.sub,
-      username: payload.username,
-      email: payload.email,
-      role: payload.role,
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      roleId: user.roleRelation?.id || null,
+      permissions: permissions, // 🚀 Real-time dynamic validation guard arrays injected!
     };
   }
 }

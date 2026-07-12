@@ -40,22 +40,25 @@ export class UsersService {
   }
 
   /**
-   * User ko ID, username, ya email se dhoondhta hai.
-   * Yeh function password hash ke saath pura user object return karta hai (authentication ke liye zaroori).
+   * User ko ID, username, ya email se dhoondhta hai sath me unka roleRelation aur permissions load karta hai.
+   * Yeh function authentication ke liye zaroori hai.
    */
   async findOne(identifier: string): Promise<User | undefined> {
     const user = await this.usersRepository.findOne({
       where: [{ username: identifier }, { email: identifier }],
+      relations: ['roleRelation', 'roleRelation.permissions'], // 🚀 RBAC: Auth ke time roles aur unki permissions details sath aayengi
     });
     return user ?? undefined;
   }
 
   /**
    * User ko ID se dhoondhta hai (password hash ke bina).
-   * Yeh public requests ke liye safe hai.
    */
   async findById(id: number): Promise<Omit<User, 'password_hash'>> {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({ 
+      where: { id },
+      relations: ['roleRelation'], // 🚀 RBAC: User profile fetch karte waqt dynamic role metadata dikhega
+    });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
@@ -65,20 +68,22 @@ export class UsersService {
   }
 
   /**
-   * Sabhi users ki list deta hai (password hash ke bina).
+   * Sabhi users ki list deta hai jisme dynamic role table bhi loaded hogi.
    */
   async listAll(): Promise<Omit<User, 'password_hash'>[]> {
     return this.usersRepository.find({
-      select: [
-        'id',
-        'email',
-        'username',
-        'full_name',
-        'role',
-        'last_login',
-        'created_at',
-        'updated_at',
-      ],
+      relations: ['roleRelation'], // 🚀 RBAC: ERP list me har bande ka actual mapped Role database se uth kar dikhega
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        full_name: true,
+        role: true, // Temporary string role tracking keep active
+        status: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
+      }
     });
   }
 
@@ -100,7 +105,6 @@ export class UsersService {
 
   /**
    * User ko delete karta hai (Hard delete ki jagah Soft Delete).
-   * Table se row completely udegi nahi, sirf deleted_at flag set hoga.
    */
   async deleteById(id: number): Promise<void> {
     const result = await this.usersRepository.softDelete(id);
@@ -110,27 +114,26 @@ export class UsersService {
   }
 
   /**
-   * 🔹 Refresh Token ko encrypt karke DB me save karta hai (ya null karta hai logout par)
+   * 🔹 Refresh Token ko encrypt karke DB me save karta hai.
+   * Code Hardening: Type casting (as any) ko clean kiya kyuki structure updated hai.
    */
   async updateRefreshToken(userId: number, refreshToken: string | null) {
     let hash = null;
     if (refreshToken) {
       hash = await bcrypt.hash(refreshToken, 10);
     }
-    // Make sure aapki User entity me 'refresh_token_hash' column ho
-    await this.usersRepository.update(userId, { refresh_token_hash: hash } as any);
+    await this.usersRepository.update(userId, { refresh_token_hash: hash });
   }
 
   /**
    * 🔹 P0 - Refresh Token Match/Validate Logic
-   * Database ke hash se incoming clear token compare karta hai.
+   * Code Hardening: Strict Type Safety implementations.
    */
   async validateRefreshToken(userId: number, refreshToken: string): Promise<boolean> {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
-    // User ya unka refresh_token_hash check karein (Type casting used in case entity structure differs slightly)
-    if (!user || !(user as any).refresh_token_hash) {
+    if (!user || !user.refresh_token_hash) {
       return false;
     }
-    return bcrypt.compare(refreshToken, (user as any).refresh_token_hash);
+    return bcrypt.compare(refreshToken, user.refresh_token_hash);
   }
 }

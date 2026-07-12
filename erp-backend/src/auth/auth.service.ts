@@ -19,14 +19,14 @@ export class AuthService {
     if (!password || password.trim().length < 6) {
       throw new BadRequestException('Password must be at least 6 characters long.');
     }
-    const password_hash = await (bcrypt as any).hash(password, 10);
+    const password_hash = await bcrypt.hash(password, 10);
 
     const createdUser = await this.usersService.create({
       username,
       email,
       password_hash,
       full_name,
-      role: UserRole.USER,
+      role: UserRole.USER, // Temporary string based role
       status: UserStatus.ACTIVE,
       created_by: null,
       updated_by: null,
@@ -47,13 +47,22 @@ export class AuthService {
     return result;
   }
 
-  // 🔹 Generate Access + Refresh Token
+  /**
+   * 🔹 Login Method: Optimized for RBAC
+   * JWT payload me permissions array nahi, sirf roleId rakha gaya hai.
+   */
   async login(userPayload: Omit<User, 'password_hash'>) {
+    // 1. Database se user ka role detail fetch karein (UsersService ka findById relations ke sath ready hai)
+    const userWithRole = await this.usersService.findById(userPayload.id);
+    
+    // 2. Role ID safely extract karein (User entity me 'roleRelation' naam hai)
+    const roleId = userWithRole?.roleRelation?.id || null;
+
     const accessTokenPayload = {
       sub: userPayload.id,
       username: userPayload.username,
       email: userPayload.email,
-      role: userPayload.role,
+      roleId: roleId, // ❌ No massive permissions[] array here, purely ID
       type: 'access',
     };
 
@@ -67,25 +76,27 @@ export class AuthService {
 
     // Save refresh token hash into DB
     await this.usersService.updateRefreshToken(userPayload.id, refreshToken);
-
-    this.usersService.updateLastLogin(userPayload.id);
+    await this.usersService.updateLastLogin(userPayload.id);
 
     return {
       accessToken,
       refreshToken,
-      user: userPayload,
+      user: {
+        ...userPayload,
+        roleRelation: userWithRole?.roleRelation || null, // Naya role structure return kar rahe hain
+      },
     };
   }
 
-  // 🔹 Optimized Refresh Logic using UsersService validation flow
+  /**
+   * 🔹 Optimized Refresh Logic
+   */
   async refreshTokens(userId: number, refreshToken: string) {
-    // P0 - Strictly using validateRefreshToken from UsersService
     const isTokenValid = await this.usersService.validateRefreshToken(userId, refreshToken);
     if (!isTokenValid) {
       throw new UnauthorizedException('Access Denied - Invalid Refresh Token');
     }
 
-    // Gaining user data safely through current UsersService method (findById)
     const user = await this.usersService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -95,7 +106,7 @@ export class AuthService {
       sub: user.id,
       username: user.username,
       email: user.email,
-      role: user.role,
+      roleId: user.roleRelation?.id || null, // 🚀 RBAC: Refresh token me bhi roleId sync rahega
       type: 'access',
     };
 
@@ -103,7 +114,6 @@ export class AuthService {
     return { accessToken: newAccessToken };
   }
 
-  // 🔹 Enterprise Logout
   async logout(userId: number) {
     await this.usersService.updateRefreshToken(userId, null);
     return { message: 'Logged out successfully' };
