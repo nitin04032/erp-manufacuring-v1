@@ -42,6 +42,10 @@ export default function CreateCustomer() {
         credit_limit: Number(formData.credit_limit) || 0,
         phone: formData.phone || undefined,
         gst_number: formData.gst_number || undefined,
+        // @IsPostalCode('IN') (like @IsPhoneNumber/gst's @Matches above)
+        // rejects an empty string outright — @IsOptional() only skips
+        // validation for undefined/null, not "".
+        pincode: formData.pincode || undefined,
       });
       setFlash({ success: "Customer saved successfully!", error: "" });
       setTimeout(() => router.push("/customers"), 800);
