@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { apiClient } from "../../lib/apiClient";
 
+// Matches erp-backend/src/customers/customer.entity.ts
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -10,53 +12,38 @@ export default function CustomersPage() {
   const [status, setStatus] = useState("");
   const [flashMessage, setFlashMessage] = useState({ success: "", error: "" });
 
-  // ✅ Fetch customers
   useEffect(() => {
-    async function fetchCustomers() {
-      try {
-        const res = await fetch("/api/customers");
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setCustomers(data);
-      } catch (err) {
-        setFlashMessage({ success: "", error: "Error loading customers" });
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCustomers();
-  }, []);
+    const handler = setTimeout(() => {
+      fetchCustomers();
+    }, 400);
+    return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, status]);
 
-  // ✅ Delete handler
+  const fetchCustomers = async () => {
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({ status, search }).toString();
+      const data = await apiClient.get(`/customers?${query}`);
+      setCustomers(data ?? []);
+    } catch (err) {
+      setFlashMessage({ success: "", error: err.message || "Error loading customers" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this customer?")) return;
 
     try {
-      const res = await fetch(`/api/customers/${id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        setCustomers(customers.filter((c) => c.id !== id));
-        setFlashMessage({ success: "Customer deleted successfully!", error: "" });
-      } else {
-        const data = await res.json();
-        setFlashMessage({ success: "", error: data.error || "Delete failed" });
-      }
+      await apiClient.delete(`/customers/${id}`);
+      setCustomers(customers.filter((c) => c.id !== id));
+      setFlashMessage({ success: "Customer deleted successfully!", error: "" });
     } catch (err) {
-      setFlashMessage({ success: "", error: "Server error" });
+      setFlashMessage({ success: "", error: err.message || "Delete failed" });
     }
   };
-
-  // ✅ Filter Logic
-  const filteredCustomers = customers.filter((c) => {
-    const matchSearch =
-      search === "" ||
-      c.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
-      c.customer_code?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = status === "" || c.status === status;
-    return matchSearch && matchStatus;
-  });
 
   return (
     <div className="container-fluid">
@@ -93,7 +80,7 @@ export default function CustomersPage() {
       {/* Filters */}
       <div className="card mb-3">
         <div className="card-header">
-          <form className="row g-3">
+          <form className="row g-3" onSubmit={(e) => e.preventDefault()}>
             <div className="col-md-6">
               <input
                 type="text"
@@ -115,9 +102,6 @@ export default function CustomersPage() {
               </select>
             </div>
             <div className="col-md-3">
-              <button type="button" className="btn btn-secondary me-2">
-                <i className="bi bi-search"></i> Search
-              </button>
               <button
                 type="button"
                 className="btn btn-light"
@@ -143,41 +127,29 @@ export default function CustomersPage() {
                   <tr>
                     <th>Code</th>
                     <th>Name</th>
-                    <th>Type</th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>City</th>
-                    <th>Orders</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCustomers.length > 0 ? (
-                    filteredCustomers.map((c) => (
+                  {customers.length > 0 ? (
+                    customers.map((c) => (
                       <tr key={c.id}>
                         <td>{c.customer_code}</td>
                         <td>
-                          <Link href={`/customers/${c.id}`}>
-                            {c.customer_name}
-                          </Link>
+                          <Link href={`/customers/${c.id}`}>{c.name}</Link>
                         </td>
-                        <td>{c.customer_type}</td>
                         <td>{c.email}</td>
-                        <td>{c.phone}</td>
-                        <td>{c.city}</td>
-                        <td>
-                          <span className="badge bg-info">
-                            {c.total_orders ?? 0}
-                          </span>
-                        </td>
+                        <td>{c.phone || "-"}</td>
+                        <td>{c.city || "-"}</td>
                         <td>
                           <span
-                            className={`badge bg-${
-                              c.status === "active" ? "success" : "danger"
-                            }`}
+                            className={`badge bg-${c.is_active ? "success" : "danger"}`}
                           >
-                            {c.status}
+                            {c.is_active ? "active" : "inactive"}
                           </span>
                         </td>
                         <td>
@@ -206,7 +178,7 @@ export default function CustomersPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="9" className="text-center">
+                      <td colSpan="7" className="text-center">
                         No customers found
                       </td>
                     </tr>

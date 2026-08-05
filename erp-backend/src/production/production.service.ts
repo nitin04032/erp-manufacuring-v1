@@ -111,6 +111,22 @@ export class ProductionService {
   }
 
   /**
+   * Delete a production order. Blocked once stock has actually moved
+   * (in_progress/completed both imply InventoryService ledger entries already
+   * exist for this order), mirroring the same guard used by update().
+   */
+  async remove(id: number): Promise<void> {
+    const po = await this.findOne(id);
+    if (po.status === 'in_progress' || po.status === 'completed') {
+      throw new BadRequestException(
+        'Cannot delete an order that is in progress or completed',
+      );
+    }
+    await this.poItemRepo.delete({ production_order_id: id });
+    await this.poRepo.delete(id);
+  }
+
+  /**
    * Complete the production order by calling InventoryService
    * to atomically update stock and create ledger entries.
    */

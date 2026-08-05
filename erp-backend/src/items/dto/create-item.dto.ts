@@ -43,6 +43,15 @@ export class CreateItemDto {
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   reorder_level?: number;
 
+  // Feeds InventoryService.getTotalStockValue() (dashboard summary + stock
+  // report) — item.entity.ts has had this column for a while but it was
+  // never exposed on the create/update DTO, so it could never actually be set.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
+  purchase_rate?: number;
+
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => (value === undefined ? true : value)) // eslint-disable-line @typescript-eslint/no-unsafe-return

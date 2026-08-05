@@ -17,13 +17,14 @@ import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/enums/user.enum';
 
 @Controller('suppliers')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SuppliersController {
   constructor(private readonly service: SuppliersService) {}
 
-  @Roles('admin', 'manager')
+  @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Post()
   create(@Body() dto: CreateSupplierDto) {
     return this.service.create(dto);
@@ -46,7 +47,7 @@ export class SuppliersController {
     return this.service.findOne(id);
   }
 
-  @Roles('admin')
+  @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -55,7 +56,7 @@ export class SuppliersController {
     return this.service.update(id, dto);
   }
 
-  @Roles('admin')
+  @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);

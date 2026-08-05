@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { apiClient } from "../../../lib/apiClient";
 
 export default function ViewCustomerPage() {
   const { id } = useParams();
@@ -11,15 +12,10 @@ export default function ViewCustomerPage() {
   useEffect(() => {
     const fetchCustomer = async () => {
       try {
-        const res = await fetch(`/api/customers/${id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setCustomer(data);
-        } else {
-          setFlash("Customer not found.");
-        }
+        const data = await apiClient.get(`/customers/${id}`);
+        setCustomer(data);
       } catch (err) {
-        setFlash("Error loading customer.");
+        setFlash(err.message || "Error loading customer.");
       }
     };
     fetchCustomer();
@@ -37,7 +33,6 @@ export default function ViewCustomerPage() {
     );
   }
 
-  // ✅ Safe credit limit formatting
   const creditLimit = customer.credit_limit
     ? parseFloat(customer.credit_limit).toFixed(2)
     : "0.00";
@@ -67,7 +62,7 @@ export default function ViewCustomerPage() {
       <div className="card shadow-sm">
         <div className="card-body">
           <h5 className="mb-3">
-            {customer.customer_name}{" "}
+            {customer.name}{" "}
             <span className="text-muted">({customer.customer_code})</span>
           </h5>
 
@@ -96,16 +91,18 @@ export default function ViewCustomerPage() {
                     <td>₹ {creditLimit}</td>
                   </tr>
                   <tr>
+                    <th>Payment Terms</th>
+                    <td>{customer.payment_terms || "-"}</td>
+                  </tr>
+                  <tr>
                     <th>Status</th>
                     <td>
                       <span
                         className={`badge ${
-                          customer.status === "active"
-                            ? "bg-success"
-                            : "bg-danger"
+                          customer.is_active ? "bg-success" : "bg-danger"
                         }`}
                       >
-                        {customer.status}
+                        {customer.is_active ? "active" : "inactive"}
                       </span>
                     </td>
                   </tr>
@@ -117,15 +114,22 @@ export default function ViewCustomerPage() {
               <table className="table table-sm">
                 <tbody>
                   <tr>
-                    <th>Address</th>
+                    <th>Billing Address</th>
+                    <td>{customer.billing_address || "-"}</td>
+                  </tr>
+                  <tr>
+                    <th>Shipping Address</th>
+                    <td>{customer.shipping_address || "-"}</td>
+                  </tr>
+                  <tr>
+                    <th>City / State</th>
                     <td>
-                      {customer.address}, {customer.city}, {customer.state} -{" "}
-                      {customer.pincode}
+                      {customer.city || "-"}, {customer.state || "-"} - {customer.pincode || "-"}
                     </td>
                   </tr>
                   <tr>
                     <th>Country</th>
-                    <td>{customer.country}</td>
+                    <td>{customer.country || "-"}</td>
                   </tr>
                   <tr>
                     <th>Created At</th>

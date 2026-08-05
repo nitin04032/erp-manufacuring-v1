@@ -2,13 +2,13 @@
 import { useState, useEffect, FC, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
+import { apiClient } from "../../lib/apiClient";
 
-// ✅ 1. Define detailed interfaces for all data structures
+// Matches erp-backend/src/items/item.entity.ts
 interface ItemOption {
   id: number;
-  item_code: string;
-  item_name: string;
+  sku: string | null;
+  name: string;
 }
 
 interface WarehouseOption {
@@ -46,22 +46,16 @@ const CreateStockAdjustmentPage: FC = () => {
   const [items, setItems] = useState<ItemOption[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
 
-  // ✅ 3. Fetch initial data with authentication
+  // ✅ 3. Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = Cookies.get("token");
-        const headers = { Authorization: `Bearer ${token}` };
-        
-        const [itemsRes, warehousesRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/items`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, { headers }),
+        const [itemsData, warehousesData] = await Promise.all([
+          apiClient.get<ItemOption[]>("/items"),
+          apiClient.get<WarehouseOption[]>("/warehouses"),
         ]);
-
-        if (!itemsRes.ok || !warehousesRes.ok) throw new Error("Failed to fetch data");
-
-        setItems(await itemsRes.json());
-        setWarehouses(await warehousesRes.json());
+        setItems(itemsData ?? []);
+        setWarehouses(warehousesData ?? []);
       } catch (error) {
         setFlash({ type: "danger", message: "Failed to load required data." });
       }
@@ -94,25 +88,16 @@ const CreateStockAdjustmentPage: FC = () => {
     };
 
     try {
-      const token = Cookies.get("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stock-adjustments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
+      // Matches erp-backend/src/inventory/inventory.controller.ts adjust()
+      // and dto/adjust-stock.dto.ts.
+      const data = await apiClient.post<{ adjustment_number: string }>("/inventory/adjust", payload);
+      setFlash({
+        type: "success",
+        message: `Stock Adjustment ${data.adjustment_number} processed successfully!`,
       });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        Cookies.set("flashMessage", `Stock Adjustment ${data.adjustment_number} processed successfully!`, { path: "/" });
-        Cookies.set("flashType", "success", { path: "/" });
-        router.push("/stock-ledger"); // Redirect on success
-      } else {
-        const errorMessages = Array.isArray(data.message) ? data.message.join(', ') : data.message;
-        setFlash({ type: "danger", message: errorMessages || "Error processing adjustment." });
-      }
-    } catch (err) {
-      setFlash({ type: "danger", message: "A server error occurred. Please try again." });
+      setTimeout(() => router.push("/stock-ledger"), 800);
+    } catch (err: any) {
+      setFlash({ type: "danger", message: err.message || "Error processing adjustment." });
     } finally {
         setSubmitting(false);
     }
@@ -150,7 +135,7 @@ const CreateStockAdjustmentPage: FC = () => {
                     <label htmlFor="item_id" className="form-label">Item *</label>
                     <select id="item_id" name="item_id" value={formData.item_id} onChange={handleChange} className="form-select" required>
                       <option value="">Select Item</option>
-                      {items.map((item) => (<option key={item.id} value={item.id}>{item.item_code} - {item.item_name}</option>))}
+                      {items.map((item) => (<option key={item.id} value={item.id}>{item.sku ?? "-"} - {item.name}</option>))}
                     </select>
                   </div>
                   <div className="col-md-6">

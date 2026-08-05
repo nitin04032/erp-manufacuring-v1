@@ -114,6 +114,15 @@ export class UsersService {
   }
 
   /**
+   * Total user count. Used by AuthService.register() to bootstrap the very
+   * first registered user as an admin — otherwise nobody could ever create
+   * an admin (promoting a user requires already being an admin).
+   */
+  async count(): Promise<number> {
+    return this.usersRepository.count();
+  }
+
+  /**
    * 🔹 Refresh Token ko encrypt karke DB me save karta hai.
    * Code Hardening: Type casting (as any) ko clean kiya kyuki structure updated hai.
    */

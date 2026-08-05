@@ -24,6 +24,5 @@ export default defineConfig({
         stdout: 'pipe',
         stderr: 'pipe',
         timeout: 60 * 1000,
-        waitForPort: true,
     },
 });

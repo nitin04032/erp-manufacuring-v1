@@ -11,6 +11,7 @@ import { CreateGrnDto } from './dto/create-grn.dto';
 import { UpdateGrnDto } from './dto/update-grn.dto';
 import { Item } from '../items/item.entity';
 import { Warehouse } from '../warehouses/warehouse.entity';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class GrnService {
@@ -22,10 +23,11 @@ export class GrnService {
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
     private readonly dataSource: DataSource,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   private async generateGrnNumber(): Promise<string> {
-    const last = await this.grnRepo.findOne({ order: { id: 'DESC' } });
+    const last = await this.grnRepo.findOne({ where: {}, order: { id: 'DESC' } });
     const next = last ? last.id + 1 : 1;
     return `GRN-${String(next).padStart(6, '0')}`;
   }
@@ -68,6 +70,23 @@ export class GrnService {
       });
 
       await queryRunner.manager.save(GrnItem, grnItems);
+
+      // Goods received -> increase warehouse stock for each line, with a
+      // ledger entry pointing back at this GRN.
+      for (const grnItem of grnItems) {
+        await this.inventoryService.increaseStock(
+          grnItem.item.id,
+          warehouse.id,
+          grnItem.received_qty,
+          {
+            reference_type: 'grn_receipt',
+            reference_id: savedGrn.id,
+            remarks: `GRN ${grnNumber}`,
+            queryRunner,
+          },
+        );
+      }
+
       await queryRunner.commitTransaction();
 
       return this.grnRepo.findOne({

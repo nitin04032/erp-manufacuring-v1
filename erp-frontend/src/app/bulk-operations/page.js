@@ -2,22 +2,12 @@
 
 import Link from "next/link";
 
+// Phase 2: export/import/sample-data/backup/validate all called nonexistent
+// /api/bulk-operations/* routes with no backend behind them (see Phase 1
+// stabilization plan). Only "Download CSV Template" is real — it's pure
+// client-side and needs no backend — so it's kept; everything else is
+// disabled with a "coming soon" note instead of silently failing.
 export default function BulkOperations() {
-  // Quick Action Handlers
-  const generateSampleData = async () => {
-    if (confirm("Generate sample test data?")) {
-      try {
-        const res = await fetch("/api/bulk-operations/generate-sample", {
-          method: "POST",
-        });
-        const data = await res.json();
-        alert(data.message || "Sample data generated ✅");
-      } catch {
-        alert("Error generating sample data ❌");
-      }
-    }
-  };
-
   const downloadTemplate = () => {
     const csvContent =
       "supplier_name,supplier_code,contact_person,email,phone,address,city,state,status\n";
@@ -32,24 +22,6 @@ export default function BulkOperations() {
     URL.revokeObjectURL(url);
   };
 
-  const validateData = () => {
-    alert("Validation tool will scan for inconsistencies ✅");
-  };
-
-  const backupData = async () => {
-    if (confirm("Create a full database backup?")) {
-      try {
-        const res = await fetch("/api/bulk-operations/backup", {
-          method: "POST",
-        });
-        const data = await res.json();
-        alert(data.message || "Backup completed ✅");
-      } catch {
-        alert("Backup failed ❌");
-      }
-    }
-  };
-
   return (
     <div className="container-fluid">
       {/* Header */}
@@ -58,7 +30,7 @@ export default function BulkOperations() {
           <h1 className="h3 mb-0">
             <i className="bi bi-layers text-primary"></i> Bulk Operations
           </h1>
-          <Link href="/" className="btn btn-outline-secondary">
+          <Link href="/dashboard" className="btn btn-outline-secondary">
             <i className="bi bi-arrow-left me-2"></i>Back to Dashboard
           </Link>
         </div>
@@ -75,17 +47,19 @@ export default function BulkOperations() {
                   <i className="bi bi-download text-white fs-4"></i>
                 </div>
                 <div>
-                  <h5 className="card-title mb-0">Data Export</h5>
+                  <h5 className="card-title mb-0">
+                    Data Export <span className="badge bg-secondary ms-1">Coming soon</span>
+                  </h5>
                   <p className="text-muted small mb-0">
                     Export data to CSV or JSON format
                   </p>
                 </div>
               </div>
 
-              <form method="POST" action="/api/bulk-operations/export">
+              <fieldset disabled>
                 <div className="mb-3">
                   <label className="form-label">Select Table to Export</label>
-                  <select name="table" className="form-select" required>
+                  <select className="form-select">
                     <option value="">Choose a table...</option>
                     <option value="suppliers">Suppliers</option>
                     <option value="items">Items</option>
@@ -97,21 +71,21 @@ export default function BulkOperations() {
 
                 <div className="mb-3">
                   <label className="form-label">Export Format</label>
-                  <select name="format" className="form-select">
+                  <select className="form-select">
                     <option value="csv">CSV</option>
                     <option value="json">JSON</option>
                   </select>
                 </div>
 
-                <button type="submit" className="btn btn-primary">
+                <button type="button" className="btn btn-primary">
                   <i className="bi bi-download me-2"></i>Export Data
                 </button>
-              </form>
+              </fieldset>
 
               <div className="alert alert-info mt-3">
                 <small>
                   <i className="bi bi-info-circle me-1"></i>
-                  Exported data can be used for backup, analysis, or migration.
+                  Not backed by an API yet — planned for a follow-up release.
                 </small>
               </div>
             </div>
@@ -127,7 +101,9 @@ export default function BulkOperations() {
                   <i className="bi bi-upload text-white fs-4"></i>
                 </div>
                 <div>
-                  <h5 className="card-title mb-0">Data Import</h5>
+                  <h5 className="card-title mb-0">
+                    Data Import <span className="badge bg-secondary ms-1">Coming soon</span>
+                  </h5>
                   <p className="text-muted small mb-0">
                     Import data from CSV files
                   </p>
@@ -137,13 +113,13 @@ export default function BulkOperations() {
                 Bulk import data from CSV files to quickly populate your
                 database.
               </p>
-              <Link href="/bulk-operations/import" className="btn btn-success">
+              <button className="btn btn-success" disabled>
                 <i className="bi bi-upload me-2"></i>Import Data
-              </Link>
+              </button>
               <div className="alert alert-warning mt-3">
                 <small>
                   <i className="bi bi-exclamation-triangle me-1"></i>
-                  Ensure your CSV matches the required format before importing.
+                  Not backed by an API yet — planned for a follow-up release.
                 </small>
               </div>
             </div>
@@ -164,13 +140,12 @@ export default function BulkOperations() {
             <div className="card-body">
               <div className="row">
                 <div className="col-md-3 mb-3">
-                  <button
-                    className="btn btn-outline-primary w-100"
-                    onClick={generateSampleData}
-                  >
+                  <button className="btn btn-outline-primary w-100" disabled>
                     <i className="bi bi-file-earmark-plus mb-2 fs-4"></i>
                     <br />
                     Generate Sample Data
+                    <br />
+                    <small className="text-muted">Coming soon</small>
                   </button>
                 </div>
                 <div className="col-md-3 mb-3">
@@ -184,23 +159,21 @@ export default function BulkOperations() {
                   </button>
                 </div>
                 <div className="col-md-3 mb-3">
-                  <button
-                    className="btn btn-outline-warning w-100"
-                    onClick={validateData}
-                  >
+                  <button className="btn btn-outline-warning w-100" disabled>
                     <i className="bi bi-shield-check mb-2 fs-4"></i>
                     <br />
                     Validate Data
+                    <br />
+                    <small className="text-muted">Coming soon</small>
                   </button>
                 </div>
                 <div className="col-md-3 mb-3">
-                  <button
-                    className="btn btn-outline-secondary w-100"
-                    onClick={backupData}
-                  >
+                  <button className="btn btn-outline-secondary w-100" disabled>
                     <i className="bi bi-archive mb-2 fs-4"></i>
                     <br />
                     Full Database Backup
+                    <br />
+                    <small className="text-muted">Coming soon</small>
                   </button>
                 </div>
               </div>
