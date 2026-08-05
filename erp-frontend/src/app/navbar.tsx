@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
-import { gsap } from "gsap";
 import { useUserStore } from "../store/user";
  // ✅ zustand store import
 
 export default function Navbar() {
   const { isAuth, user, logout } = useUserStore();
 
-  useEffect(() => {
-    // GSAP animation for navbar
-    gsap.from("nav", { y: -80, duration: 0.8, ease: "power3.out" });
-  }, []);
+  // Note (UI polish pass): the navbar's entrance animation is now handled by
+  // the `.navbar { animation: slideDown ... }` rule in globals.css, which
+  // replaced a GSAP `gsap.from("nav", ...)` tween that was here — both were
+  // animating transform/opacity on the same element on mount and would
+  // visibly fight each other (double slide, flicker). CSS is the single
+  // source of truth for this now.
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light shadow-sm">

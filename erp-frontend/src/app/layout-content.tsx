@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Navbar from "./navbar";
+import ScrollToTop from "../components/ScrollToTop";
 
 export default function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,7 +16,12 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
     <>
       {!hideNavbar && <Navbar />}
 
-      <main className="container-fluid mt-4">{children}</main>
+      {/* key={pathname} forces a remount on route change, which re-triggers
+          the .page-fade-in CSS animation — a lightweight page transition
+          with no extra JS/animation library. */}
+      <main className="container-fluid mt-4 page-fade-in" key={pathname}>
+        {children}
+      </main>
 
       {!hideNavbar && (
         <footer className="bg-light mt-5 py-3 border-top">
@@ -24,6 +30,8 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
           </div>
         </footer>
       )}
+
+      {!hideNavbar && <ScrollToTop />}
     </>
   );
 }

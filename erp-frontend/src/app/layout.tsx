@@ -9,13 +9,11 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <head>
-        {/* Bootstrap 5 CSS */}
-        <link
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-        />
+        {/* Bootstrap 5 CSS is now @import'd inside globals.css (into a low-
+            priority cascade layer) instead of linked here directly — see
+            the comment at the top of globals.css for why. */}
 
         {/* Bootstrap Icons */}
         <link
@@ -36,15 +34,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* 👇 Ye client component ke andar children pass karenge */}
         <LayoutContent>{children}</LayoutContent>
 
-        {/* ✅ Bootstrap JS Bundle (with Popper) */}
+        {/* ✅ Bootstrap JS Bundle (with Popper) — powers .dropdown-menu.show,
+            .modal.show, .collapse.show etc. that globals.css animates */}
         <Script
           src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-          strategy="afterInteractive"
-        />
-
-        {/* GSAP */}
-        <Script
-          src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"
           strategy="afterInteractive"
         />
 

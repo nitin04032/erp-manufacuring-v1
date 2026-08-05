@@ -54,7 +54,8 @@ export default function EditCustomerPage() {
         shipping_address: customer.shipping_address,
         city: customer.city,
         state: customer.state,
-        pincode: customer.pincode,
+        // @IsPostalCode('IN') rejects an empty string outright.
+        pincode: customer.pincode || undefined,
         country: customer.country,
         gst_number: customer.gst_number || undefined,
         credit_limit: Number(customer.credit_limit) || 0,
