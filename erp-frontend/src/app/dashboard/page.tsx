@@ -3,9 +3,8 @@
 import { useApi } from '../../hooks/useApi';
 import Link from 'next/link';
 // Naya: Framer Motion ke aur hooks import karein
-import { motion, Variants, useAnimate, useInView } from 'framer-motion';
-// Naya: useEffect aur useRef ko import karein
-import { useEffect, useRef } from 'react';
+import { motion, Variants } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 // API se aane waale data ka structure (example)
 interface DashboardStats {
@@ -22,18 +21,15 @@ interface RecentActivity {
   status: 'pending' | 'approved' | 'ordered' | 'received' | 'cancelled';
 }
 
-interface StatusCounts {
-  pending: number;
-  approved: number;
-  ordered: number;
-  received: number;
-  cancelled: number;
-}
+// Matches erp-backend/src/purchase-orders/purchase-orders.service.ts
+// getStatusCounts() — keyed dynamically by whatever PO status values exist.
+type StatusCounts = Record<string, number>;
 
 interface DashboardData {
   stats: DashboardStats;
   recentActivities: RecentActivity[];
-  statusCounts: StatusCounts;
+  // Backend field is `poStatusSummary` (see dashboard.controller.ts), not `statusCounts`.
+  poStatusSummary: StatusCounts;
 }
 
 // Animation variants for Framer Motion
@@ -94,13 +90,7 @@ export default function DashboardPage() {
   };
 
   const recentActivities = data?.recentActivities || [];
-  const statusCounts = data?.statusCounts || {
-    pending: 0,
-    approved: 0,
-    ordered: 0,
-    received: 0,
-    cancelled: 0,
-  };
+  const statusCounts: StatusCounts = data?.poStatusSummary || {};
 
   const statusColors: { [key: string]: string } = {
     pending: 'warning',
@@ -133,7 +123,13 @@ export default function DashboardPage() {
           <div className="text-end">
             <span className="badge bg-success fs-6">System Online</span>
             <br />
-            <small className="text-muted">{new Date().toLocaleDateString()}</small>
+            {/* suppressHydrationWarning: server (Node) and browser locale can format
+                this date differently, which was triggering a hydration mismatch that
+                aborted the client render entirely — corrupting the counter animation
+                below and leaving every stat card stuck at 0 despite correct API data. */}
+            <small className="text-muted" suppressHydrationWarning>
+              {new Date().toLocaleDateString()}
+            </small>
           </div>
         </div>
       </motion.div>
@@ -246,27 +242,30 @@ export default function DashboardPage() {
 }
 
 // Reusable Components
-// Naya: DashboardCard Component ko number animation ke liye update kiya gaya
 function DashboardCard({ icon, color, title, value, link }: { icon: string; color: string; title: string; value?: number | null; link: string; }) {
   const finalValue = value ?? 0;
-  const [ref, animate] = useAnimate();
-  const isInView = useInView(ref, { once: true });
+  // 🛠️ Phase 1 fix: this used framer-motion's useAnimate() to imperatively
+  // set `ref.current.textContent` from an effect gated on useInView(). That
+  // approach bypasses React's own render output for the counter, so any
+  // hydration hiccup elsewhere on the page (unrelated to this component)
+  // could leave the effect never (re)firing — every stat card stayed stuck
+  // at the literal "0" in the JSX regardless of correct API data. A plain
+  // React-rendered value can't get stuck like that.
+  const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    if (isInView) {
-      // Jab component screen par dikhe, tab animation start karein
-      animate(0, finalValue, {
-        duration: 1.5,
-        onUpdate(latest) {
-          if (ref.current) {
-            ref.current.textContent = latest.toLocaleString('en-US', {
-              maximumFractionDigits: 0,
-            });
-          }
-        },
-      });
-    }
-  }, [isInView, finalValue, animate, ref]);
+    let frame: number;
+    const duration = 800;
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      setDisplayValue(Math.round(finalValue * progress));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [finalValue]);
 
   return (
     <motion.div
@@ -279,10 +278,7 @@ function DashboardCard({ icon, color, title, value, link }: { icon: string; colo
           <div className="mb-3">
             <i className={`bi ${icon} display-4 text-${color}`}></i>
           </div>
-          {/* Naya: ref yahan `h3` ko diya gaya hai */}
-          <h3 className="card-title" ref={ref}>
-            0
-          </h3>
+          <h3 className="card-title">{displayValue.toLocaleString('en-US')}</h3>
           <p className="card-text text-muted">{title}</p>
           <Link href={link} className={`btn btn-outline-${color} btn-sm`}>
             <i className="bi bi-arrow-right me-1"></i>View Details

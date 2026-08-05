@@ -2,41 +2,44 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiClient } from "../../../../lib/apiClient";
 
 export default function EditBOMPage() {
   const { id } = useParams();
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({
-    item_id: "",
+    fg_item_id: "",
     version: "V1",
     is_active: 1,
     remarks: "",
   });
   const [components, setComponents] = useState([]);
   const [flash, setFlash] = useState({ type: "", message: "" });
+  const [loading, setLoading] = useState(true);
 
   // Load items + existing BOM
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [itemsRes, bomRes] = await Promise.all([
-          fetch("/api/items"),
-          fetch(`/api/bom/${id}`)
+        const [itemsData, bom] = await Promise.all([
+          apiClient.get("/items"),
+          apiClient.get(`/bom/${id}`),
         ]);
-        if (itemsRes.ok) setItems(await itemsRes.json());
-        if (bomRes.ok) {
-          const bom = await bomRes.json();
-          setForm({
-            item_id: bom.item_id || "",
-            version: bom.version || "V1",
-            is_active: bom.is_active,
-            remarks: bom.remarks || "",
-          });
-          setComponents(bom.components || []);
-        }
+        setItems(itemsData ?? []);
+        setForm({
+          fg_item_id: bom.fg_item_id ?? "",
+          version: bom.version || "V1",
+          is_active: bom.is_active ? 1 : 0,
+          remarks: bom.remarks || "",
+        });
+        setComponents(
+          (bom.items || []).map((it) => ({ item_id: it.item_id, qty: it.qty })),
+        );
       } catch (err) {
         console.error("Error loading data", err);
+      } finally {
+        setLoading(false);
       }
     };
     if (id) fetchData();
@@ -56,22 +59,25 @@ export default function EditBOMPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/bom/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, components }),
+      const fgItem = items.find((it) => String(it.id) === String(form.fg_item_id));
+      await apiClient.patch(`/bom/${id}`, {
+        name: fgItem?.name,
+        fg_item_id: form.fg_item_id ? Number(form.fg_item_id) : undefined,
+        version: form.version,
+        is_active: Number(form.is_active) === 1,
+        status: Number(form.is_active) === 1 ? "active" : "inactive",
+        items: components
+          .filter((c) => c.item_id && c.qty)
+          .map((c) => ({ item_id: Number(c.item_id), qty: Number(c.qty) })),
       });
-      if (res.ok) {
-        setFlash({ type: "success", message: "✅ BOM updated!" });
-        setTimeout(() => router.push("/bom"), 1500);
-      } else {
-        const err = await res.json();
-        setFlash({ type: "danger", message: err.error || "Update failed" });
-      }
-    } catch {
-      setFlash({ type: "danger", message: "Server error" });
+      setFlash({ type: "success", message: "✅ BOM updated!" });
+      setTimeout(() => router.push("/bom"), 1000);
+    } catch (err) {
+      setFlash({ type: "danger", message: err.message || "Update failed" });
     }
   };
+
+  if (loading) return <div className="container py-5">Loading...</div>;
 
   return (
     <div className="container-fluid">
@@ -89,10 +95,10 @@ export default function EditBOMPage() {
           {/* Finished Product */}
           <div className="col-md-6 mb-3">
             <label>Finished Product</label>
-            <select className="form-select" name="item_id" value={form.item_id} onChange={handleChange} required>
+            <select className="form-select" name="fg_item_id" value={form.fg_item_id} onChange={handleChange} required>
               <option value="">Select Product</option>
               {items.map((it) => (
-                <option key={it.id} value={it.id}>{it.item_name} ({it.item_code})</option>
+                <option key={it.id} value={it.id}>{it.name} ({it.sku ?? "-"})</option>
               ))}
             </select>
           </div>
@@ -135,7 +141,7 @@ export default function EditBOMPage() {
                   <select className="form-select" value={c.item_id} onChange={(e) => handleComponentChange(i, "item_id", e.target.value)} required>
                     <option value="">Select Item</option>
                     {items.map((it) => (
-                      <option key={it.id} value={it.id}>{it.item_name} ({it.item_code})</option>
+                      <option key={it.id} value={it.id}>{it.name} ({it.sku ?? "-"})</option>
                     ))}
                   </select>
                 </div>

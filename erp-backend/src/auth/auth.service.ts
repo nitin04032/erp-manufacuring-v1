@@ -21,12 +21,19 @@ export class AuthService {
     }
     const password_hash = await bcrypt.hash(password, 10);
 
+    // 🛠️ Bootstrap fix (Phase 1): registration always hardcoded UserRole.USER,
+    // but promoting a user to admin requires already being an admin
+    // (see users.controller.ts @Roles(SUPERADMIN, COMPANY_ADMIN)) — on a fresh
+    // install nobody could ever become an admin. The very first registered
+    // user becomes SUPERADMIN; everyone after that is a regular USER.
+    const isFirstUser = (await this.usersService.count()) === 0;
+
     const createdUser = await this.usersService.create({
       username,
       email,
       password_hash,
       full_name,
-      role: UserRole.USER, // Temporary string based role
+      role: isFirstUser ? UserRole.SUPERADMIN : UserRole.USER,
       status: UserStatus.ACTIVE,
       created_by: null,
       updated_by: null,

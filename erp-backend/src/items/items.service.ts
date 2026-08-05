@@ -83,6 +83,16 @@ export class ItemsService {
     return item;
   }
 
+  /**
+   * Resolve an item by its SKU/code. Used by modules (dispatch, FGR) that
+   * only know the item's code, not its numeric id.
+   */
+  async findByCode(code: string): Promise<Item> {
+    const item = await this.repo.findOne({ where: { sku: code } });
+    if (!item) throw new NotFoundException(`Item with code "${code}" not found.`);
+    return item;
+  }
+
   async update(id: number, dto: UpdateItemDto): Promise<Item> {
     const item = await this.repo.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Item not found.');

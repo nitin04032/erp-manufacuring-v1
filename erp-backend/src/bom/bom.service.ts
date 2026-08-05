@@ -22,6 +22,9 @@ export class BomService {
         code: createDto.code,
         description: createDto.description,
         status: createDto.status || 'active',
+        fg_item_id: createDto.fg_item_id ?? null,
+        version: createDto.version || 'V1',
+        is_active: createDto.is_active ?? true,
       });
       const savedBom = await transactionalEntityManager.save(bom);
 
@@ -45,10 +48,16 @@ export class BomService {
   }
 
   async findAll() {
-    return this.bomRepo.find({
+    const boms = await this.bomRepo.find({
       relations: ['items'],
       order: { created_at: 'DESC' },
     });
+    // components_count is a convenience for list views (e.g. erp-frontend BOM list)
+    // so they don't need to fetch full item relations just to show a count.
+    return boms.map((bom) => ({
+      ...bom,
+      components_count: bom.items?.length ?? 0,
+    }));
   }
 
   async findOne(id: number) {

@@ -1,13 +1,15 @@
 "use client";
 import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiClient } from "../../../lib/apiClient";
 
-// Interfaces
+// Interfaces — match erp-backend/src/items/item.entity.ts
 interface Item {
   id: number;
-  item_name: string;
-  item_code: string;
+  name: string;
+  sku: string | null;
 }
 
 interface BOMComponent {
@@ -21,24 +23,25 @@ interface FlashMessage {
 }
 
 export default function CreateBOMPage() {
+  const router = useRouter();
   const [flash, setFlash] = useState<FlashMessage>({ type: "", message: "" });
   const [items, setItems] = useState<Item[]>([]);
   const [form, setForm] = useState({
-    item_id: "",
+    fg_item_id: "",
+    code: "",
     version: "V1",
     is_active: 1,
     remarks: "",
   });
   const [components, setComponents] = useState<BOMComponent[]>([]);
+  const [saving, setSaving] = useState(false);
 
   // Load Items
   useEffect(() => {
     const fetchItems = async () => {
       try {
-        const res = await fetch("/api/items");
-        if (res.ok) {
-          setItems(await res.json());
-        }
+        const data = await apiClient.get<Item[]>("/items");
+        setItems(data ?? []);
       } catch (err) {
         console.error("Error fetching items", err);
       }
@@ -71,28 +74,34 @@ export default function CreateBOMPage() {
   // Submit Form
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.item_id || components.length === 0) {
+    if (!form.fg_item_id || components.length === 0) {
       setFlash({ type: "danger", message: "Please select finished product & add at least one component." });
       return;
     }
 
+    const fgItem = items.find((it) => String(it.id) === form.fg_item_id);
+
+    setSaving(true);
     try {
-      const res = await fetch("/api/bom", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, components }),
+      // Matches erp-backend/src/bom/dto/create-bom.dto.ts
+      await apiClient.post("/bom", {
+        name: fgItem?.name || `BOM for item #${form.fg_item_id}`,
+        code: form.code || undefined,
+        fg_item_id: Number(form.fg_item_id),
+        version: form.version,
+        is_active: Number(form.is_active) === 1,
+        status: Number(form.is_active) === 1 ? "active" : "inactive",
+        items: components
+          .filter((c) => c.item_id && c.qty)
+          .map((c) => ({ item_id: Number(c.item_id), qty: Number(c.qty) })),
       });
 
-      if (res.ok) {
-        setFlash({ type: "success", message: "✅ BOM Created Successfully!" });
-        setForm({ item_id: "", version: "V1", is_active: 1, remarks: "" });
-        setComponents([]);
-      } else {
-        const err = await res.json();
-        setFlash({ type: "danger", message: err.error || "Failed to create BOM" });
-      }
-    } catch (error) {
-      setFlash({ type: "danger", message: "Server error while creating BOM" });
+      setFlash({ type: "success", message: "✅ BOM Created Successfully!" });
+      setTimeout(() => router.push("/bom"), 1000);
+    } catch (error: any) {
+      setFlash({ type: "danger", message: error.message || "Failed to create BOM" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -137,16 +146,16 @@ export default function CreateBOMPage() {
           <div className="col-md-6 mb-3">
             <label className="form-label">Finished Product *</label>
             <select
-              name="item_id"
+              name="fg_item_id"
               className="form-select"
-              value={form.item_id}
+              value={form.fg_item_id}
               onChange={handleChange}
               required
             >
               <option value="">Select Finished Product</option>
               {items.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.item_name} ({item.item_code})
+                  {item.name} {item.sku ? `(${item.sku})` : ""}
                 </option>
               ))}
             </select>
@@ -225,7 +234,7 @@ export default function CreateBOMPage() {
                       <option value="">Select Item</option>
                       {items.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.item_name} ({item.item_code})
+                          {item.name} {item.sku ? `(${item.sku})` : ""}
                         </option>
                       ))}
                     </select>
@@ -265,10 +274,11 @@ export default function CreateBOMPage() {
         <motion.button
           type="submit"
           className="btn btn-primary"
+          disabled={saving}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <i className="bi bi-check-circle me-2"></i>Create BOM
+          <i className="bi bi-check-circle me-2"></i>{saving ? "Saving..." : "Create BOM"}
         </motion.button>
       </form>
     </div>

@@ -175,4 +175,124 @@ export class InventoryService {
     const row = await this.findStockRow(item_id, warehouse_id, qr);
     return row ? Number(row.quantity) : 0;
   }
+
+  // --- Dashboard & Analytics ---
+  // StockItem carries no TypeORM relations (just numeric item_id/warehouse_id),
+  // so these join against the 'items'/'warehouses' tables directly by id.
+
+  async getTotalStockValue(): Promise<number> {
+    const result = await this.stockItemRepo
+      .createQueryBuilder('si')
+      .innerJoin('items', 'item', 'item.id = si.item_id')
+      .select('SUM(si.quantity * item.purchase_rate)', 'totalValue')
+      .getRawOne<{ totalValue: string | null }>();
+    return parseFloat(result?.totalValue ?? '0') || 0;
+  }
+
+  /** Base query joining stock_items -> items -> warehouses, flattened for reporting/dashboard use. */
+  private stockDetailsQuery() {
+    return this.stockItemRepo
+      .createQueryBuilder('si')
+      .innerJoin('items', 'item', 'item.id = si.item_id')
+      .innerJoin('warehouses', 'wh', 'wh.id = si.warehouse_id')
+      .select([
+        'si.id AS id',
+        'si.item_id AS item_id',
+        'si.warehouse_id AS warehouse_id',
+        'si.quantity AS quantity',
+        'item.name AS item_name',
+        'item.sku AS item_code',
+        'item.unit AS uom',
+        'item.reorder_level AS reorder_level',
+        'wh.name AS warehouse_name',
+      ]);
+  }
+
+  async getLowStockItems(limit = 10): Promise<StockDetailRow[]> {
+    return this.stockDetailsQuery()
+      .where('si.quantity <= item.reorder_level AND item.reorder_level > 0')
+      .orderBy('si.quantity', 'ASC')
+      .limit(limit)
+      .getRawMany();
+  }
+
+  /** All current stock rows with item/warehouse details, for the stock report and current-stock page. */
+  async getAllStockWithDetails(filters?: {
+    search?: string;
+    warehouse_id?: number;
+  }): Promise<StockDetailRow[]> {
+    const qb = this.stockDetailsQuery();
+    if (filters?.warehouse_id) {
+      qb.andWhere('si.warehouse_id = :warehouse_id', {
+        warehouse_id: filters.warehouse_id,
+      });
+    }
+    if (filters?.search) {
+      qb.andWhere('(item.name ILIKE :q OR item.sku ILIKE :q)', {
+        q: `%${filters.search}%`,
+      });
+    }
+    return qb.orderBy('item.name', 'ASC').getRawMany();
+  }
+
+  /** Stock ledger entries with item/warehouse details, for the stock ledger page. */
+  async getLedger(filters?: {
+    search?: string;
+    warehouse_id?: number;
+  }): Promise<LedgerRow[]> {
+    const qb = this.stockLedgerRepo
+      .createQueryBuilder('sl')
+      .innerJoin('items', 'item', 'item.id = sl.item_id')
+      .innerJoin('warehouses', 'wh', 'wh.id = sl.warehouse_id')
+      .select([
+        'sl.id AS id',
+        'sl.created_at AS transaction_date',
+        'item.sku AS item_code',
+        'item.name AS item_name',
+        'wh.name AS warehouse_name',
+        'sl.qty_in AS in_qty',
+        'sl.qty_out AS out_qty',
+        'sl.balance AS balance_qty',
+        'sl.reference_type AS reference_type',
+        'sl.reference_id AS reference_id',
+        'sl.remarks AS remarks',
+      ]);
+    if (filters?.warehouse_id) {
+      qb.andWhere('sl.warehouse_id = :warehouse_id', {
+        warehouse_id: filters.warehouse_id,
+      });
+    }
+    if (filters?.search) {
+      qb.andWhere('(item.name ILIKE :q OR item.sku ILIKE :q)', {
+        q: `%${filters.search}%`,
+      });
+    }
+    return qb.orderBy('sl.created_at', 'DESC').limit(500).getRawMany();
+  }
+}
+
+export interface StockDetailRow {
+  id: number;
+  item_id: number;
+  warehouse_id: number;
+  quantity: number;
+  item_name: string;
+  item_code: string | null;
+  uom: string | null;
+  reorder_level: number | null;
+  warehouse_name: string;
+}
+
+export interface LedgerRow {
+  id: number;
+  transaction_date: string;
+  item_code: string | null;
+  item_name: string;
+  warehouse_name: string;
+  in_qty: number;
+  out_qty: number;
+  balance_qty: number;
+  reference_type: string | null;
+  reference_id: number | null;
+  remarks: string | null;
 }

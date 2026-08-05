@@ -55,6 +55,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       id: user.id,
       username: user.username,
       email: user.email,
+      // 🛠️ P0 fix: RolesGuard (src/auth/guards/roles.guard.ts) checks `user.role`.
+      // It was missing here, so every @Roles(...)-gated route was rejecting all users.
+      role: user.role,
       roleId: user.roleRelation?.id || null,
       permissions: permissions, // 🚀 Real-time dynamic validation guard arrays injected!
     };

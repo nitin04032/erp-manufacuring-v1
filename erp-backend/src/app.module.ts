@@ -21,6 +21,10 @@ import { StocksModule } from './stocks/stocks.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { LocationsModule } from './locations/locations.module';
 import { QualityCheckModule } from './quality-checks/quality-check.module';
+import { ReportsModule } from './reports/reports.module';
+import { SystemModule } from './system/system.module';
+import { RolesModule } from './rbac/roles/roles.module';
+import { CustomersModule } from './customers/customers.module';
 
 @Module({
   imports: [
@@ -103,6 +107,11 @@ import { QualityCheckModule } from './quality-checks/quality-check.module';
     InventoryModule,
     LocationsModule,
     QualityCheckModule,
+    // Previously built but never registered here — see Phase 1 stabilization plan.
+    ReportsModule,
+    SystemModule,
+    RolesModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

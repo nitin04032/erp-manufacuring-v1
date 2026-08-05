@@ -7,7 +7,7 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
 import { GrnModule } from '../grn/grn.module';
 import { DispatchModule } from '../dispatch/dispatch.module';
 import { FgrModule } from '../fgr/fgr.module';
-import { StocksModule } from '../stocks/stocks.module'; // 👈 Import StocksModule
+import { InventoryModule } from '../inventory/inventory.module'; // 👈 Consolidated stock source (see Phase 1 plan)
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -19,7 +19,7 @@ import { AuthModule } from '../auth/auth.module';
     GrnModule,
     DispatchModule,
     FgrModule,
-    StocksModule, // 👈 Add StocksModule here
+    InventoryModule,
     AuthModule,
   ],
   controllers: [DashboardController],

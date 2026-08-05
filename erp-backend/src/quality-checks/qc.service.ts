@@ -26,7 +26,7 @@ export class QualityCheckService {
   ) {}
 
   private async generateQcNumber(): Promise<string> {
-    const last = await this.qcRepo.findOne({ order: { id: 'DESC' } });
+    const last = await this.qcRepo.findOne({ where: {}, order: { id: 'DESC' } });
     const next = last ? last.id + 1 : 1;
     return `QC-${String(next).padStart(6, '0')}`;
   }

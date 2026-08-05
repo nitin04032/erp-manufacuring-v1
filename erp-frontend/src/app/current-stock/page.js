@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { apiClient } from "../../lib/apiClient";
 
 export default function CurrentStockPage() {
   const [warehouses, setWarehouses] = useState([]);
@@ -11,25 +12,29 @@ export default function CurrentStockPage() {
 
   // Load warehouses + stock data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [whRes, stockRes] = await Promise.all([
-          fetch("/api/warehouses"),
-          fetch(`/api/current-stock?search=${search}&warehouse_id=${warehouseId}`),
-        ]);
+    const handler = setTimeout(() => {
+      const fetchData = async () => {
+        try {
+          const qs = new URLSearchParams();
+          if (search) qs.set("search", search);
+          if (warehouseId) qs.set("warehouse_id", warehouseId);
 
-        if (!whRes.ok || !stockRes.ok) throw new Error("Failed to load data");
+          const [whData, stockData] = await Promise.all([
+            apiClient.get("/warehouses"),
+            apiClient.get(`/inventory/current-stock?${qs.toString()}`),
+          ]);
 
-        setWarehouses(await whRes.json());
-        setCurrentStock(await stockRes.json());
-      } catch (err) {
-        console.error("Error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+          setWarehouses(whData ?? []);
+          setCurrentStock(stockData ?? []);
+        } catch (err) {
+          console.error("Error:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchData();
+    }, 400);
+    return () => clearTimeout(handler);
   }, [search, warehouseId]);
 
   return (
@@ -68,7 +73,7 @@ export default function CurrentStockPage() {
                     <option value="">All Warehouses</option>
                     {warehouses.map((wh) => (
                       <option key={wh.id} value={wh.id}>
-                        {wh.warehouse_name}
+                        {wh.name}
                       </option>
                     ))}
                   </select>
@@ -127,7 +132,6 @@ export default function CurrentStockPage() {
                       <tr>
                         <th>Item Code</th>
                         <th>Item Name</th>
-                        <th>Location</th>
                         <th>Warehouse</th>
                         <th>Current Stock</th>
                         <th>Unit</th>
@@ -136,40 +140,37 @@ export default function CurrentStockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentStock.map((stock, index) => (
-                        <tr key={`${stock.id}-${stock.warehouse_name}-${index}`}>
-                          <td>
-                            <strong>{stock.item_code}</strong>
-                          </td>
-                          <td>{stock.item_name}</td>
-                          <td>{stock.location_name || "-"}</td>
-                          <td>{stock.warehouse_name}</td>
-                          <td>
-                            <strong
-                              className={
-                                stock.current_stock <= stock.reorder_level
-                                  ? "text-danger"
-                                  : "text-success"
-                              }
-                            >
-                              {Number(stock.current_stock).toFixed(2)}
-                            </strong>
-                          </td>
-                          <td>{stock.unit || "-"}</td>
-                          <td>{Number(stock.reorder_level).toFixed(2)}</td>
-                          <td>
-                            {stock.current_stock <= 0 ? (
-                              <span className="badge bg-danger">
-                                Out of Stock
-                              </span>
-                            ) : stock.current_stock <= stock.reorder_level ? (
-                              <span className="badge bg-warning">Low Stock</span>
-                            ) : (
-                              <span className="badge bg-success">In Stock</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {currentStock.map((stock, index) => {
+                        const qty = Number(stock.quantity);
+                        const reorderLevel = Number(stock.reorder_level) || 0;
+                        return (
+                          <tr key={`${stock.id}-${index}`}>
+                            <td>
+                              <strong>{stock.item_code}</strong>
+                            </td>
+                            <td>{stock.item_name}</td>
+                            <td>{stock.warehouse_name}</td>
+                            <td>
+                              <strong
+                                className={qty <= reorderLevel ? "text-danger" : "text-success"}
+                              >
+                                {qty.toFixed(2)}
+                              </strong>
+                            </td>
+                            <td>{stock.uom || "-"}</td>
+                            <td>{reorderLevel.toFixed(2)}</td>
+                            <td>
+                              {qty <= 0 ? (
+                                <span className="badge bg-danger">Out of Stock</span>
+                              ) : qty <= reorderLevel ? (
+                                <span className="badge bg-warning">Low Stock</span>
+                              ) : (
+                                <span className="badge bg-success">In Stock</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

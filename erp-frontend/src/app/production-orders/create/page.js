@@ -1,30 +1,35 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiClient } from "../../../lib/apiClient";
 
 export default function CreateProductionOrder() {
+  const router = useRouter();
   const [boms, setBoms] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [items, setItems] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     bom_id: "",
     fg_item_id: "",
     warehouse_id: "",
-    order_qty: "",
-    planned_start_date: "",
-    planned_end_date: "",
+    quantity: "",
     remarks: "",
   });
 
-  // Fetch BOMs and Warehouses
+  // Fetch BOMs, Warehouses and Items
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bomRes, whRes] = await Promise.all([
-          fetch("/api/bom"),
-          fetch("/api/warehouses"),
+        const [bomsData, whData, itemsData] = await Promise.all([
+          apiClient.get("/bom"),
+          apiClient.get("/warehouses"),
+          apiClient.get("/items"),
         ]);
-        if (bomRes.ok) setBoms(await bomRes.json());
-        if (whRes.ok) setWarehouses(await whRes.json());
+        setBoms(bomsData ?? []);
+        setWarehouses(whData ?? []);
+        setItems(itemsData ?? []);
       } catch (err) {
         console.error("Error:", err);
       }
@@ -32,15 +37,15 @@ export default function CreateProductionOrder() {
     fetchData();
   }, []);
 
-  // When BOM changes, update fg_item_id automatically
+  // When BOM changes, adopt its finished-good item automatically
   const handleBomChange = (e) => {
     const bomId = e.target.value;
-    setForm({ ...form, bom_id: bomId });
-
-    const selectedBom = boms.find((b) => b.id == bomId);
-    if (selectedBom) {
-      setForm((prev) => ({ ...prev, fg_item_id: selectedBom.item_id }));
-    }
+    const selectedBom = boms.find((b) => String(b.id) === bomId);
+    setForm((prev) => ({
+      ...prev,
+      bom_id: bomId,
+      fg_item_id: selectedBom?.fg_item_id ? String(selectedBom.fg_item_id) : prev.fg_item_id,
+    }));
   };
 
   const handleChange = (e) => {
@@ -49,25 +54,45 @@ export default function CreateProductionOrder() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const res = await fetch("/api/production-orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
 
-      if (res.ok) {
-        alert("✅ Production Order Created");
-        window.location.href = "/production-orders";
-      } else {
-        const err = await res.json();
-        alert("❌ " + (err.error || "Error creating order"));
-      }
+    const selectedBom = boms.find((b) => String(b.id) === form.bom_id);
+    if (!selectedBom || !selectedBom.items?.length) {
+      alert("❌ Selected BOM has no components to build raw-material requirements from.");
+      return;
+    }
+    if (!form.fg_item_id) {
+      alert("❌ This BOM has no finished-good item set — edit the BOM first.");
+      return;
+    }
+
+    const quantity = Number(form.quantity);
+    // Matches erp-backend/src/production/dto/create-production-order.dto.ts:
+    // required_qty is the BOM's per-unit qty scaled by the order quantity.
+    const requiredItems = selectedBom.items.map((bi) => ({
+      item_id: bi.item_id,
+      required_qty: Number(bi.qty) * quantity,
+    }));
+
+    setSaving(true);
+    try {
+      await apiClient.post("/production-orders", {
+        fg_item_id: Number(form.fg_item_id),
+        warehouse_id: Number(form.warehouse_id),
+        quantity,
+        remarks: form.remarks || undefined,
+        items: requiredItems,
+      });
+      alert("✅ Production Order Created");
+      router.push("/production-orders");
     } catch (err) {
       console.error(err);
-      alert("Failed to create order");
+      alert("❌ " + (err.message || "Failed to create order"));
+    } finally {
+      setSaving(false);
     }
   };
+
+  const fgItem = items.find((it) => String(it.id) === form.fg_item_id);
 
   return (
     <div className="container-fluid">
@@ -106,7 +131,7 @@ export default function CreateProductionOrder() {
                       <option value="">Select BOM</option>
                       {boms.map((bom) => (
                         <option key={bom.id} value={bom.id}>
-                          {bom.bom_number} - {bom.fg_name} ({bom.fg_code})
+                          {bom.name} ({bom.version})
                         </option>
                       ))}
                     </select>
@@ -118,11 +143,7 @@ export default function CreateProductionOrder() {
                     <input
                       type="text"
                       className="form-control"
-                      value={
-                        form.fg_item_id
-                          ? boms.find((b) => b.item_id == form.fg_item_id)?.fg_name
-                          : ""
-                      }
+                      value={fgItem ? `${fgItem.name} (${fgItem.sku ?? "-"})` : ""}
                       disabled
                     />
                   </div>
@@ -140,7 +161,7 @@ export default function CreateProductionOrder() {
                       <option value="">Select Warehouse</option>
                       {warehouses.map((wh) => (
                         <option key={wh.id} value={wh.id}>
-                          {wh.warehouse_name}
+                          {wh.name}
                         </option>
                       ))}
                     </select>
@@ -151,37 +172,13 @@ export default function CreateProductionOrder() {
                     <label className="form-label">Order Quantity *</label>
                     <input
                       type="number"
-                      name="order_qty"
+                      name="quantity"
                       className="form-control"
-                      value={form.order_qty}
+                      value={form.quantity}
                       onChange={handleChange}
-                      min="1"
+                      min="0.001"
                       step="0.01"
                       required
-                    />
-                  </div>
-
-                  {/* Planned Dates */}
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">Planned Start Date *</label>
-                    <input
-                      type="date"
-                      name="planned_start_date"
-                      className="form-control"
-                      value={form.planned_start_date}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label">Planned End Date</label>
-                    <input
-                      type="date"
-                      name="planned_end_date"
-                      className="form-control"
-                      value={form.planned_end_date}
-                      onChange={handleChange}
                     />
                   </div>
 
@@ -215,14 +212,14 @@ export default function CreateProductionOrder() {
                   <ul>
                     <li>Select a BOM (finished product is auto-selected)</li>
                     <li>Choose the production warehouse</li>
-                    <li>Set realistic start and end dates</li>
-                    <li>Ensure raw materials are available</li>
+                    <li>Required raw materials are computed from the BOM × quantity</li>
+                    <li>Ensure raw materials are available before starting the order</li>
                   </ul>
                 </div>
                 <hr />
                 <div className="d-grid gap-2">
-                  <button type="submit" className="btn btn-primary">
-                    <i className="bi bi-check-circle me-2"></i>Create Order
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    <i className="bi bi-check-circle me-2"></i>{saving ? "Creating..." : "Create Order"}
                   </button>
                   <Link href="/production-orders" className="btn btn-outline-secondary">
                     <i className="bi bi-x-circle me-2"></i>Cancel

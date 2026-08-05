@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { apiClient } from "../../../../lib/apiClient";
 
 export default function EditCustomerPage() {
   const { id } = useParams();
@@ -9,17 +10,16 @@ export default function EditCustomerPage() {
 
   const [customer, setCustomer] = useState(null);
   const [flash, setFlash] = useState({ type: "", message: "" });
+  const [saving, setSaving] = useState(false);
 
   // Fetch customer details
   useEffect(() => {
     const fetchCustomer = async () => {
       try {
-        const res = await fetch(`/api/customers/${id}`);
-        if (res.ok) setCustomer(await res.json());
-        else setFlash({ type: "danger", message: "Customer not found." });
+        const data = await apiClient.get(`/customers/${id}`);
+        setCustomer(data);
       } catch (err) {
-        console.error(err);
-        setFlash({ type: "danger", message: "Error loading customer." });
+        setFlash({ type: "danger", message: err.message || "Error loading customer." });
       }
     };
     fetchCustomer();
@@ -43,20 +43,30 @@ export default function EditCustomerPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
-      const res = await fetch(`/api/customers/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(customer),
+      await apiClient.patch(`/customers/${id}`, {
+        name: customer.name,
+        contact_person: customer.contact_person,
+        email: customer.email,
+        phone: customer.phone || undefined,
+        billing_address: customer.billing_address,
+        shipping_address: customer.shipping_address,
+        city: customer.city,
+        state: customer.state,
+        pincode: customer.pincode,
+        country: customer.country,
+        gst_number: customer.gst_number || undefined,
+        credit_limit: Number(customer.credit_limit) || 0,
+        payment_terms: customer.payment_terms,
+        is_active: customer.is_active,
       });
-      if (res.ok) {
-        setFlash({ type: "success", message: "Customer updated successfully!" });
-        setTimeout(() => router.push(`/customers/${id}`), 1200);
-      } else {
-        setFlash({ type: "danger", message: "Error updating customer." });
-      }
-    } catch {
-      setFlash({ type: "danger", message: "Server error." });
+      setFlash({ type: "success", message: "Customer updated successfully!" });
+      setTimeout(() => router.push(`/customers/${id}`), 1000);
+    } catch (err) {
+      setFlash({ type: "danger", message: err.message || "Error updating customer." });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -97,10 +107,8 @@ export default function EditCustomerPage() {
                 <input
                   type="text"
                   className="form-control"
-                  value={customer.customer_name || ""}
-                  onChange={(e) =>
-                    handleChange("customer_name", e.target.value)
-                  }
+                  value={customer.name || ""}
+                  onChange={(e) => handleChange("name", e.target.value)}
                   required
                 />
               </div>
@@ -140,14 +148,25 @@ export default function EditCustomerPage() {
             </div>
 
             {/* Address */}
-            <div className="mb-3">
-              <label className="form-label">Address</label>
-              <textarea
-                className="form-control"
-                value={customer.address || ""}
-                onChange={(e) => handleChange("address", e.target.value)}
-                rows="2"
-              />
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label">Billing Address</label>
+                <textarea
+                  className="form-control"
+                  value={customer.billing_address || ""}
+                  onChange={(e) => handleChange("billing_address", e.target.value)}
+                  rows="2"
+                />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label className="form-label">Shipping Address</label>
+                <textarea
+                  className="form-control"
+                  value={customer.shipping_address || ""}
+                  onChange={(e) => handleChange("shipping_address", e.target.value)}
+                  rows="2"
+                />
+              </div>
             </div>
 
             <div className="row">
@@ -228,8 +247,8 @@ export default function EditCustomerPage() {
               <label className="form-label">Status</label>
               <select
                 className="form-select"
-                value={customer.status || "active"}
-                onChange={(e) => handleChange("status", e.target.value)}
+                value={customer.is_active ? "active" : "inactive"}
+                onChange={(e) => handleChange("is_active", e.target.value === "active")}
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -237,8 +256,8 @@ export default function EditCustomerPage() {
             </div>
 
             {/* Submit */}
-            <button type="submit" className="btn btn-primary">
-              Update Customer
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? "Updating..." : "Update Customer"}
             </button>
           </div>
         </div>

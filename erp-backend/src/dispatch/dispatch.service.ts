@@ -1,44 +1,76 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { DispatchOrder } from './dispatch.entity';
 import { CreateDispatchDto } from './dto/create-dispatch.dto';
 import { UpdateDispatchDto } from './dto/update-dispatch.dto';
-import { StocksService } from '../stocks/stocks.service';
+import { ItemsService } from '../items/items.service';
+import { WarehousesService } from '../warehouses/warehouses.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class DispatchService {
   constructor(
     @InjectRepository(DispatchOrder)
     private repo: Repository<DispatchOrder>,
-    private stocksService: StocksService,
+    private itemsService: ItemsService,
+    private warehousesService: WarehousesService,
+    private inventoryService: InventoryService,
+    private dataSource: DataSource,
   ) {}
 
   async create(dto: CreateDispatchDto): Promise<DispatchOrder> {
-    const dispatch = this.repo.create({
-      ...dto,
-      dispatch_date: new Date(dto.dispatch_date),
-      // Assuming your entity can store items as JSON or has a separate relation
-    });
+    const warehouse = await this.warehousesService.findByName(dto.warehouse_name);
 
-    const savedDispatch = await this.repo.save(dispatch);
+    // Resolve every item code to its entity up front so we fail fast (before
+    // opening a transaction) if the dispatch references an unknown item.
+    const resolvedItems = await Promise.all(
+      dto.items.map(async (item) => ({
+        item: await this.itemsService.findByCode(item.item_code),
+        dispatched_qty: item.dispatched_qty,
+      })),
+    );
 
-    // After saving the dispatch, decrease the stock for each item
-    for (const item of dto.items) {
-      // DTO uses item_code and dispatched_qty; resolve to item id
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const it = await (this.stocksService as any).itemsService.findByCode(
-        item.item_code,
-      );
-      await this.stocksService.decreaseStock(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-        it.id,
-        dto.warehouse_name,
-        item.dispatched_qty,
-      );
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      // 1) Validate availability for every line before touching stock, so a
+      // partially-fulfillable dispatch never leaves stock half-decremented.
+      for (const { item, dispatched_qty } of resolvedItems) {
+        await this.inventoryService.checkAvailability(
+          item.id,
+          warehouse.id,
+          dispatched_qty,
+          queryRunner,
+        );
+      }
+
+      const dispatch = queryRunner.manager.create(DispatchOrder, {
+        ...dto,
+        dispatch_date: new Date(dto.dispatch_date),
+      });
+      const savedDispatch = await queryRunner.manager.save(DispatchOrder, dispatch);
+
+      // 2) Decrease stock for each item, with a ledger entry pointing back
+      // at this dispatch order.
+      for (const { item, dispatched_qty } of resolvedItems) {
+        await this.inventoryService.decreaseStock(item.id, warehouse.id, dispatched_qty, {
+          reference_type: 'dispatch',
+          reference_id: savedDispatch.id,
+          remarks: `Dispatch ${savedDispatch.dispatch_number}`,
+          queryRunner,
+        });
+      }
+
+      await queryRunner.commitTransaction();
+      return savedDispatch;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
     }
-
-    return savedDispatch;
   }
 
   findAll(): Promise<DispatchOrder[]> {
@@ -54,6 +86,7 @@ export class DispatchService {
   async update(id: number, dto: UpdateDispatchDto): Promise<DispatchOrder> {
     // Note: A real-world update is complex. It might need to reverse old stock
     // changes before applying new ones, especially if quantities change.
+    // Phase 1 scope: header-only update, no stock re-adjustment.
     const existing = await this.findOne(id);
     Object.assign(existing, dto);
     return this.repo.save(existing);
@@ -61,6 +94,7 @@ export class DispatchService {
 
   async remove(id: number): Promise<void> {
     // Note: A real-world delete should reverse the stock subtractions (i.e., add the stock back).
+    // Phase 1 scope: not implemented — flagged as a Phase 2 follow-up.
     const res = await this.repo.delete(id);
     if (res.affected === 0)
       throw new NotFoundException(`Dispatch order #${id} not found`);

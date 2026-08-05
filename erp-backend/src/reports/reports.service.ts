@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { PurchaseOrder } from '../purchase-orders/purchase-order.entity';
 import { Grn } from '../grn/entities/grn.entity';
 import { DispatchOrder } from '../dispatch/dispatch.entity';
-import { Stock } from '../stocks/stock.entity';
+import { InventoryService, StockDetailRow } from '../inventory/inventory.service';
 import * as ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
@@ -25,7 +25,7 @@ export class ReportsService {
     @InjectRepository(Grn) private grnRepo: Repository<Grn>,
     @InjectRepository(DispatchOrder)
     private dispatchRepo: Repository<DispatchOrder>,
-    @InjectRepository(Stock) private stockRepo: Repository<Stock>,
+    private inventoryService: InventoryService,
   ) {}
 
   // --- Data Fetching Methods with Advanced Filtering ---
@@ -92,11 +92,8 @@ export class ReportsService {
     return query.orderBy('dispatch.dispatch_date', 'DESC').getMany();
   }
 
-  getStockReport(): Promise<Stock[]> {
-    return this.stockRepo.find({
-      relations: ['item'],
-      order: { item_name: 'ASC' },
-    });
+  getStockReport(): Promise<StockDetailRow[]> {
+    return this.inventoryService.getAllStockWithDetails();
   }
 
   // --- Export Utility Methods (exportToExcel, exportToPdf) ---

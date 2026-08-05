@@ -58,30 +58,12 @@ export default function DataImport() {
     reader.readAsText(file);
   };
 
-  // Submit Form
+  // Phase 2: there is no backend endpoint for this yet (see Phase 1
+  // stabilization plan) — the template download and preview above are real
+  // (pure client-side); the actual import submit is not wired to anything yet.
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!table || !file) {
-      alert("Please select a table and file.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("table", table);
-    formData.append("import_file", file);
-    formData.append("skip_first_row", skipFirstRow);
-    formData.append("update_existing", updateExisting);
-
-    try {
-      const res = await fetch("/api/bulk-operations/import", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      alert(data.message || "Import completed ✅");
-    } catch (err) {
-      alert("Error importing file ❌");
-    }
+    alert("Data import isn't backed by an API yet — planned for a follow-up release.");
   };
 
   return (

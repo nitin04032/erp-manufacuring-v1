@@ -152,7 +152,7 @@ export class ReportsController {
 
     if (exportType) {
       const columns = [
-        { header: 'Item Code', key: 'item.sku', width: 20 },
+        { header: 'Item Code', key: 'item_code', width: 20 },
         { header: 'Item Name', key: 'item_name', width: 30 },
         { header: 'Warehouse', key: 'warehouse_name', width: 25 },
         {
@@ -164,15 +164,11 @@ export class ReportsController {
         { header: 'UOM', key: 'uom', width: 15 },
       ];
       const title = 'Current Stock Report';
-      const flattenedData = data.map((s) => ({
-        ...s,
-        'item.sku': s.item?.sku,
-      }));
 
       if (exportType === 'excel') {
         return this.reportsService.exportToExcel(
           res,
-          flattenedData,
+          data,
           'Stock_Report',
           columns,
         );

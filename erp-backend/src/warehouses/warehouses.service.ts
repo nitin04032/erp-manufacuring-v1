@@ -26,6 +26,7 @@ export class WarehousesService {
     // 2. Generate the code and add it to our new object.
     if (!dataToSave.code) {
       const last = await this.repo.findOne({
+        where: {},
         order: { id: 'DESC' },
         withDeleted: false,
       });
@@ -84,6 +85,16 @@ export class WarehousesService {
   async findOne(id: number): Promise<Warehouse> {
     const w = await this.repo.findOne({ where: { id } });
     if (!w) throw new NotFoundException('Warehouse not found.');
+    return w;
+  }
+
+  /**
+   * Resolve a warehouse by its name. Used by modules (dispatch, FGR) whose
+   * DTOs carry a warehouse_name string instead of a numeric warehouse_id.
+   */
+  async findByName(name: string): Promise<Warehouse> {
+    const w = await this.repo.findOne({ where: { name } });
+    if (!w) throw new NotFoundException(`Warehouse "${name}" not found.`);
     return w;
   }
 

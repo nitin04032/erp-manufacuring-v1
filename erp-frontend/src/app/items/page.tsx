@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, FC } from "react";
 import Link from "next/link";
-import Cookies from "js-cookie";
 import { motion, Variants } from "framer-motion"; // Framer Motion import karein
+import { apiClient } from "../../lib/apiClient";
 
 // 1. Define TypeScript interfaces
 interface Item {
@@ -79,18 +79,9 @@ const ItemsPage: FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const token = Cookies.get("token");
       const query = new URLSearchParams({ status, search }).toString();
-      
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items?${query}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch items from the server.");
-      }
-      const data: Item[] = await res.json();
-      setItems(data);
+      const data = await apiClient.get<Item[]>(`/items?${query}`);
+      setItems(data ?? []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -102,21 +93,11 @@ const ItemsPage: FC = () => {
     if (!confirm("Are you sure you want to delete this item?")) return;
 
     try {
-      const token = Cookies.get("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        setFlash({ type: "success", message: "Item deleted successfully!" });
-        fetchItems();
-      } else {
-        const errorData = await res.json();
-        setFlash({ type: "danger", message: errorData.message || "Failed to delete item."});
-      }
-    } catch {
-      setFlash({ type: "danger", message: "Server error while deleting." });
+      await apiClient.delete(`/items/${id}`);
+      setFlash({ type: "success", message: "Item deleted successfully!" });
+      fetchItems();
+    } catch (err: any) {
+      setFlash({ type: "danger", message: err.message || "Failed to delete item." });
     }
   };
 

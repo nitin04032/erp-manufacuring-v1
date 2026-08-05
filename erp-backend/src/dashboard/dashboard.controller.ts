@@ -7,7 +7,7 @@ import { PurchaseOrdersService } from '../purchase-orders/purchase-orders.servic
 import { GrnService } from '../grn/grn.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { FgrService } from '../fgr/fgr.service';
-import { StocksService } from '../stocks/stocks.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
@@ -20,7 +20,7 @@ export class DashboardController {
     private readonly grnService: GrnService,
     private readonly dispatchService: DispatchService,
     private readonly fgrService: FgrService,
-    private readonly stocksService: StocksService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   @Get('summary')
@@ -50,8 +50,8 @@ export class DashboardController {
       this.fgrService.count(),
       this.purchaseOrdersService.getStatusCounts(),
       this.purchaseOrdersService.getRecent(),
-      this.stocksService.getTotalStockValue(),
-      this.stocksService.getLowStockItems(),
+      this.inventoryService.getTotalStockValue(),
+      this.inventoryService.getLowStockItems(),
     ]);
 
     return {

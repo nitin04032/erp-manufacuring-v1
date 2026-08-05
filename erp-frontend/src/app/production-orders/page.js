@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { apiClient } from "../../lib/apiClient";
 
 export default function ProductionOrders() {
   const [orders, setOrders] = useState([]);
@@ -10,17 +11,22 @@ export default function ProductionOrders() {
 
   useEffect(() => {
     fetchOrders();
-  }, [status, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `/api/production-orders?status=${status}&search=${search}`
-      );
-      if (res.ok) {
-        setOrders(await res.json());
-      }
+      const all = (await apiClient.get("/production-orders")) || [];
+      // Backend has no server-side status/search filtering for this endpoint yet
+      // (ProductionService.findAll() returns everything) — filter client-side.
+      const filtered = all.filter((order) => {
+        const matchesStatus = !status || order.status === status;
+        const matchesSearch =
+          !search || order.order_number?.toLowerCase().includes(search.toLowerCase());
+        return matchesStatus && matchesSearch;
+      });
+      setOrders(filtered);
     } catch (err) {
       console.error("❌ Error fetching orders", err);
     } finally {
@@ -31,16 +37,11 @@ export default function ProductionOrders() {
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this order?")) return;
     try {
-      const res = await fetch(`/api/production-orders/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        alert("✅ Order deleted");
-        fetchOrders();
-      } else {
-        const err = await res.json();
-        alert("❌ " + (err.error || "Failed to delete"));
-      }
-    } catch (e) {
-      console.error(e);
+      await apiClient.delete(`/production-orders/${id}`);
+      alert("✅ Order deleted");
+      fetchOrders();
+    } catch (err) {
+      alert("❌ " + (err.message || "Failed to delete"));
     }
   };
 
@@ -135,11 +136,9 @@ export default function ProductionOrders() {
                 <thead className="table-light">
                   <tr>
                     <th>Order No</th>
-                    <th>Product</th>
+                    <th>FG Item</th>
                     <th>Warehouse</th>
-                    <th>Planned Qty</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
+                    <th>Quantity</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -150,25 +149,13 @@ export default function ProductionOrders() {
                       <td>
                         <strong>{order.order_number}</strong>
                       </td>
+                      {/* Backend (ProductionOrder entity) only stores fg_item_id/warehouse_id,
+                          not resolved names — showing the id until a Phase 2 join is added. */}
+                      <td>Item #{order.fg_item_id}</td>
+                      <td>{order.warehouse_id ? `Warehouse #${order.warehouse_id}` : "-"}</td>
                       <td>
-                        <strong>{order.fg_code}</strong>
-                        <br />
-                        <small className="text-muted">{order.fg_name}</small>
-                      </td>
-                      <td>{order.warehouse_name || "-"}</td>
-                      <td>
-                        {order.order_qty && !isNaN(order.order_qty)
-                          ? Number(order.order_qty).toFixed(2)
-                          : "-"}
-                      </td>
-                      <td>
-                        {order.planned_start_date
-                          ? new Date(order.planned_start_date).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td>
-                        {order.planned_end_date
-                          ? new Date(order.planned_end_date).toLocaleDateString()
+                        {order.quantity && !isNaN(order.quantity)
+                          ? Number(order.quantity).toFixed(2)
                           : "-"}
                       </td>
                       <td>

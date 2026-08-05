@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { apiClient } from "../../lib/apiClient";
 
 export default function FinishedGoodsReceipt() {
   const [fgrList, setFgrList] = useState([]);
@@ -12,10 +13,8 @@ export default function FinishedGoodsReceipt() {
 
   const fetchFGR = async () => {
     try {
-      const res = await fetch("/api/fgr");
-      if (!res.ok) throw new Error("Failed to fetch FGR list");
-      const data = await res.json();
-      setFgrList(data);
+      const data = await apiClient.get("/fgr");
+      setFgrList(data ?? []);
     } catch (err) {
       console.error("Error fetching FGR list:", err);
     }

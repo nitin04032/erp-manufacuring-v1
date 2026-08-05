@@ -1,22 +1,83 @@
 "use client";
 
 import Link from "next/link";
+import { apiClient } from "../../lib/apiClient";
+
+// Trigger a browser download for one of the real ReportsController export
+// endpoints (erp-backend/src/reports/reports.controller.ts) — these need the
+// auth header attached, so a plain <a href> link won't work; we fetch via
+// apiClient (which returns the raw Response for non-JSON payloads) and save
+// the blob ourselves.
+async function downloadReport(endpoint, fallbackFilename) {
+  try {
+    const res = await apiClient.get(endpoint);
+    const blob = await res.blob();
+    const disposition = res.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename=([^;]+)/);
+    const filename = match ? match[1].trim() : fallbackFilename;
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("❌ Failed to generate report: " + (err.message || "unknown error"));
+  }
+}
+
+function isoDate(d) {
+  return d.toISOString().slice(0, 10);
+}
 
 export default function ReportsDashboard() {
-  // Placeholder functions
-  const exportData = () => alert("Export functionality will be implemented.");
-  const generateWeeklyReport = () =>
-    alert("Weekly report generation feature.");
-  const generateMonthlyReport = () =>
-    alert("Monthly report generation feature.");
-  const showAlerts = () =>
-    alert("Critical alerts will show low stock and overdue orders.");
-  const importSuppliers = () => alert("Import suppliers from CSV/Excel.");
-  const importItems = () => alert("Import items from CSV/Excel.");
-  const importStock = () => alert("Import stock from CSV/Excel.");
-  const exportToCSV = () => alert("Export to CSV.");
-  const exportToExcel = () => alert("Export to Excel.");
-  const exportToPDF = () => alert("Export to PDF.");
+  const downloadStock = (format) =>
+    downloadReport(`/reports/stock?export=${format}`, `Stock_Report.${format === "excel" ? "xlsx" : "pdf"}`);
+  const downloadPurchase = (format) =>
+    downloadReport(
+      `/reports/purchase-orders?export=${format}`,
+      `Purchase_Orders.${format === "excel" ? "xlsx" : "pdf"}`,
+    );
+  const downloadGrn = (format) =>
+    downloadReport(`/reports/grn?export=${format}`, `GRN_Report.${format === "excel" ? "xlsx" : "pdf"}`);
+  const downloadDispatch = (format) =>
+    downloadReport(
+      `/reports/dispatch?export=${format}`,
+      `Dispatch_Report.${format === "excel" ? "xlsx" : "pdf"}`,
+    );
+
+  const generatePeriodReport = (days) => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    downloadReport(
+      `/reports/purchase-orders?from=${isoDate(from)}&to=${isoDate(to)}&export=excel`,
+      `Purchase_Orders_${isoDate(from)}_to_${isoDate(to)}.xlsx`,
+    );
+  };
+
+  const showAlerts = async () => {
+    try {
+      const summary = await apiClient.get("/dashboard/summary");
+      const lowStock = summary?.stockSummary?.lowStockItems ?? [];
+      if (lowStock.length === 0) {
+        alert("✅ No items are currently below their reorder level.");
+        return;
+      }
+      const lines = lowStock
+        .map((s) => `• ${s.item_name} (${s.item_code ?? "-"}) @ ${s.warehouse_name}: ${s.quantity}`)
+        .join("\n");
+      alert(`⚠️ Low stock items:\n\n${lines}`);
+    } catch (err) {
+      alert("❌ Failed to load alerts: " + (err.message || "unknown error"));
+    }
+  };
+
+  const notYetAvailable = (feature) =>
+    alert(`${feature} isn't backed by an API yet — planned for a follow-up release.`);
 
   return (
     <div className="container-fluid">
@@ -26,8 +87,8 @@ export default function ReportsDashboard() {
           <h1 className="h3 mb-0">
             <i className="bi bi-graph-up text-primary"></i> Reports & Analytics
           </h1>
-          <button className="btn btn-outline-primary" onClick={exportData}>
-            <i className="bi bi-download me-2"></i>Export Data
+          <button className="btn btn-outline-primary" onClick={() => downloadStock("excel")}>
+            <i className="bi bi-download me-2"></i>Export Stock Report
           </button>
         </div>
       </div>
@@ -44,9 +105,14 @@ export default function ReportsDashboard() {
                 Stock levels, movements, and warehouse analytics
               </p>
               <div className="d-grid gap-2">
-                <Link href="/reports/inventory" className="btn btn-primary">
-                  <i className="bi bi-graph-up me-2"></i>View Reports
-                </Link>
+                <div className="btn-group">
+                  <button className="btn btn-primary" onClick={() => downloadStock("excel")}>
+                    <i className="bi bi-file-earmark-excel me-2"></i>Excel
+                  </button>
+                  <button className="btn btn-primary" onClick={() => downloadStock("pdf")}>
+                    <i className="bi bi-file-earmark-pdf me-2"></i>PDF
+                  </button>
+                </div>
                 <Link href="/current-stock" className="btn btn-outline-primary">
                   <i className="bi bi-list me-2"></i>Current Stock
                 </Link>
@@ -62,16 +128,18 @@ export default function ReportsDashboard() {
               <i className="bi bi-cart-check display-1 text-success mb-3"></i>
               <h5 className="card-title">Purchase Reports</h5>
               <p className="text-muted">
-                Purchase orders, supplier performance, and spend analysis
+                Purchase orders, GRN and spend analysis
               </p>
               <div className="d-grid gap-2">
-                <Link href="/reports/purchase" className="btn btn-success">
-                  <i className="bi bi-graph-up me-2"></i>View Reports
-                </Link>
-                <Link
-                  href="/purchase-orders"
-                  className="btn btn-outline-success"
-                >
+                <div className="btn-group">
+                  <button className="btn btn-success" onClick={() => downloadPurchase("excel")}>
+                    <i className="bi bi-file-earmark-excel me-2"></i>Excel
+                  </button>
+                  <button className="btn btn-success" onClick={() => downloadPurchase("pdf")}>
+                    <i className="bi bi-file-earmark-pdf me-2"></i>PDF
+                  </button>
+                </div>
+                <Link href="/purchase-orders" className="btn btn-outline-success">
                   <i className="bi bi-list me-2"></i>All Orders
                 </Link>
               </div>
@@ -89,13 +157,13 @@ export default function ReportsDashboard() {
                 Production efficiency, order status, and utilization
               </p>
               <div className="d-grid gap-2">
-                <Link href="/reports/production" className="btn btn-warning">
-                  <i className="bi bi-graph-up me-2"></i>View Reports
-                </Link>
-                <Link
-                  href="/production-orders"
-                  className="btn btn-outline-warning"
+                <button
+                  className="btn btn-warning"
+                  onClick={() => notYetAvailable("A dedicated production report")}
                 >
+                  <i className="bi bi-graph-up me-2"></i>Coming Soon
+                </button>
+                <Link href="/production-orders" className="btn btn-outline-warning">
                   <i className="bi bi-list me-2"></i>All Orders
                 </Link>
               </div>
@@ -132,10 +200,10 @@ export default function ReportsDashboard() {
                   <h4 className="text-success">
                     <i className="bi bi-calendar-check"></i> Weekly Summary
                   </h4>
-                  <p className="text-muted">This week's performance</p>
+                  <p className="text-muted">Purchase orders, last 7 days</p>
                   <button
                     className="btn btn-outline-success btn-sm"
-                    onClick={generateWeeklyReport}
+                    onClick={() => generatePeriodReport(7)}
                   >
                     Generate Report
                   </button>
@@ -144,10 +212,10 @@ export default function ReportsDashboard() {
                   <h4 className="text-warning">
                     <i className="bi bi-calendar-month"></i> Monthly Analysis
                   </h4>
-                  <p className="text-muted">Monthly trends and insights</p>
+                  <p className="text-muted">Purchase orders, last 30 days</p>
                   <button
                     className="btn btn-outline-warning btn-sm"
-                    onClick={generateMonthlyReport}
+                    onClick={() => generatePeriodReport(30)}
                   >
                     Generate Report
                   </button>
@@ -157,7 +225,7 @@ export default function ReportsDashboard() {
                     <i className="bi bi-exclamation-triangle"></i> Critical
                     Alerts
                   </h4>
-                  <p className="text-muted">Items requiring attention</p>
+                  <p className="text-muted">Items below reorder level</p>
                   <button
                     className="btn btn-outline-danger btn-sm"
                     onClick={showAlerts}
@@ -186,27 +254,28 @@ export default function ReportsDashboard() {
                 {/* Import */}
                 <div className="col-md-6">
                   <h6>
-                    <i className="bi bi-upload me-2"></i>Import Data
+                    <i className="bi bi-upload me-2"></i>Import Data{" "}
+                    <span className="badge bg-secondary">Coming soon</span>
                   </h6>
                   <p className="text-muted small">
-                    Import bulk data from CSV/Excel files
+                    Bulk import isn't backed by an API yet.
                   </p>
                   <div className="d-flex gap-2">
                     <button
                       className="btn btn-outline-primary btn-sm"
-                      onClick={importSuppliers}
+                      onClick={() => notYetAvailable("Supplier import")}
                     >
                       <i className="bi bi-people me-1"></i>Suppliers
                     </button>
                     <button
                       className="btn btn-outline-success btn-sm"
-                      onClick={importItems}
+                      onClick={() => notYetAvailable("Item import")}
                     >
                       <i className="bi bi-box me-1"></i>Items
                     </button>
                     <button
                       className="btn btn-outline-warning btn-sm"
-                      onClick={importStock}
+                      onClick={() => notYetAvailable("Stock import")}
                     >
                       <i className="bi bi-boxes me-1"></i>Stock
                     </button>
@@ -215,29 +284,29 @@ export default function ReportsDashboard() {
                 {/* Export */}
                 <div className="col-md-6">
                   <h6>
-                    <i className="bi bi-download me-2"></i>Export Data
+                    <i className="bi bi-download me-2"></i>Export GRN / Dispatch
                   </h6>
                   <p className="text-muted small">
-                    Export data to various formats
+                    Export to Excel or PDF
                   </p>
                   <div className="d-flex gap-2">
                     <button
                       className="btn btn-outline-info btn-sm"
-                      onClick={exportToCSV}
+                      onClick={() => downloadGrn("excel")}
                     >
-                      <i className="bi bi-filetype-csv me-1"></i>CSV
+                      <i className="bi bi-filetype-xlsx me-1"></i>GRN (Excel)
                     </button>
                     <button
                       className="btn btn-outline-success btn-sm"
-                      onClick={exportToExcel}
+                      onClick={() => downloadDispatch("excel")}
                     >
-                      <i className="bi bi-filetype-xlsx me-1"></i>Excel
+                      <i className="bi bi-filetype-xlsx me-1"></i>Dispatch (Excel)
                     </button>
                     <button
                       className="btn btn-outline-danger btn-sm"
-                      onClick={exportToPDF}
+                      onClick={() => downloadDispatch("pdf")}
                     >
-                      <i className="bi bi-filetype-pdf me-1"></i>PDF
+                      <i className="bi bi-filetype-pdf me-1"></i>Dispatch (PDF)
                     </button>
                   </div>
                 </div>

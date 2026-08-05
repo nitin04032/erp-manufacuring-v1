@@ -25,6 +25,17 @@ export class Bom {
   @Column({ type: 'varchar', length: 30, default: 'active' })
   status: string;
 
+  // The finished good this BOM produces. Nullable so pre-existing BOM rows
+  // (created before this column existed) don't break; new BOMs should set it.
+  @Column({ type: 'int', nullable: true })
+  fg_item_id: number | null;
+
+  @Column({ type: 'varchar', length: 30, default: 'V1' })
+  version: string;
+
+  @Column({ type: 'boolean', default: true })
+  is_active: boolean;
+
   @OneToMany(() => BomItem, (item) => item.bom, { cascade: true })
   items: BomItem[];
 
