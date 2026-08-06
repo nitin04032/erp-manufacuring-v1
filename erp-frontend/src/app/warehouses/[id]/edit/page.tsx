@@ -65,7 +65,8 @@ const EditWarehousePage: FC = () => {
             const errorData = await res.json();
             throw new Error(errorData.message || "Warehouse not found.");
         }
-        const data: Warehouse = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         setForm(data);
       } catch (err: any) {
         setFlash({ type: 'danger', message: err.message });

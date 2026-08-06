@@ -73,7 +73,8 @@ const LocationsPage: FC = () => {
       if (!res.ok) {
         throw new Error("Server se locations fetch karne mein samasya aayi.");
       }
-      const data: Location[] = await res.json();
+      // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+      const { data } = await res.json();
       setLocations(data);
     } catch (err: any) {
       setError(err.message);

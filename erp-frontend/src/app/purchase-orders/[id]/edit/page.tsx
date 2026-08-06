@@ -87,8 +87,12 @@ const EditPurchaseOrderPage: FC = () => {
 
             if (!poRes.ok) throw new Error("Purchase Order not found or you don't have permission to edit it.");
             
-            const poResult = await poRes.json();
-            
+            // 🛠️ Bug fix: unwrap the { success, message, data } response envelope
+            // on all four calls below — we were reading fields straight off the
+            // envelope instead of its `data`, so the form and dropdowns rendered
+            // empty for every PO edit.
+            const { data: poResult } = await poRes.json();
+
             setPoData({
               supplier_id: poResult.supplier_id || "",
               warehouse_id: poResult.warehouse_id || "",
@@ -98,9 +102,9 @@ const EditPurchaseOrderPage: FC = () => {
               remarks: poResult.remarks || "",
               items: poResult.items || [],
             });
-            if (supRes.ok) setSuppliers(await supRes.json());
-            if (whRes.ok) setWarehouses(await whRes.json());
-            if (itemRes.ok) setItems(await itemRes.json());
+            if (supRes.ok) setSuppliers((await supRes.json()).data);
+            if (whRes.ok) setWarehouses((await whRes.json()).data);
+            if (itemRes.ok) setItems((await itemRes.json()).data);
         } catch (err: any) {
             setError(err.message);
         } finally {

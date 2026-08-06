@@ -12,6 +12,7 @@ import {
   Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { EmptyToUndefined } from '../../common/transformers/empty-to-undefined.transformer';
 
 // Mirrors erp-backend/src/suppliers/dto/create-supplier.dto.ts
 export const Trim = () =>
@@ -47,10 +48,12 @@ export class CreateCustomerDto {
   email!: string;
 
   @IsOptional()
+  @EmptyToUndefined()
   @IsPhoneNumber('IN')
   phone?: string;
 
   @IsOptional()
+  @EmptyToUndefined()
   @IsString()
   @Matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, {
     message: 'Invalid GST number format.',
@@ -87,6 +90,7 @@ export class CreateCustomerDto {
   country?: string;
 
   @IsOptional()
+  @EmptyToUndefined()
   @IsPostalCode('IN')
   pincode?: string;
 

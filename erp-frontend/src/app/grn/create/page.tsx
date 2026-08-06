@@ -113,8 +113,9 @@ const CreateGRNPage: FC = () => {
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/suppliers`, { headers }),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/purchase-orders?status=acknowledged`, { headers }),
         ]);
-        if (supRes.ok) setSuppliers(await supRes.json());
-        if (poRes.ok) setPurchaseOrders(await poRes.json());
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        if (supRes.ok) setSuppliers((await supRes.json()).data);
+        if (poRes.ok) setPurchaseOrders((await poRes.json()).data);
       } catch (err) {
         setFlash({ type: 'danger', message: 'Failed to load initial data.' });
       }
@@ -138,7 +139,8 @@ const CreateGRNPage: FC = () => {
       });
 
       if (res.ok) {
-        const po: FullPurchaseOrder = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data: po } = await res.json();
         setForm(prev => ({ ...prev, purchase_order_id: po_id_num, supplier_id: po.supplier_id, warehouse_name: po.warehouse_name }));
         setGrnItems(po.items.map(item => ({ ...item, received_qty: item.ordered_qty, remarks: "" })));
       } else {
@@ -205,13 +207,16 @@ const CreateGRNPage: FC = () => {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      // 🛠️ Bug fix: unwrap the { success, message, data } response envelope
+      // (was showing "GRN undefined created successfully!"); the error branch
+      // still needs the top-level `message`, so keep both in scope.
+      const { data, message } = await res.json();
       if (res.ok) {
         Cookies.set("flashMessage", `GRN ${data.grn_number} created successfully!`, { path: "/" });
         Cookies.set("flashType", "success", { path: "/" });
         router.push("/grn");
       } else {
-        const errorMessages = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+        const errorMessages = Array.isArray(message) ? message.join(', ') : message;
         setFlash({ type: "danger", message: errorMessages || "Failed to create GRN." });
       }
     } catch (err) {

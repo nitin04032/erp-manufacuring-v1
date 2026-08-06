@@ -86,7 +86,8 @@ const PurchaseOrdersPage: FC = () => {
       });
 
       if (!res.ok) throw new Error("Failed to fetch purchase orders.");
-      const data: PurchaseOrder[] = await res.json();
+      // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+      const { data } = await res.json();
       setPurchaseOrders(data);
     } catch (err: any) {
       setError(err.message);
@@ -99,7 +100,7 @@ const PurchaseOrdersPage: FC = () => {
     try {
         const token = Cookies.get("token");
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/suppliers`, { headers: { Authorization: `Bearer ${token}` } });
-        if (res.ok) setSuppliers(await res.json());
+        if (res.ok) setSuppliers((await res.json()).data);
     } catch (error) {
         console.error("Failed to fetch suppliers for filter dropdown.");
     }

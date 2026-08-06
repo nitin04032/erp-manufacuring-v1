@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Cookies from "js-cookie";
 
 export default function CreateDispatchOrder() {
   const [warehouses, setWarehouses] = useState([]);
@@ -28,11 +29,20 @@ export default function CreateDispatchOrder() {
     }));
 
     // Fetch warehouses from API
+    // 🛠️ Bug fix: this was fetching a relative "/api/warehouses" path, which
+    // hits the Next.js server (no such route exists there) instead of the
+    // NestJS backend on port 3001, and sent no auth token — so the dropdown
+    // could never actually load. Also unwrap the { success, message, data }
+    // response envelope.
     const fetchWarehouses = async () => {
       try {
-        const res = await fetch("/api/warehouses");
+        const token = Cookies.get("token");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) throw new Error("Failed to fetch warehouses");
-        setWarehouses(await res.json());
+        const { data } = await res.json();
+        setWarehouses(data);
       } catch (err) {
         console.error("Error loading warehouses:", err);
       }
@@ -49,15 +59,23 @@ export default function CreateDispatchOrder() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/dispatch", {
+      // 🛠️ Bug fix: same relative-URL/no-auth issue as the warehouses fetch
+      // above. Note: the backend's CreateDispatchDto (see
+      // erp-backend/src/dispatch/dto/create-dispatch.dto.ts) additionally
+      // expects `dispatch_number` / `warehouse_name` / a non-empty `items`
+      // array, none of which this form collects yet — that's a separate,
+      // larger gap (this form needs an item-line UI) left for a follow-up.
+      const token = Cookies.get("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dispatch`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(form),
       });
       if (res.ok) {
         alert("✅ Dispatch Order Created");
       } else {
-        alert("❌ Error creating dispatch order");
+        const err = await res.json();
+        alert(`❌ ${err.message || "Error creating dispatch order"}`);
       }
     } catch (err) {
       console.error("Error:", err);

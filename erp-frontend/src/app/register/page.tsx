@@ -53,25 +53,45 @@ export default function RegisterPage() {
       setFlash({ type: "danger", message: "Passwords do not match." });
       return;
     }
-    if (form.password.length < 6) {
-      setFlash({ type: "danger", message: "Password must be at least 6 characters." });
+    // 🛠️ Bug fix: backend RegisterDto requires @MinLength(8) on password.
+    // The old check here only required 6, so a 6-7 char password would pass
+    // this client-side check and then fail with a confusing raw backend error.
+    if (form.password.length < 8) {
+      setFlash({ type: "danger", message: "Password must be at least 8 characters." });
       return;
     }
     if (!form.terms) {
       setFlash({ type: "danger", message: "You must agree to the terms." });
       return;
     }
-    
+
     setLoading(true);
 
     try {
+      // 🛠️ Bug fix: backend username must match /^[a-zA-Z0-9_.]+$/ (letters,
+      // numbers, underscore, dot only — no spaces). We were sending the raw
+      // Full Name straight through, so any name with a space (i.e. almost
+      // every real name) always failed registration with a 400. Derive a
+      // sanitized handle from the name instead, and fall back to the email
+      // local-part if sanitizing the name leaves nothing usable.
+      const toUsername = (value: string) =>
+        value
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_.]+/g, ".")
+          .replace(/\.{2,}/g, ".")
+          .replace(/^\.+|\.+$/g, "")
+          .slice(0, 50);
+      const username =
+        toUsername(form.name) || toUsername(form.email.split("@")[0]) || `user${Date.now()}`;
+
       // 🛠️ Note: Ensure NEXT_PUBLIC_API_URL includes '/api' in your .env (e.g., http://localhost:3001/api)
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
         {
           method: "POST",
           body: JSON.stringify({
-            username: form.name,
+            username,
             email: form.email,
             password: form.password,
             full_name: form.name,
@@ -153,7 +173,7 @@ export default function RegisterPage() {
                     <label htmlFor="password" className="form-label">Password *</label>
                     <div className="input-group">
                       <span className="input-group-text"><i className="bi bi-lock"></i></span>
-                      <input type={show.password ? "text" : "password"} id="password" className="form-control" placeholder="Enter password" required minLength={6} value={form.password} onChange={handleChange} />
+                      <input type={show.password ? "text" : "password"} id="password" className="form-control" placeholder="Enter password" required minLength={8} value={form.password} onChange={handleChange} />
                       <button type="button" className="btn btn-outline-secondary" onClick={() => setShow({ ...show, password: !show.password })}>
                         <i className={`bi ${show.password ? "bi-eye-slash" : "bi-eye"}`}></i>
                       </button>

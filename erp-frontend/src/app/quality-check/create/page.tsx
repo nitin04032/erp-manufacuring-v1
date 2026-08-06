@@ -75,7 +75,8 @@ const CreateQualityCheckPage: FC = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
-          setPendingGRNs(await res.json());
+          // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+          setPendingGRNs((await res.json()).data);
         }
       } catch (err) {
         setFlash({ type: 'danger', message: 'Failed to load GRNs needing quality check.' });
@@ -100,7 +101,8 @@ const CreateQualityCheckPage: FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const grn: FullGRNForQC = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data: grn } = await res.json();
         setQcItems(
           grn.items.map(item => ({
             item_id: item.item_id,
@@ -177,7 +179,9 @@ const CreateQualityCheckPage: FC = () => {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope
+        // (was showing "Quality Check undefined created successfully!").
+        const { data } = await res.json();
         Cookies.set("flashMessage", `Quality Check ${data.qc_number} created successfully!`, { path: "/" });
         Cookies.set("flashType", "success", { path: "/" });
         router.push("/quality-check");

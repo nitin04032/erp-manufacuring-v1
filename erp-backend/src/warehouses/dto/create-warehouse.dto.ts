@@ -9,6 +9,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { EmptyToUndefined } from '../../common/transformers/empty-to-undefined.transformer';
 
 export const Trim = () =>
   Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
@@ -56,6 +57,7 @@ export class CreateWarehouseDto {
   country?: string;
 
   @IsOptional()
+  @EmptyToUndefined()
   @IsPostalCode('IN')
   pincode?: string;
 
@@ -66,6 +68,7 @@ export class CreateWarehouseDto {
   contact_person?: string;
 
   @IsOptional()
+  @EmptyToUndefined()
   @IsPhoneNumber('IN')
   phone?: string;
 

@@ -66,7 +66,8 @@ const WarehouseDetailsPage: FC = () => {
             const errorData = await res.json();
             throw new Error(errorData.message || "Warehouse not found.");
         }
-        const data: Warehouse = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         setWarehouse(data);
       } catch (err: any) {
         setError(err.message);

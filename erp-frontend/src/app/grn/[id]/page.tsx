@@ -72,7 +72,8 @@ const GRNDetailsPage: FC = () => {
             const errData = await res.json();
             throw new Error(errData.message || "GRN not found");
         }
-        const data: GRN = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         setGrn(data);
       } catch (err: any) {
         setError(err.message);

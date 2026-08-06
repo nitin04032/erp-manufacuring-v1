@@ -18,7 +18,7 @@ interface Supplier {
   state: string;
   country: string;
   pincode: string;
-  status: "active" | "inactive";
+  is_active: boolean;
 }
 
 interface FlashMessage {
@@ -76,7 +76,8 @@ const EditSupplierPage: FC = () => {
           const errorData = await res.json();
           throw new Error(errorData.message || "Supplier not found.");
         }
-        const data: Supplier = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         setForm(data);
       } catch (err: any) {
         setError(err.message);
@@ -91,7 +92,9 @@ const EditSupplierPage: FC = () => {
   // ✅ STEP 5: Create a single, typed handler for all form inputs
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
-    setForm(prevForm => ({ ...prevForm, [id]: value }));
+    // 🛠️ Bug fix: `is_active` is a boolean on the backend, not the
+    // "active"/"inactive" string the <select> options carry.
+    setForm(prevForm => ({ ...prevForm, [id]: id === 'is_active' ? value === 'active' : value }));
   };
 
   // ✅ STEP 6: Type the form submission event
@@ -108,9 +111,16 @@ const EditSupplierPage: FC = () => {
 
     try {
       const token = Cookies.get("token");
+      // 🛠️ Bug fix: was PATCHing the whole fetched `form` object, which still
+      // carries id/created_at/updated_at (and, until the fixes above, a
+      // mismatched `supplier_name`/`status` instead of `name`/`is_active`).
+      // The backend's ValidationPipe uses forbidNonWhitelisted:true, so any
+      // of those extra properties made every save fail with 400 ("property
+      // id should not exist"). Only send the fields UpdateSupplierDto knows.
+      const { id: _id, supplier_code: _supplier_code, created_at: _created_at, updated_at: _updated_at, deleted_at: _deleted_at, ...dataToSend } = form;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/suppliers/${id}`, {
         method: "PATCH", // Using PATCH is better for updates
-        body: JSON.stringify(form),
+        body: JSON.stringify(dataToSend),
         headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${token}` },
       });
 
@@ -164,7 +174,10 @@ const EditSupplierPage: FC = () => {
               <div className="card-header"><h5 className="mb-0">Basic Information</h5></div>
               <div className="card-body">
                  <div className="row">
-                  <div className="col-md-6 mb-3"><label htmlFor="supplier_name" className="form-label">Supplier Name <span className="text-danger">*</span></label><input type="text" id="supplier_name" className="form-control" required value={form.name || ''} onChange={handleChange} /></div>
+                  {/* 🛠️ Bug fix: id was "supplier_name", which doesn't match
+                      the `name` state key this input is bound to — every edit
+                      typed here was silently discarded on submit. */}
+                  <div className="col-md-6 mb-3"><label htmlFor="name" className="form-label">Supplier Name <span className="text-danger">*</span></label><input type="text" id="name" className="form-control" required value={form.name || ''} onChange={handleChange} /></div>
                   <div className="col-md-6 mb-3"><label htmlFor="supplier_code" className="form-label">Supplier Code</label><input type="text" id="supplier_code" className="form-control" value={form.supplier_code || ''} readOnly disabled /></div>
                   <div className="col-md-6 mb-3"><label htmlFor="contact_person" className="form-label">Contact Person <span className="text-danger">*</span></label><input type="text" id="contact_person" className="form-control" required value={form.contact_person || ''} onChange={handleChange} /></div>
                   <div className="col-md-6 mb-3"><label htmlFor="email" className="form-label">Email</label><input type="email" id="email" className="form-control" value={form.email || ''} onChange={handleChange} /></div>
@@ -193,9 +206,13 @@ const EditSupplierPage: FC = () => {
             <div className="card">
               <div className="card-header"><h5 className="mb-0">Status & Actions</h5></div>
               <div className="card-body">
+                {/* 🛠️ Bug fix: id was "status" (and stored an "active"/
+                    "inactive" string) but the backend field is
+                    `is_active: boolean` — the select's value never actually
+                    reached the API under a name it recognized. */}
                 <div className="mb-3">
-                  <label htmlFor="status" className="form-label">Status</label>
-                  <select id="status" className="form-select" value={form.status || "active"} onChange={handleChange}>
+                  <label htmlFor="is_active" className="form-label">Status</label>
+                  <select id="is_active" className="form-select" value={form.is_active === false ? "inactive" : "active"} onChange={handleChange}>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>

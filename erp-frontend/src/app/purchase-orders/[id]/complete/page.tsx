@@ -63,7 +63,8 @@ const CompleteProductionOrderPage: FC = () => {
                 const errData = await res.json();
                 throw new Error(errData.message || "Failed to load order.");
             }
-            const data: ProductionOrder = await res.json();
+            // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+            const { data } = await res.json();
             setOrder(data);
         } catch (err: any) {
             setError(err.message);

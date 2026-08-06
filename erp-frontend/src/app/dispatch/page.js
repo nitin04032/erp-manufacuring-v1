@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Cookies from "js-cookie";
 
 export default function DispatchOrders() {
   const [dispatches, setDispatches] = useState([]);
@@ -14,11 +15,18 @@ export default function DispatchOrders() {
 
   const fetchDispatches = async () => {
     try {
+      // 🛠️ Bug fix: this was fetching a relative "/api/dispatch" path, which
+      // hits the Next.js server (no such route exists there) instead of the
+      // NestJS backend on port 3001, and sent no auth token — so the page
+      // could never actually load any dispatch orders. Also unwrap the
+      // { success, message, data } response envelope.
+      const token = Cookies.get("token");
       const res = await fetch(
-        `/api/dispatch?status=${status}&search=${search}`
+        `${process.env.NEXT_PUBLIC_API_URL}/dispatch?status=${status}&search=${search}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) throw new Error("Failed to fetch dispatch orders");
-      const data = await res.json();
+      const { data } = await res.json();
       setDispatches(data);
     } catch (err) {
       console.error("Error fetching dispatches:", err);

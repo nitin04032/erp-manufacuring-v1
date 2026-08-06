@@ -78,7 +78,8 @@ const EditGRNPage: FC = () => {
             const errData = await res.json();
             throw new Error(errData.message || "GRN not found or you don't have permission to edit it.");
         }
-        const data: GRN = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         if (data.status === 'completed') {
              throw new Error("This GRN is already completed and cannot be edited.");
         }
