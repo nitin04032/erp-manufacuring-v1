@@ -82,7 +82,8 @@ const QualityCheckDetailsPage: FC = () => {
             const errData = await res.json();
             throw new Error(errData.message || "Quality Check not found.");
         }
-        setQc(await res.json());
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        setQc((await res.json()).data);
       } catch (err: any) {
         setError(err.message);
       } finally {

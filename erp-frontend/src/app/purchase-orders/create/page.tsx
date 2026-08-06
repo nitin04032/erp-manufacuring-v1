@@ -72,9 +72,12 @@ const CreatePurchaseOrderPage: FC = () => {
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, { headers }),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/items`, { headers }),
         ]);
-        if (supRes.ok) setSuppliers(await supRes.json());
-        if (whRes.ok) setWarehouses(await whRes.json());
-        if (itemRes.ok) setItems(await itemRes.json());
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope
+        // — dropdowns were rendering empty because state was set to the whole
+        // envelope instead of its `data` array.
+        if (supRes.ok) setSuppliers((await supRes.json()).data);
+        if (whRes.ok) setWarehouses((await whRes.json()).data);
+        if (itemRes.ok) setItems((await itemRes.json()).data);
       } catch (err) {
         setFlash({ type: 'danger', message: 'Failed to load required data.' });
       }

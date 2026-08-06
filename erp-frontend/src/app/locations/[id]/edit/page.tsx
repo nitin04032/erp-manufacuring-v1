@@ -81,8 +81,9 @@ const EditLocationPage: FC = () => {
         if (!locRes.ok) throw new Error("Location not found.");
         if (!whRes.ok) throw new Error("Could not load warehouses.");
 
-        const locData: Location = await locRes.json();
-        const whData: Warehouse[] = await whRes.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data: locData } = await locRes.json();
+        const { data: whData } = await whRes.json();
         
         setForm({
             location_name: locData.location_name,

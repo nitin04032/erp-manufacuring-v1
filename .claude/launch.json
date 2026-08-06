@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "erp-frontend",
       "port": 3000
+    },
+    {
+      "name": "erp-backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:dev"],
+      "cwd": "erp-backend",
+      "port": 3001
     }
   ]
 }

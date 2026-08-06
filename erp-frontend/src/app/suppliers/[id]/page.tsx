@@ -19,7 +19,7 @@ interface Supplier {
   state?: string;
   country?: string;
   pincode?: string;
-  status: "active" | "inactive";
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -98,7 +98,8 @@ const SupplierDetailsPage: FC = () => {
           const errorData = await res.json();
           throw new Error(errorData.message || "Supplier not found.");
         }
-        const data: Supplier = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         setSupplier(data);
       } catch (err: any) {
         setError(err.message);
@@ -188,8 +189,10 @@ const SupplierDetailsPage: FC = () => {
               <div className="mb-3">
                 <label className="form-label text-muted">Status</label>
                 <p>
-                  <span className={`badge bg-${supplier.status === "active" ? "success" : "secondary"}`}>
-                    {supplier.status === "active" ? "Active" : "Inactive"}
+                  {/* 🛠️ Bug fix: backend field is `is_active: boolean`, not a
+                      `status` string — this always rendered "Inactive". */}
+                  <span className={`badge bg-${supplier.is_active ? "success" : "secondary"}`}>
+                    {supplier.is_active ? "Active" : "Inactive"}
                   </span>
                 </p>
               </div>

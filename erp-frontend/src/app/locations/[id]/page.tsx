@@ -81,7 +81,8 @@ const LocationDetailsPage: FC = () => {
           const errorData = await res.json();
           throw new Error(errorData.message || "Location not found.");
         }
-        const data: Location = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         setLocation(data);
       } catch (err: any) {
         setError(err.message);

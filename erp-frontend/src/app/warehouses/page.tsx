@@ -59,7 +59,8 @@ const WarehousesPage: FC = () => {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Failed to fetch data');
         }
-        const data: Warehouse[] = await response.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await response.json();
         setWarehouses(data);
     } catch (err: any) {
         setFlash({ type: "danger", message: err.message });

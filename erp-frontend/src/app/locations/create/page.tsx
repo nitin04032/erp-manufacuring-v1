@@ -61,8 +61,9 @@ const CreateLocationPage: FC = () => {
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, { headers }),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/locations`, { headers }),
         ]);
-        if (whRes.ok) setWarehouses(await whRes.json());
-        if (locRes.ok) setParentLocations(await locRes.json());
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        if (whRes.ok) setWarehouses((await whRes.json()).data);
+        if (locRes.ok) setParentLocations((await locRes.json()).data);
       } catch (error) {
         setFlash({ type: 'danger', message: 'Could not load required data.' });
       }

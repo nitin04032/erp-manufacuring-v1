@@ -71,7 +71,8 @@ const EditQualityCheckPage: FC = () => {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) throw new Error("Quality Check not found.");
-        const data: QualityCheck = await res.json();
+        // 🛠️ Bug fix: unwrap the { success, message, data } response envelope.
+        const { data } = await res.json();
         if (data.status !== 'pending') {
              throw new Error(`This QC is already ${data.status} and cannot be edited.`);
         }

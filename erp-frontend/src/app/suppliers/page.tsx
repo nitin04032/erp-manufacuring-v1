@@ -78,7 +78,10 @@ const SuppliersPage: FC = () => {
         }
       );
       if (!response.ok) throw new Error("Failed to fetch suppliers");
-      const data: Supplier[] = await response.json();
+      // 🛠️ Bug fix: backend wraps all responses in { success, message, data }
+      // (see erp-backend TransformInterceptor) — we were setting state to the
+      // whole envelope instead of its `data` field, so `suppliers.map` crashed.
+      const { data } = await response.json();
       setSuppliers(data);
       setTotalCount(data.length);
     } catch (err: any) {
