@@ -19,6 +19,13 @@ interface Supplier {
   country: string;
   pincode: string;
   is_active: boolean;
+  // Present on every fetched supplier (see src/interfaces/supplier.ts) —
+  // declared here too since this file keeps its own local Supplier type.
+  // Needed so the destructuring strip below (handleSubmit) type-checks;
+  // the API response really does include these fields.
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 }
 
 interface FlashMessage {
