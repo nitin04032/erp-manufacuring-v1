@@ -7,11 +7,19 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Item } from '../items/item.entity';
+import { Company } from '../companies/company.entity';
 
 @Entity('stocks')
 export class Stock {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
+  company_id: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
 
   @Column()
   item_name: string;

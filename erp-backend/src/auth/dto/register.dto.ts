@@ -1,6 +1,8 @@
 import {
   IsEmail,
+  IsInt,
   IsNotEmpty,
+  IsPositive,
   IsString,
   MaxLength,
   MinLength,
@@ -9,6 +11,13 @@ import {
 import { Transform } from 'class-transformer';
 
 export class RegisterDto {
+  // Tenant boundary (see Multi-Company Architecture Audit — Phase 1). Must
+  // reference an existing company (created via POST /api/companies); this
+  // endpoint always creates a plain USER inside it — see AuthService.register.
+  @IsInt()
+  @IsPositive()
+  company_id: number;
+
   @Transform(({ value }) => value?.trim())
   @IsString()
   @IsNotEmpty()

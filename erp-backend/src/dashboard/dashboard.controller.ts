@@ -8,6 +8,7 @@ import { GrnService } from '../grn/grn.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { FgrService } from '../fgr/fgr.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { CompanyId } from '../common/decorators/company-id.decorator';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
@@ -24,7 +25,7 @@ export class DashboardController {
   ) {}
 
   @Get('summary')
-  async getDashboardSummary() {
+  async getDashboardSummary(@CompanyId() companyId: number) {
     const [
       // Core Stats
       supplierCount,
@@ -41,17 +42,17 @@ export class DashboardController {
       totalStockValue,
       lowStockItems,
     ] = await Promise.all([
-      this.suppliersService.count(),
-      this.itemsService.count(),
-      this.warehousesService.count(),
-      this.purchaseOrdersService.count(),
-      this.grnService.count(),
-      this.dispatchService.count(),
-      this.fgrService.count(),
-      this.purchaseOrdersService.getStatusCounts(),
-      this.purchaseOrdersService.getRecent(),
-      this.inventoryService.getTotalStockValue(),
-      this.inventoryService.getLowStockItems(),
+      this.suppliersService.count(companyId),
+      this.itemsService.count(companyId),
+      this.warehousesService.count(companyId),
+      this.purchaseOrdersService.count(companyId),
+      this.grnService.count(companyId),
+      this.dispatchService.count(companyId),
+      this.fgrService.count(companyId),
+      this.purchaseOrdersService.getStatusCounts(companyId),
+      this.purchaseOrdersService.getRecent(companyId),
+      this.inventoryService.getTotalStockValue(companyId),
+      this.inventoryService.getLowStockItems(companyId),
     ]);
 
     return {

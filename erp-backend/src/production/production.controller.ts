@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user.enum';
+import { CompanyId } from '../common/decorators/company-id.decorator';
 
 @Controller('production-orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,18 +26,18 @@ export class ProductionController {
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Post()
-  async create(@Body() dto: CreateProductionOrderDto) {
-    return this.service.create(dto);
+  async create(@Body() dto: CreateProductionOrderDto, @CompanyId() companyId: number) {
+    return this.service.create(dto, companyId);
   }
 
   @Get()
-  async findAll() {
-    return this.service.findAll();
+  async findAll(@CompanyId() companyId: number) {
+    return this.service.findAll(companyId);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    return this.service.findOne(id, companyId);
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
@@ -44,14 +45,15 @@ export class ProductionController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProductionOrderDto,
+    @CompanyId() companyId: number,
   ) {
-    return this.service.update(id, dto);
+    return this.service.update(id, dto, companyId);
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Put(':id/start')
-  async start(@Param('id', ParseIntPipe) id: number) {
-    return this.service.start(id);
+  async start(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    return this.service.start(id, companyId);
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
@@ -59,20 +61,21 @@ export class ProductionController {
   async complete(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CompleteProductionOrderDto,
+    @CompanyId() companyId: number,
   ) {
-    return this.service.complete(id, dto);
+    return this.service.complete(id, dto, companyId);
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Put(':id/cancel')
-  async cancel(@Param('id', ParseIntPipe) id: number) {
-    return this.service.cancel(id);
+  async cancel(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    return this.service.cancel(id, companyId);
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    await this.service.remove(id);
+  async remove(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    await this.service.remove(id, companyId);
     return { success: true };
   }
 }

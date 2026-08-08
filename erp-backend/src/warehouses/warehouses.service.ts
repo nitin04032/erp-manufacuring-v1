@@ -19,14 +19,14 @@ export class WarehousesService {
   /**
    * Create a warehouse. If no code provided, auto-generate as WH-001 style.
    */
-  async create(dto: CreateWarehouseDto): Promise<Warehouse> {
+  async create(dto: CreateWarehouseDto, companyId: number): Promise<Warehouse> {
     // 1. Create a new object to hold all data, starting with the DTO.
-    const dataToSave: Partial<Warehouse> = { ...dto };
+    const dataToSave: Partial<Warehouse> = { ...dto, company_id: companyId };
 
     // 2. Generate the code and add it to our new object.
     if (!dataToSave.code) {
       const last = await this.repo.findOne({
-        where: {},
+        where: { company_id: companyId },
         order: { id: 'DESC' },
         withDeleted: false,
       });
@@ -38,7 +38,10 @@ export class WarehousesService {
 
     // 3. Check for conflicts using the final code.
     const existing = await this.repo.findOne({
-      where: [{ code: dataToSave.code }, { name: dataToSave.name }],
+      where: [
+        { code: dataToSave.code, company_id: companyId },
+        { name: dataToSave.name, company_id: companyId },
+      ],
     });
     if (existing) {
       throw new ConflictException(
@@ -54,11 +57,11 @@ export class WarehousesService {
   /**
    * Find all warehouses with optional filters: status (active/inactive), search (name/code/city)
    */
-  async findAll(params?: {
-    status?: string;
-    search?: string;
-  }): Promise<Warehouse[]> {
-    const where: any = {};
+  async findAll(
+    companyId: number,
+    params?: { status?: string; search?: string },
+  ): Promise<Warehouse[]> {
+    const where: any = { company_id: companyId };
 
     if (params?.status) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -82,8 +85,8 @@ export class WarehousesService {
     return this.repo.find({ where, order: { name: 'ASC' } });
   }
 
-  async findOne(id: number): Promise<Warehouse> {
-    const w = await this.repo.findOne({ where: { id } });
+  async findOne(id: number, companyId: number): Promise<Warehouse> {
+    const w = await this.repo.findOne({ where: { id, company_id: companyId } });
     if (!w) throw new NotFoundException('Warehouse not found.');
     return w;
   }
@@ -92,18 +95,18 @@ export class WarehousesService {
    * Resolve a warehouse by its name. Used by modules (dispatch, FGR) whose
    * DTOs carry a warehouse_name string instead of a numeric warehouse_id.
    */
-  async findByName(name: string): Promise<Warehouse> {
-    const w = await this.repo.findOne({ where: { name } });
+  async findByName(name: string, companyId: number): Promise<Warehouse> {
+    const w = await this.repo.findOne({ where: { name, company_id: companyId } });
     if (!w) throw new NotFoundException(`Warehouse "${name}" not found.`);
     return w;
   }
 
-  async update(id: number, dto: UpdateWarehouseDto): Promise<Warehouse> {
-    const existing = await this.repo.findOne({ where: { id } });
+  async update(id: number, dto: UpdateWarehouseDto, companyId: number): Promise<Warehouse> {
+    const existing = await this.repo.findOne({ where: { id, company_id: companyId } });
     if (!existing) throw new NotFoundException('Warehouse not found.');
 
     if (dto.code && dto.code !== existing.code) {
-      const codeExists = await this.repo.findOne({ where: { code: dto.code } });
+      const codeExists = await this.repo.findOne({ where: { code: dto.code, company_id: companyId } });
       if (codeExists) throw new ConflictException('Code already in use.');
     }
 
@@ -114,12 +117,12 @@ export class WarehousesService {
   /**
    * Soft delete (keeps data for audits)
    */
-  async remove(id: number): Promise<void> {
-    const res = await this.repo.softDelete(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const res = await this.repo.softDelete({ id, company_id: companyId });
     if (!res.affected) throw new NotFoundException('Warehouse not found');
   }
 
-  async count(): Promise<number> {
-    return this.repo.count();
+  async count(companyId: number): Promise<number> {
+    return this.repo.count({ where: { company_id: companyId } });
   }
 }

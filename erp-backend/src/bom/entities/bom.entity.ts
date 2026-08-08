@@ -5,13 +5,23 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { BomItem } from './bom-item.entity';
+import { Company } from '../../companies/company.entity';
 
 @Entity({ name: 'boms' })
 export class Bom {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
+  company_id: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
 
   @Column({ type: 'varchar', length: 150 })
   name: string; // finished good name or BOM name

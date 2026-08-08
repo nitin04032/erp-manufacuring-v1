@@ -6,11 +6,17 @@ import { StockLedger } from './stock-ledger.entity';
 
 /**
  * InventoryService provides simple atomic helpers:
- * - checkAvailability(item_id, warehouse_id, qty, queryRunner?)
- * - decreaseStock(item_id, warehouse_id, qty, opts)
- * - increaseStock(item_id, warehouse_id, qty, opts)
+ * - checkAvailability(item_id, warehouse_id, qty, companyId, queryRunner?)
+ * - decreaseStock(item_id, warehouse_id, qty, companyId, opts)
+ * - increaseStock(item_id, warehouse_id, qty, companyId, opts)
  *
  * opts: { reference_type, reference_id, remarks, queryRunner }
+ *
+ * Multi-company Phase 1: every method takes companyId — item_id/warehouse_id
+ * alone already belong to exactly one company transitively, but stock_items/
+ * stock_ledger carry their own company_id column too (see Multi-Company
+ * Architecture Audit §6) so every query here filters directly on it rather
+ * than trusting an unscoped item_id/warehouse_id pair.
  */
 @Injectable()
 export class InventoryService {
@@ -25,10 +31,11 @@ export class InventoryService {
   private async findStockRow(
     item_id: number,
     warehouse_id: number,
+    companyId: number,
     qr?: QueryRunner,
   ): Promise<StockItem | null> {
     const repo = qr ? qr.manager.getRepository(StockItem) : this.stockItemRepo;
-    return repo.findOne({ where: { item_id, warehouse_id } });
+    return repo.findOne({ where: { item_id, warehouse_id, company_id: companyId } });
   }
 
   // check availability (throws if not enough)
@@ -36,9 +43,10 @@ export class InventoryService {
     item_id: number,
     warehouse_id: number,
     qty: number,
+    companyId: number,
     qr?: QueryRunner,
   ) {
-    const row = await this.findStockRow(item_id, warehouse_id, qr);
+    const row = await this.findStockRow(item_id, warehouse_id, companyId, qr);
     const available = row ? Number(row.quantity) : 0;
     if (available < qty) {
       throw new BadRequestException(
@@ -53,6 +61,7 @@ export class InventoryService {
     item_id: number,
     warehouse_id: number,
     qty: number,
+    companyId: number,
     opts: {
       reference_type?: string;
       reference_id?: number;
@@ -76,7 +85,7 @@ export class InventoryService {
       : this.stockLedgerRepo;
 
     // lock/select for update if queryRunner used (depends on DB isolation)
-    let row = await repo.findOne({ where: { item_id, warehouse_id } });
+    let row = await repo.findOne({ where: { item_id, warehouse_id, company_id: companyId } });
     const prevQty = row ? Number(row.quantity) : 0;
     if (prevQty < qty) {
       throw new BadRequestException(
@@ -93,12 +102,13 @@ export class InventoryService {
     } else {
       // this case won't normally happen because prevQty < qty caught earlier,
       // but handle for safety.
-      row = repo.create({ item_id, warehouse_id, quantity: 0 });
+      row = repo.create({ item_id, warehouse_id, company_id: companyId, quantity: 0 });
       await repo.save(row);
     }
 
     // push ledger
     const ledger = ledgerRepo.create({
+      company_id: companyId,
       item_id,
       warehouse_id,
       qty_in: 0,
@@ -117,6 +127,7 @@ export class InventoryService {
     item_id: number,
     warehouse_id: number,
     qty: number,
+    companyId: number,
     opts: {
       reference_type?: string;
       reference_id?: number;
@@ -139,7 +150,7 @@ export class InventoryService {
       ? queryRunner.manager.getRepository(StockLedger)
       : this.stockLedgerRepo;
 
-    let row = await repo.findOne({ where: { item_id, warehouse_id } });
+    let row = await repo.findOne({ where: { item_id, warehouse_id, company_id: companyId } });
     const prevQty = row ? Number(row.quantity) : 0;
     const newQty = prevQty + qty;
 
@@ -151,12 +162,14 @@ export class InventoryService {
       row = repo.create({
         item_id,
         warehouse_id,
+        company_id: companyId,
         quantity: newQty,
       });
       await repo.save(row);
     }
 
     const ledger = ledgerRepo.create({
+      company_id: companyId,
       item_id,
       warehouse_id,
       qty_in: qty,
@@ -171,8 +184,8 @@ export class InventoryService {
   }
 
   // convenience: get balance
-  async getBalance(item_id: number, warehouse_id: number, qr?: QueryRunner) {
-    const row = await this.findStockRow(item_id, warehouse_id, qr);
+  async getBalance(item_id: number, warehouse_id: number, companyId: number, qr?: QueryRunner) {
+    const row = await this.findStockRow(item_id, warehouse_id, companyId, qr);
     return row ? Number(row.quantity) : 0;
   }
 
@@ -180,21 +193,23 @@ export class InventoryService {
   // StockItem carries no TypeORM relations (just numeric item_id/warehouse_id),
   // so these join against the 'items'/'warehouses' tables directly by id.
 
-  async getTotalStockValue(): Promise<number> {
+  async getTotalStockValue(companyId: number): Promise<number> {
     const result = await this.stockItemRepo
       .createQueryBuilder('si')
       .innerJoin('items', 'item', 'item.id = si.item_id')
+      .where('si.company_id = :companyId', { companyId })
       .select('SUM(si.quantity * item.purchase_rate)', 'totalValue')
       .getRawOne<{ totalValue: string | null }>();
     return parseFloat(result?.totalValue ?? '0') || 0;
   }
 
   /** Base query joining stock_items -> items -> warehouses, flattened for reporting/dashboard use. */
-  private stockDetailsQuery() {
+  private stockDetailsQuery(companyId: number) {
     return this.stockItemRepo
       .createQueryBuilder('si')
       .innerJoin('items', 'item', 'item.id = si.item_id')
       .innerJoin('warehouses', 'wh', 'wh.id = si.warehouse_id')
+      .where('si.company_id = :companyId', { companyId })
       .select([
         'si.id AS id',
         'si.item_id AS item_id',
@@ -208,20 +223,23 @@ export class InventoryService {
       ]);
   }
 
-  async getLowStockItems(limit = 10): Promise<StockDetailRow[]> {
-    return this.stockDetailsQuery()
-      .where('si.quantity <= item.reorder_level AND item.reorder_level > 0')
+  async getLowStockItems(companyId: number, limit = 10): Promise<StockDetailRow[]> {
+    return this.stockDetailsQuery(companyId)
+      .andWhere('si.quantity <= item.reorder_level AND item.reorder_level > 0')
       .orderBy('si.quantity', 'ASC')
       .limit(limit)
       .getRawMany();
   }
 
   /** All current stock rows with item/warehouse details, for the stock report and current-stock page. */
-  async getAllStockWithDetails(filters?: {
-    search?: string;
-    warehouse_id?: number;
-  }): Promise<StockDetailRow[]> {
-    const qb = this.stockDetailsQuery();
+  async getAllStockWithDetails(
+    companyId: number,
+    filters?: {
+      search?: string;
+      warehouse_id?: number;
+    },
+  ): Promise<StockDetailRow[]> {
+    const qb = this.stockDetailsQuery(companyId);
     if (filters?.warehouse_id) {
       qb.andWhere('si.warehouse_id = :warehouse_id', {
         warehouse_id: filters.warehouse_id,
@@ -236,14 +254,18 @@ export class InventoryService {
   }
 
   /** Stock ledger entries with item/warehouse details, for the stock ledger page. */
-  async getLedger(filters?: {
-    search?: string;
-    warehouse_id?: number;
-  }): Promise<LedgerRow[]> {
+  async getLedger(
+    companyId: number,
+    filters?: {
+      search?: string;
+      warehouse_id?: number;
+    },
+  ): Promise<LedgerRow[]> {
     const qb = this.stockLedgerRepo
       .createQueryBuilder('sl')
       .innerJoin('items', 'item', 'item.id = sl.item_id')
       .innerJoin('warehouses', 'wh', 'wh.id = sl.warehouse_id')
+      .where('sl.company_id = :companyId', { companyId })
       .select([
         'sl.id AS id',
         'sl.created_at AS transaction_date',

@@ -4,14 +4,28 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
+import { Company } from '../companies/company.entity';
 
+// Multi-company Phase 1: dispatch_number uniqueness is now per-company (was
+// global — see Multi-Company Architecture Audit §3).
 @Entity('dispatch_orders')
+@Unique(['company_id', 'dispatch_number'])
 export class DispatchOrder {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column()
+  company_id: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
+  @Column()
   dispatch_number: string;
 
   @Column({ type: 'varchar', length: 255 })

@@ -6,16 +6,29 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Grn } from '../../grn/entities/grn.entity';
 import { QCItem } from './qc-item.entity';
+import { Company } from '../../companies/company.entity';
 
+// Multi-company Phase 1: qc_number uniqueness is now per-company (was
+// global — see Multi-Company Architecture Audit §3).
 @Entity('quality_checks')
+@Unique(['company_id', 'qc_number'])
 export class QualityCheck {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ unique: true })
+  @Column()
+  company_id!: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
+  @Column()
   qc_number!: string;
 
   @Column({ type: 'date' })

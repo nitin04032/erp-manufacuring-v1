@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user.enum';
+import { CompanyId } from '../common/decorators/company-id.decorator';
 
 // Mirrors erp-backend/src/suppliers/suppliers.controller.ts
 @Controller('customers')
@@ -27,25 +28,26 @@ export class CustomersController {
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Post()
-  create(@Body() dto: CreateCustomerDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateCustomerDto, @CompanyId() companyId: number) {
+    return this.service.create(dto, companyId);
   }
 
   @Get()
   findAll(
     @Query(new ValidationPipe({ transform: true })) query: QueryCustomerDto,
+    @CompanyId() companyId: number,
   ) {
-    return this.service.findAll(query);
+    return this.service.findAll(query, companyId);
   }
 
   @Get('count')
-  count() {
-    return this.service.count();
+  count(@CompanyId() companyId: number) {
+    return this.service.count(companyId);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    return this.service.findOne(id, companyId);
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
@@ -53,13 +55,14 @@ export class CustomersController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCustomerDto,
+    @CompanyId() companyId: number,
   ) {
-    return this.service.update(id, dto);
+    return this.service.update(id, dto, companyId);
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.service.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    return this.service.remove(id, companyId);
   }
 }

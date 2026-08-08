@@ -59,6 +59,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       // It was missing here, so every @Roles(...)-gated route was rejecting all users.
       role: user.role,
       roleId: user.roleRelation?.id || null,
+      // 🛠️ Multi-company Phase 1: tenant boundary, re-resolved fresh from the
+      // DB on every request (same as role/permissions above) rather than
+      // trusted from the signed JWT payload — read via the new @CompanyId()
+      // decorator (src/common/decorators/company-id.decorator.ts) in
+      // controllers, and required by every scoped service call.
+      companyId: user.company_id,
       permissions: permissions, // 🚀 Real-time dynamic validation guard arrays injected!
     };
   }

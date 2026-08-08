@@ -1,10 +1,19 @@
-import { Entity, Column, PrimaryGeneratedColumn, Index } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { Company } from '../companies/company.entity';
 
 @Entity({ name: 'stock_ledger' })
 @Index(['item_id', 'warehouse_id'])
+@Index(['company_id'])
 export class StockLedger {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
+  company_id: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
 
   @Column()
   item_id: number;

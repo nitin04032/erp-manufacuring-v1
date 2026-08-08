@@ -16,22 +16,23 @@ export class LocationsService {
     private readonly locationRepository: Repository<Location>,
   ) {}
 
-  async create(dto: CreateLocationDto): Promise<Location> {
+  async create(dto: CreateLocationDto, companyId: number): Promise<Location> {
     if (!dto.location_code) {
       const lastLoc = await this.locationRepository.findOne({
         order: { id: 'DESC' },
-        where: {},
+        where: { company_id: companyId },
       });
       const nextId = lastLoc ? lastLoc.id + 1 : 1;
       dto.location_code = `LOC-${String(nextId).padStart(4, '0')}`;
     }
     const existing = await this.locationRepository.findOne({
-      where: { location_code: dto.location_code },
+      where: { location_code: dto.location_code, company_id: companyId },
     });
     if (existing) throw new ConflictException('Location code already exists.');
 
     const location = this.locationRepository.create({
       ...dto,
+      company_id: companyId,
       warehouse: { id: dto.warehouse_id },
       parentLocation: dto.parent_location_id
         ? { id: dto.parent_location_id }
@@ -40,13 +41,16 @@ export class LocationsService {
     return this.locationRepository.save(location);
   }
 
-  async findAll(query: { status?: string; search?: string }): Promise<any[]> {
+  async findAll(
+    query: { status?: string; search?: string },
+    companyId: number,
+  ): Promise<any[]> {
     const findOptions: FindManyOptions<Location> = {
       order: { location_name: 'ASC' },
       relations: ['warehouse', 'parentLocation'],
     };
 
-    const where: any = {};
+    const where: any = { company_id: companyId };
     if (query.status) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       where.is_active = query.status === 'active';
@@ -78,9 +82,9 @@ export class LocationsService {
     }));
   }
 
-  async findOne(id: number): Promise<Location> {
+  async findOne(id: number, companyId: number): Promise<Location> {
     const location = await this.locationRepository.findOne({
-      where: { id },
+      where: { id, company_id: companyId },
       relations: ['warehouse', 'parentLocation'],
     });
     if (!location) throw new NotFoundException(`Location #${id} not found`);
@@ -88,7 +92,11 @@ export class LocationsService {
   }
 
   // ✅ FIX: update method ko theek kiya gaya hai
-  async update(id: number, dto: UpdateLocationDto): Promise<Location> {
+  async update(id: number, dto: UpdateLocationDto, companyId: number): Promise<Location> {
+    // Company check first — preload() below doesn't take a compound where, so
+    // confirm the row belongs to this company before touching it.
+    await this.findOne(id, companyId);
+
     // Step 1: Pehle sirf non-relational fields ke saath preload karein
     const location = await this.locationRepository.preload({
       id,
@@ -112,9 +120,9 @@ export class LocationsService {
     return this.locationRepository.save(location);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number, companyId: number): Promise<void> {
     const location = await this.locationRepository.findOne({
-      where: { id },
+      where: { id, company_id: companyId },
       relations: ['childLocations'],
     });
     if (!location) throw new NotFoundException(`Location #${id} not found`);

@@ -24,13 +24,14 @@ export class StocksService {
     itemId: number,
     warehouse_name: string,
     qty: number,
+    companyId: number,
     manager?: EntityManager,
   ): Promise<void> {
     // Use provided manager's repository when inside a transaction, otherwise use the service repo
     const repo = manager ? manager.getRepository(Stock) : this.repo;
 
     const stock = await repo.findOne({
-      where: { item: { id: itemId }, warehouse_name },
+      where: { item: { id: itemId }, warehouse_name, company_id: companyId },
     });
     if (stock) {
       stock.quantity = (stock.quantity || 0) + qty;
@@ -41,6 +42,7 @@ export class StocksService {
         item: { id: itemId },
         warehouse_name,
         quantity: qty,
+        company_id: companyId,
       });
       await repo.save(newStock);
     }
@@ -50,9 +52,10 @@ export class StocksService {
     itemId: number,
     warehouse_name: string,
     qty: number,
+    companyId: number,
   ): Promise<Stock> {
     const stock = await this.repo.findOne({
-      where: { item: { id: itemId }, warehouse_name },
+      where: { item: { id: itemId }, warehouse_name, company_id: companyId },
       relations: ['item'],
     });
 
@@ -71,24 +74,25 @@ export class StocksService {
 
   // --- Data Retrieval ---
 
-  async findAll(): Promise<Stock[]> {
+  async findAll(companyId: number): Promise<Stock[]> {
     return this.repo.find({
+      where: { company_id: companyId },
       relations: ['item'],
       order: { item_name: 'ASC' },
     });
   }
 
-  async findByWarehouse(warehouse_name: string): Promise<Stock[]> {
+  async findByWarehouse(warehouse_name: string, companyId: number): Promise<Stock[]> {
     return this.repo.find({
-      where: { warehouse_name: Like(`%${warehouse_name}%`) },
+      where: { warehouse_name: Like(`%${warehouse_name}%`), company_id: companyId },
       relations: ['item'],
       order: { item_name: 'ASC' },
     });
   }
 
-  async findOne(itemId: number, warehouse_name: string): Promise<Stock> {
+  async findOne(itemId: number, warehouse_name: string, companyId: number): Promise<Stock> {
     const stock = await this.repo.findOne({
-      where: { item: { id: itemId }, warehouse_name },
+      where: { item: { id: itemId }, warehouse_name, company_id: companyId },
       relations: ['item'],
     });
 
@@ -101,15 +105,16 @@ export class StocksService {
 
   // --- Dashboard & Analytics ---
 
-  count(): Promise<number> {
-    return this.repo.count();
+  count(companyId: number): Promise<number> {
+    return this.repo.count({ where: { company_id: companyId } });
   }
 
-  async getTotalStockValue(): Promise<number> {
+  async getTotalStockValue(companyId: number): Promise<number> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const result = await this.repo
       .createQueryBuilder('stock')
       .leftJoin('stock.item', 'item')
+      .where('stock.company_id = :companyId', { companyId })
       .select('SUM(stock.quantity * item.purchase_rate)', 'totalValue')
       .getRawOne();
 
@@ -117,11 +122,12 @@ export class StocksService {
     return parseFloat(result.totalValue) || 0;
   }
 
-  async getLowStockItems(): Promise<Stock[]> {
+  async getLowStockItems(companyId: number): Promise<Stock[]> {
     return this.repo
       .createQueryBuilder('stock')
       .leftJoinAndSelect('stock.item', 'item')
-      .where('stock.quantity <= item.reorder_level AND item.reorder_level > 0')
+      .where('stock.company_id = :companyId', { companyId })
+      .andWhere('stock.quantity <= item.reorder_level AND item.reorder_level > 0')
       .orderBy('stock.quantity', 'ASC')
       .take(10)
       .getMany();

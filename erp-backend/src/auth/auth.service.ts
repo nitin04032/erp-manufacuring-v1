@@ -1,6 +1,7 @@
 // erp-backend/src/auth/auth.service.ts
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
+import { CompaniesService } from '../companies/companies.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
@@ -11,29 +12,34 @@ import { UserRole, UserStatus } from '../users/enums/user.enum';
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
+    private readonly companiesService: CompaniesService,
     private readonly jwtService: JwtService,
   ) {}
 
   async register(payload: RegisterDto): Promise<Omit<User, 'password_hash'>> {
-    const { username, email, password, full_name } = payload;
+    const { company_id, username, email, password, full_name } = payload;
     if (!password || password.trim().length < 6) {
       throw new BadRequestException('Password must be at least 6 characters long.');
     }
+
+    // 🛠️ Multi-company Phase 1: this endpoint used to bootstrap the very
+    // first user in the whole DB as SUPERADMIN, because promoting anyone
+    // else required already being an admin. Now that companies exist, that
+    // bootstrap path is POST /api/companies (creates a Company + its first
+    // COMPANY_ADMIN together) — this endpoint only ever joins an *existing*
+    // company as a plain USER. findOne() throws NotFoundException if the
+    // given company_id doesn't exist.
+    await this.companiesService.findOne(company_id);
+
     const password_hash = await bcrypt.hash(password, 10);
 
-    // 🛠️ Bootstrap fix (Phase 1): registration always hardcoded UserRole.USER,
-    // but promoting a user to admin requires already being an admin
-    // (see users.controller.ts @Roles(SUPERADMIN, COMPANY_ADMIN)) — on a fresh
-    // install nobody could ever become an admin. The very first registered
-    // user becomes SUPERADMIN; everyone after that is a regular USER.
-    const isFirstUser = (await this.usersService.count()) === 0;
-
     const createdUser = await this.usersService.create({
+      company_id,
       username,
       email,
       password_hash,
       full_name,
-      role: isFirstUser ? UserRole.SUPERADMIN : UserRole.USER,
+      role: UserRole.USER,
       status: UserStatus.ACTIVE,
       created_by: null,
       updated_by: null,

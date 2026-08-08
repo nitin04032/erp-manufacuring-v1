@@ -32,8 +32,9 @@ export class ProductionService {
     return `PROD-${y}${m}${day}-${rnd}`;
   }
 
-  async create(dto: CreateProductionOrderDto) {
+  async create(dto: CreateProductionOrderDto, companyId: number) {
     const po = this.poRepo.create({
+      company_id: companyId,
       order_number: this.generateOrderNumber(),
       fg_item_id: dto.fg_item_id,
       quantity: dto.quantity,
@@ -53,18 +54,18 @@ export class ProductionService {
     return this.poRepo.save(po);
   }
 
-  async findAll() {
-    return this.poRepo.find({ order: { created_at: 'DESC' } });
+  async findAll(companyId: number) {
+    return this.poRepo.find({ where: { company_id: companyId }, order: { created_at: 'DESC' } });
   }
 
-  async findOne(id: number) {
-    const po = await this.poRepo.findOne({ where: { id } });
+  async findOne(id: number, companyId: number) {
+    const po = await this.poRepo.findOne({ where: { id, company_id: companyId } });
     if (!po) throw new NotFoundException('Production order not found');
     return po;
   }
 
-  async update(id: number, dto: UpdateProductionOrderDto) {
-    const po = await this.findOne(id);
+  async update(id: number, dto: UpdateProductionOrderDto, companyId: number) {
+    const po = await this.findOne(id, companyId);
     if (po.status === 'completed' || po.status === 'in_progress') {
       throw new BadRequestException(
         'Cannot update an order in progress or completed',
@@ -92,8 +93,8 @@ export class ProductionService {
     return this.poRepo.save(po);
   }
 
-  async start(id: number) {
-    const po = await this.findOne(id);
+  async start(id: number, companyId: number) {
+    const po = await this.findOne(id, companyId);
     if (po.status !== 'planned' && po.status !== 'draft') {
       throw new BadRequestException('Only planned orders can be started');
     }
@@ -101,8 +102,8 @@ export class ProductionService {
     return this.poRepo.save(po);
   }
 
-  async cancel(id: number) {
-    const po = await this.findOne(id);
+  async cancel(id: number, companyId: number) {
+    const po = await this.findOne(id, companyId);
     if (po.status === 'completed') {
       throw new BadRequestException('Cannot cancel completed order');
     }
@@ -115,29 +116,29 @@ export class ProductionService {
    * (in_progress/completed both imply InventoryService ledger entries already
    * exist for this order), mirroring the same guard used by update().
    */
-  async remove(id: number): Promise<void> {
-    const po = await this.findOne(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const po = await this.findOne(id, companyId);
     if (po.status === 'in_progress' || po.status === 'completed') {
       throw new BadRequestException(
         'Cannot delete an order that is in progress or completed',
       );
     }
     await this.poItemRepo.delete({ production_order_id: id });
-    await this.poRepo.delete(id);
+    await this.poRepo.delete({ id, company_id: companyId });
   }
 
   /**
    * Complete the production order by calling InventoryService
    * to atomically update stock and create ledger entries.
    */
-  async complete(id: number, dto: CompleteProductionOrderDto) {
+  async complete(id: number, dto: CompleteProductionOrderDto, companyId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
       const po = await queryRunner.manager.findOne(ProductionOrder, {
-        where: { id },
+        where: { id, company_id: companyId },
       });
       if (!po) throw new NotFoundException('Production order not found');
       if (po.status === 'completed')
@@ -153,6 +154,7 @@ export class ProductionService {
           item.item_id,
           po.warehouse_id,
           Number(item.required_qty),
+          companyId,
           queryRunner,
         );
       }
@@ -163,6 +165,7 @@ export class ProductionService {
           item.item_id,
           po.warehouse_id,
           Number(item.required_qty),
+          companyId,
           {
             reference_type: 'production_issue',
             reference_id: id,
@@ -181,6 +184,7 @@ export class ProductionService {
         po.fg_item_id,
         targetWarehouse,
         Number(dto.produced_qty),
+        companyId,
         {
           reference_type: 'production_fg_receipt',
           reference_id: id,
@@ -196,7 +200,7 @@ export class ProductionService {
       await queryRunner.commitTransaction();
 
       // return fresh PO
-      return this.findOne(id);
+      return this.findOne(id, companyId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;

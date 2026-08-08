@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 
 @Injectable()
@@ -19,11 +19,20 @@ export class UsersService {
 
   /**
    * Ek naya user banata hai.
+   *
+   * `manager` is optional — pass a transactional EntityManager (see
+   * CompaniesService.createWithAdmin, same opt-in-transaction pattern already
+   * used by InventoryService's queryRunner param) when this must succeed or
+   * fail atomically alongside another insert (e.g. creating a Company and its
+   * first admin user together).
    */
   async create(
     payload: Omit<User, 'id' | 'last_login' | 'created_at' | 'updated_at'>,
+    manager?: EntityManager,
   ): Promise<Omit<User, 'password_hash'>> {
-    const existing = await this.usersRepository.findOne({
+    const repo = manager ? manager.getRepository(User) : this.usersRepository;
+
+    const existing = await repo.findOne({
       where: [{ email: payload.email }, { username: payload.username }],
     });
 
@@ -31,8 +40,8 @@ export class UsersService {
       throw new ConflictException('Username or email already exists');
     }
 
-    const newUser = this.usersRepository.create(payload);
-    const savedUser = await this.usersRepository.save(newUser);
+    const newUser = repo.create(payload);
+    const savedUser = await repo.save(newUser);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...result } = savedUser;
@@ -53,10 +62,17 @@ export class UsersService {
 
   /**
    * User ko ID se dhoondhta hai (password hash ke bina).
+   *
+   * `companyId` is optional and deliberately so: internal trusted callers
+   * (JwtStrategy re-hydrating req.user, AuthService.refreshTokens acting on
+   * an already-validated refresh token's own userId) look up by primary key
+   * alone. UsersController — where a COMPANY_ADMIN could otherwise guess
+   * another company's numeric user id — always passes companyId to scope
+   * the lookup (see Multi-Company Architecture Audit §11).
    */
-  async findById(id: number): Promise<Omit<User, 'password_hash'>> {
-    const user = await this.usersRepository.findOne({ 
-      where: { id },
+  async findById(id: number, companyId?: number): Promise<Omit<User, 'password_hash'>> {
+    const user = await this.usersRepository.findOne({
+      where: companyId !== undefined ? { id, company_id: companyId } : { id },
       relations: ['roleRelation'], // 🚀 RBAC: User profile fetch karte waqt dynamic role metadata dikhega
     });
     if (!user) {
@@ -69,9 +85,13 @@ export class UsersService {
 
   /**
    * Sabhi users ki list deta hai jisme dynamic role table bhi loaded hogi.
+   * Multi-company Phase 1: always scoped to one company (see Multi-Company
+   * Architecture Audit §11 — this previously returned every user across
+   * every company to any COMPANY_ADMIN).
    */
-  async listAll(): Promise<Omit<User, 'password_hash'>[]> {
+  async listAll(companyId: number): Promise<Omit<User, 'password_hash'>[]> {
     return this.usersRepository.find({
+      where: { company_id: companyId },
       relations: ['roleRelation'], // 🚀 RBAC: ERP list me har bande ka actual mapped Role database se uth kar dikhega
       select: {
         id: true,
@@ -97,17 +117,23 @@ export class UsersService {
   /**
    * User ko update karta hai (Dynamic DTO / Partial support ke sath).
    */
-  async updateUser(id: number, updates: Partial<User>): Promise<any> {
+  async updateUser(id: number, updates: Partial<User>, companyId: number): Promise<any> {
     // Security check: Password update karne se rokein is function se
     delete (updates as any).password_hash;
-    return this.usersRepository.update(id, updates);
+    // Also never let a generic update move a user to a different company.
+    delete (updates as any).company_id;
+    const result = await this.usersRepository.update({ id, company_id: companyId }, updates);
+    if (!result.affected) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return result;
   }
 
   /**
    * User ko delete karta hai (Hard delete ki jagah Soft Delete).
    */
-  async deleteById(id: number): Promise<void> {
-    const result = await this.usersRepository.softDelete(id);
+  async deleteById(id: number, companyId: number): Promise<void> {
+    const result = await this.usersRepository.softDelete({ id, company_id: companyId });
     if (result.affected === 0) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }

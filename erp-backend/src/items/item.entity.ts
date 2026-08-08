@@ -8,15 +8,29 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
+import { Company } from '../companies/company.entity';
 
+// Multi-company Phase 1: SKU uniqueness is now per-company (was global — see
+// Multi-Company Architecture Audit §6).
 @Entity('items')
+@Unique(['company_id', 'sku'])
 export class Item {
   @PrimaryGeneratedColumn()
   id!: number;
 
+  @Column()
+  company_id!: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
   // SKU: Unique index ठीक है।
-  @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   sku!: string | null;
 
   @Column({ type: 'varchar', length: 255 })

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Grn } from './entities/grn.entity';
 import { GrnItem } from './entities/grn-item.entity';
 import { CreateGrnDto } from './dto/create-grn.dto';
@@ -26,21 +26,27 @@ export class GrnService {
     private readonly inventoryService: InventoryService,
   ) {}
 
-  private async generateGrnNumber(): Promise<string> {
-    const last = await this.grnRepo.findOne({ where: {}, order: { id: 'DESC' } });
+  private async generateGrnNumber(companyId: number): Promise<string> {
+    const last = await this.grnRepo.findOne({
+      where: { company_id: companyId },
+      order: { id: 'DESC' },
+    });
     const next = last ? last.id + 1 : 1;
     return `GRN-${String(next).padStart(6, '0')}`;
   }
 
-  async create(dto: CreateGrnDto): Promise<Grn> {
+  async create(dto: CreateGrnDto, companyId: number): Promise<Grn> {
     const warehouse = await this.warehouseRepo.findOne({
-      where: { id: dto.warehouse_id },
+      where: { id: dto.warehouse_id, company_id: companyId },
     });
     if (!warehouse) throw new NotFoundException('Warehouse not found.');
 
-    // Validate items exist
+    // Validate items exist and belong to this company (cross-reference
+    // integrity, see Multi-Company Architecture Audit §11).
     const itemIds = dto.items.map((i) => i.item_id);
-    const items = await this.itemRepo.findByIds(itemIds);
+    const items = await this.itemRepo.find({
+      where: { id: In(itemIds), company_id: companyId },
+    });
     if (items.length !== itemIds.length)
       throw new BadRequestException('One or more items not found.');
 
@@ -48,8 +54,9 @@ export class GrnService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
-      const grnNumber = await this.generateGrnNumber();
+      const grnNumber = await this.generateGrnNumber(companyId);
       const grn = this.grnRepo.create({
+        company_id: companyId,
         grn_number: grnNumber,
         grn_date: dto.grn_date,
         warehouse,
@@ -78,6 +85,7 @@ export class GrnService {
           grnItem.item.id,
           warehouse.id,
           grnItem.received_qty,
+          companyId,
           {
             reference_type: 'grn_receipt',
             reference_id: savedGrn.id,
@@ -100,11 +108,15 @@ export class GrnService {
     }
   }
 
-  async findAll(params?: { status?: string; search?: string }): Promise<Grn[]> {
+  async findAll(
+    params: { status?: string; search?: string } | undefined,
+    companyId: number,
+  ): Promise<Grn[]> {
     const qb = this.grnRepo
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.items', 'items')
-      .leftJoinAndSelect('grn.warehouse', 'warehouse');
+      .leftJoinAndSelect('grn.warehouse', 'warehouse')
+      .where('grn.company_id = :companyId', { companyId });
     if (params?.status)
       qb.andWhere('grn.status = :status', { status: params.status });
     if (params?.search)
@@ -115,19 +127,19 @@ export class GrnService {
     return qb.getMany();
   }
 
-  async findOne(id: number): Promise<Grn> {
-    const grn = await this.grnRepo.findOne({ where: { id } });
+  async findOne(id: number, companyId: number): Promise<Grn> {
+    const grn = await this.grnRepo.findOne({ where: { id, company_id: companyId } });
     if (!grn) throw new NotFoundException('GRN not found.');
     return grn;
   }
 
-  async update(id: number, dto: UpdateGrnDto): Promise<Grn> {
-    const grn = await this.grnRepo.findOne({ where: { id } });
+  async update(id: number, dto: UpdateGrnDto, companyId: number): Promise<Grn> {
+    const grn = await this.grnRepo.findOne({ where: { id, company_id: companyId } });
     if (!grn) throw new NotFoundException('GRN not found.');
 
     if (dto.warehouse_id) {
       const warehouse = await this.warehouseRepo.findOne({
-        where: { id: dto.warehouse_id },
+        where: { id: dto.warehouse_id, company_id: companyId },
       });
       if (!warehouse) throw new NotFoundException('Warehouse not found.');
       grn.warehouse = warehouse;
@@ -140,12 +152,12 @@ export class GrnService {
     return this.grnRepo.save(grn);
   }
 
-  async remove(id: number): Promise<void> {
-    const res = await this.grnRepo.delete(id);
+  async remove(id: number, companyId: number): Promise<void> {
+    const res = await this.grnRepo.delete({ id, company_id: companyId });
     if (!res.affected) throw new NotFoundException('GRN not found.');
   }
 
-  async count(): Promise<number> {
-    return this.grnRepo.count();
+  async count(companyId: number): Promise<number> {
+    return this.grnRepo.count({ where: { company_id: companyId } });
   }
 }

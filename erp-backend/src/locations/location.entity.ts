@@ -1,4 +1,5 @@
 import { Warehouse } from '../warehouses/warehouse.entity';
+import { Company } from '../companies/company.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -9,14 +10,25 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  Unique,
 } from 'typeorm';
 
+// Multi-company Phase 1: location_code uniqueness is now per-company (was
+// global — see Multi-Company Architecture Audit §3).
 @Entity('locations')
+@Unique(['company_id', 'location_code'])
 export class Location {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column()
+  company_id: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
+  @Column()
   location_code: string;
 
   @Column()

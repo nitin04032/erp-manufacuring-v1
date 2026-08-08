@@ -15,6 +15,7 @@ import { RolesGuard } from '@/auth/guards/roles.guard';
 import { Roles } from '@/auth/decorators/roles.decorator';
 import { UpdateUserDto } from './dto/update-user.dto'; // 🔹 Imported UpdateUserDto
 import { UserRole } from './enums/user.enum';
+import { CompanyId } from '../common/decorators/company-id.decorator';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard) // Controller level par guard laga hai, isliye routes par bar-bar likhne ki zaroorat nahi hai
@@ -27,8 +28,8 @@ export class UsersController {
    */
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Get()
-  async findAll() {
-    return this.usersService.listAll();
+  async findAll(@CompanyId() companyId: number) {
+    return this.usersService.listAll(companyId);
   }
 
   /**
@@ -37,8 +38,8 @@ export class UsersController {
    */
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findById(id);
+  async findOne(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    return this.usersService.findById(id, companyId);
   }
 
   /**
@@ -48,10 +49,11 @@ export class UsersController {
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Patch(':id') // Changed from @Put to @Patch for cleaner restful partial updates
   async update(
-    @Param('id', ParseIntPipe) id: number, 
-    @Body() updateUserDto: UpdateUserDto // 🔹 'any' hatakar strict DTO use kiya
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto, // 🔹 'any' hatakar strict DTO use kiya
+    @CompanyId() companyId: number,
   ) {
-    await this.usersService.updateUser(id, updateUserDto);
+    await this.usersService.updateUser(id, updateUserDto, companyId);
     return { message: 'User updated successfully' };
   }
 
@@ -61,8 +63,8 @@ export class UsersController {
    */
   @Roles(UserRole.SUPERADMIN, UserRole.COMPANY_ADMIN)
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    await this.usersService.deleteById(id);
+  async remove(@Param('id', ParseIntPipe) id: number, @CompanyId() companyId: number) {
+    await this.usersService.deleteById(id, companyId);
     return { message: 'User deleted successfully' };
   }
 }

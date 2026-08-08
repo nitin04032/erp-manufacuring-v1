@@ -5,17 +5,32 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
+import { Company } from '../companies/company.entity';
 
 // Mirrors erp-backend/src/suppliers/supplier.entity.ts (same conventions:
 // soft delete, auto-generated code, active flag) with customer-specific
 // fields (billing/shipping address split, credit terms) added on top.
+// Multi-company Phase 1: customer_code/email uniqueness is now per-company
+// (was global — see Multi-Company Architecture Audit §8).
 @Entity('customers')
+@Unique(['company_id', 'customer_code'])
+@Unique(['company_id', 'email'])
 export class Customer {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
+  @Column()
+  company_id!: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
   customer_code!: string | null;
 
   @Column({ type: 'varchar', length: 255 })
@@ -24,7 +39,7 @@ export class Customer {
   @Column({ type: 'varchar', length: 255 })
   contact_person!: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255 })
   email!: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })

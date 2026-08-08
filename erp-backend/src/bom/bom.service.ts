@@ -14,10 +14,11 @@ export class BomService {
     private dataSource: DataSource, // DataSource को Inject करें
   ) {}
 
-  async create(createDto: CreateBomDto) {
+  async create(createDto: CreateBomDto, companyId: number) {
     // सारे ऑपरेशन्स को एक ट्रांजैक्शन में चलाएं
     return this.dataSource.transaction(async (transactionalEntityManager) => {
       const bom = transactionalEntityManager.create(Bom, {
+        company_id: companyId,
         name: createDto.name,
         code: createDto.code,
         description: createDto.description,
@@ -47,8 +48,9 @@ export class BomService {
     });
   }
 
-  async findAll() {
+  async findAll(companyId: number) {
     const boms = await this.bomRepo.find({
+      where: { company_id: companyId },
       relations: ['items'],
       order: { created_at: 'DESC' },
     });
@@ -60,9 +62,9 @@ export class BomService {
     }));
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, companyId: number) {
     const bom = await this.bomRepo.findOne({
-      where: { id },
+      where: { id, company_id: companyId },
       relations: ['items'],
     });
     if (!bom) {
@@ -71,10 +73,10 @@ export class BomService {
     return bom;
   }
 
-  async update(id: number, updateDto: UpdateBomDto) {
+  async update(id: number, updateDto: UpdateBomDto, companyId: number) {
     return this.dataSource.transaction(async (transactionalEntityManager) => {
       const bom = await transactionalEntityManager.findOne(Bom, {
-        where: { id },
+        where: { id, company_id: companyId },
       });
       if (!bom) {
         throw new NotFoundException('BOM not found');
@@ -105,15 +107,15 @@ export class BomService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number, companyId: number) {
     // डिलीट करने से पहले चेक करें कि BOM मौजूद है या नहीं
-    await this.findOne(id);
+    await this.findOne(id, companyId);
 
     // **नोट**: सबसे अच्छे तरीके के लिए, अपनी Bom Entity में onDelete: 'CASCADE' सेट करें।
     // इससे संबंधित सभी BomItem अपने आप डिलीट हो जाएंगे।
 
     // अब BOM को डिलीट करें
-    const res = await this.bomRepo.delete(id);
+    const res = await this.bomRepo.delete({ id, company_id: companyId });
 
     // Optional chaining (?) का उपयोग करना ज्यादा सुरक्षित है
     return !!(res && res.affected && res.affected > 0);

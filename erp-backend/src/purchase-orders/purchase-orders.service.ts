@@ -44,9 +44,11 @@ export class PurchaseOrdersService {
     return { items, grandTotal };
   }
 
-  async create(dto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
-    // Validate related entities
-    const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id });
+  async create(dto: CreatePurchaseOrderDto, companyId: number): Promise<PurchaseOrder> {
+    // Validate related entities — scoped by company so a PO can't be raised
+    // against another company's supplier/warehouse/item by guessing an id
+    // (see Multi-Company Architecture Audit §11 cross-reference integrity).
+    const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id, company_id: companyId });
     if (!supplier) {
       throw new NotFoundException(
         `Supplier with ID ${dto.supplier_id} not found`,
@@ -54,6 +56,7 @@ export class PurchaseOrdersService {
     }
     const warehouse = await this.warehouseRepo.findOneBy({
       id: dto.warehouse_id,
+      company_id: companyId,
     });
     if (!warehouse) {
       throw new NotFoundException(
@@ -64,7 +67,7 @@ export class PurchaseOrdersService {
     // Auto-generate PO number if not provided
     if (!dto.po_number) {
       const lastPO = await this.repo.findOne({
-        where: {},
+        where: { company_id: companyId },
         order: { id: 'DESC' },
       });
       const nextId = (lastPO?.id || 0) + 1;
@@ -73,13 +76,14 @@ export class PurchaseOrdersService {
 
     const po = new PurchaseOrder();
     Object.assign(po, dto); // Assign header details
+    po.company_id = companyId;
     po.supplier = supplier;
     po.warehouse = warehouse;
 
     // Process items
     const poItems: PurchaseOrderItem[] = [];
     for (const itemDto of dto.items) {
-      const item = await this.itemRepo.findOneBy({ id: itemDto.item_id });
+      const item = await this.itemRepo.findOneBy({ id: itemDto.item_id, company_id: companyId });
       if (!item) {
         throw new NotFoundException(
           `Item with ID ${itemDto.item_id} not found`,
@@ -102,6 +106,7 @@ export class PurchaseOrdersService {
   async update(
     id: number,
     dto: UpdatePurchaseOrderDto,
+    companyId: number,
   ): Promise<PurchaseOrder> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -109,7 +114,7 @@ export class PurchaseOrdersService {
 
     try {
       const poToUpdate = await queryRunner.manager.findOne(PurchaseOrder, {
-        where: { id },
+        where: { id, company_id: companyId },
         relations: ['items'],
       });
 
@@ -126,6 +131,7 @@ export class PurchaseOrdersService {
       if (dto.supplier_id) {
         const supplier = await this.supplierRepo.findOneBy({
           id: dto.supplier_id,
+          company_id: companyId,
         });
         if (!supplier)
           throw new NotFoundException(
@@ -136,6 +142,7 @@ export class PurchaseOrdersService {
       if (dto.warehouse_id) {
         const warehouse = await this.warehouseRepo.findOneBy({
           id: dto.warehouse_id,
+          company_id: companyId,
         });
         if (!warehouse)
           throw new NotFoundException(
@@ -165,6 +172,7 @@ export class PurchaseOrdersService {
           const itemEntity = await this.itemRepo.findOneBy({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             id: (itemDto as any).item_id,
+            company_id: companyId,
           });
           if (!itemEntity)
             throw new NotFoundException(
@@ -235,11 +243,14 @@ export class PurchaseOrdersService {
     };
   }
 
-  async findAll(query: { status?: string; supplier?: string }): Promise<any[]> {
+  async findAll(
+    query: { status?: string; supplier?: string },
+    companyId: number,
+  ): Promise<any[]> {
     const options: FindManyOptions<PurchaseOrder> = {
       order: { order_date: 'DESC', id: 'DESC' },
       relations: ['supplier', 'warehouse', 'items', 'items.item'],
-      where: {},
+      where: { company_id: companyId },
     };
     if (query.status) {
       options.where = { ...options.where, status: query.status };
@@ -254,9 +265,9 @@ export class PurchaseOrdersService {
     return purchaseOrders.map((po) => this.transformPoForClient(po));
   }
 
-  async findOne(id: number): Promise<any> {
+  async findOne(id: number, companyId: number): Promise<any> {
     const po = await this.repo.findOne({
-      where: { id },
+      where: { id, company_id: companyId },
       relations: ['supplier', 'warehouse', 'items', 'items.item'],
     });
     if (!po) {
@@ -265,28 +276,29 @@ export class PurchaseOrdersService {
     return this.transformPoForClient(po);
   }
 
-  async remove(id: number): Promise<void> {
-    const po = await this.repo.findOneBy({ id });
+  async remove(id: number, companyId: number): Promise<void> {
+    const po = await this.repo.findOneBy({ id, company_id: companyId });
     if (!po) {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
     if (po.status !== 'draft') {
       throw new BadRequestException('Only draft orders can be deleted.');
     }
-    const result = await this.repo.delete(id);
+    const result = await this.repo.delete({ id, company_id: companyId });
     if (result.affected === 0) {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
   }
 
   // --- Dashboard Helper Methods ---
-  async count(): Promise<number> {
-    return this.repo.count();
+  async count(companyId: number): Promise<number> {
+    return this.repo.count({ where: { company_id: companyId } });
   }
 
-  async getStatusCounts(): Promise<Record<string, number>> {
+  async getStatusCounts(companyId: number): Promise<Record<string, number>> {
     const rows = await this.repo
       .createQueryBuilder('po')
+      .where('po.company_id = :companyId', { companyId })
       .select('po.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .groupBy('po.status')
@@ -299,8 +311,9 @@ export class PurchaseOrdersService {
     }, {});
   }
 
-  async getRecent(limit = 5): Promise<any[]> {
+  async getRecent(companyId: number, limit = 5): Promise<any[]> {
     const recentPOs = await this.repo.find({
+      where: { company_id: companyId },
       relations: ['supplier', 'warehouse'],
       order: { created_at: 'DESC' },
       take: limit,

@@ -12,6 +12,8 @@ import { InventoryService } from '../inventory/inventory.service';
 // ((this.stocksService as any).itemsService.findByCode(...)) and crash with a
 // TypeError on every dispatch creation. It now resolves the item via
 // ItemsService and moves stock via InventoryService directly.
+const TEST_COMPANY_ID = 1;
+
 describe('DispatchService', () => {
   let service: DispatchService;
   let itemsService: { findByCode: jest.Mock };
@@ -77,15 +79,16 @@ describe('DispatchService', () => {
       items: [{ item_code: 'ITEM-001', dispatched_qty: 5 }],
     } as any;
 
-    const result = await service.create(dto);
+    const result = await service.create(dto, TEST_COMPANY_ID);
 
-    expect(warehousesService.findByName).toHaveBeenCalledWith('Main WH');
-    expect(itemsService.findByCode).toHaveBeenCalledWith('ITEM-001');
-    expect(inventoryService.checkAvailability).toHaveBeenCalledWith(20, 10, 5, mockQueryRunner);
+    expect(warehousesService.findByName).toHaveBeenCalledWith('Main WH', TEST_COMPANY_ID);
+    expect(itemsService.findByCode).toHaveBeenCalledWith('ITEM-001', TEST_COMPANY_ID);
+    expect(inventoryService.checkAvailability).toHaveBeenCalledWith(20, 10, 5, TEST_COMPANY_ID, mockQueryRunner);
     expect(inventoryService.decreaseStock).toHaveBeenCalledWith(
       20,
       10,
       5,
+      TEST_COMPANY_ID,
       expect.objectContaining({ reference_type: 'dispatch', queryRunner: mockQueryRunner }),
     );
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
@@ -105,7 +108,7 @@ describe('DispatchService', () => {
       items: [{ item_code: 'ITEM-001', dispatched_qty: 999 }],
     } as any;
 
-    await expect(service.create(dto)).rejects.toThrow('Insufficient stock');
+    await expect(service.create(dto, TEST_COMPANY_ID)).rejects.toThrow('Insufficient stock');
     expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
     expect(mockQueryRunner.release).toHaveBeenCalled();
   });
