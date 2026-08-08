@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, IsNull, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, IsNull, Repository } from 'typeorm';
 
 import { Role } from './entities/role.entity';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -52,7 +52,10 @@ export class RolesService {
     },
   ): Promise<Role[]> {
     // Visible = this company's own custom roles + every shared system role.
-    const scopes: any[] = [{ company_id: companyId }, { company_id: IsNull() }];
+    const scopes: FindOptionsWhere<Role>[] = [
+      { company_id: companyId },
+      { company_id: IsNull() },
+    ];
     const where = params?.search
       ? scopes.map((s) => ({ ...s, name: ILike(`%${params.search}%`) }))
       : scopes;

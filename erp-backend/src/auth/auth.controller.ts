@@ -69,14 +69,18 @@ export class AuthController {
       // .getResponse() is the actual public API for this.
       if (error instanceof HttpException) {
         const body = error.getResponse();
+        // Nest's built-in exceptions only ever put a string or string[]
+        // in .message — narrowing to that (rather than leaving it
+        // `unknown`) is what lets String()/.join() below be provably
+        // safe instead of risking "[object Object]" on some other shape.
         const bodyMessage =
           typeof body === 'object' && body !== null && 'message' in body
-            ? (body as { message: unknown }).message
+            ? (body as { message: string | string[] }).message
             : undefined;
         if (bodyMessage) {
           const messages = Array.isArray(bodyMessage)
             ? bodyMessage.join(', ')
-            : String(bodyMessage);
+            : bodyMessage;
           throw new HttpException(messages, HttpStatus.BAD_REQUEST);
         }
       }

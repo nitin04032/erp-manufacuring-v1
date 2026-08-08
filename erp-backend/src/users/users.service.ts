@@ -171,7 +171,10 @@ export class UsersService {
    * Code Hardening: Type casting (as any) ko clean kiya kyuki structure updated hai.
    */
   async updateRefreshToken(userId: number, refreshToken: string | null) {
-    let hash = null;
+    // Explicit `string | null` (not just `let hash = null`) — otherwise TS
+    // infers an "evolving any" for a bare `let x = null`, which is what
+    // made the assignment below unsafe.
+    let hash: string | null = null;
     if (refreshToken) {
       hash = await bcrypt.hash(refreshToken, 10);
     }

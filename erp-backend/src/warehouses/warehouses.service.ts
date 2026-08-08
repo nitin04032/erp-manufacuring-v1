@@ -61,10 +61,9 @@ export class WarehousesService {
     companyId: number,
     params?: { status?: string; search?: string },
   ): Promise<Warehouse[]> {
-    const where: any = { company_id: companyId };
+    const where: Partial<Warehouse> = { company_id: companyId };
 
     if (params?.status) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       where.is_active = params.status === 'active';
     }
 

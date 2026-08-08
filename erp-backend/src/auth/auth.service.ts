@@ -65,6 +65,10 @@ export class AuthService {
     const isMatch = await bcrypt.compare(pass, user.password_hash);
     if (!isMatch) return null;
 
+    // Destructure-to-omit idiom (matches users.service.ts's identical
+    // pattern) — password_hash is intentionally unused, only pulled out so
+    // it's excluded from `result`.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, ...result } = user;
     return result;
   }

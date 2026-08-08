@@ -15,6 +15,38 @@ import { Item } from '../items/item.entity';
 import { PurchaseOrderItem } from './purchase-order-item.entity';
 import { Warehouse } from '../warehouses/warehouse.entity';
 
+/** Shape transformPoForClient() below actually returns — was `any`. */
+export interface PurchaseOrderClientView {
+  id: number;
+  po_number: string;
+  order_date: Date;
+  expected_date: Date | undefined;
+  status: string;
+  total_amount: number;
+  supplier_name: string;
+  warehouse_name: string;
+  supplier_id: number | undefined;
+  warehouse_id: number | undefined;
+  terms_and_conditions: string | undefined;
+  remarks: string | undefined;
+  items:
+    | {
+        id: number;
+        item_id: number | undefined;
+        item_name: string;
+        item_code: string;
+        ordered_qty: number;
+        unit_price: number;
+        uom: string;
+        discount_percent: number;
+        tax_percent: number;
+        total_amount: number;
+      }[]
+    | undefined;
+  created_at: Date;
+  updated_at: Date;
+}
+
 @Injectable()
 export class PurchaseOrdersService {
   constructor(
@@ -221,7 +253,7 @@ export class PurchaseOrdersService {
     }
   }
 
-  private transformPoForClient(po: PurchaseOrder): any {
+  private transformPoForClient(po: PurchaseOrder): PurchaseOrderClientView {
     return {
       id: po.id,
       po_number: po.po_number,
@@ -255,7 +287,7 @@ export class PurchaseOrdersService {
   async findAll(
     query: { status?: string; supplier?: string },
     companyId: number,
-  ): Promise<any[]> {
+  ): Promise<PurchaseOrderClientView[]> {
     const options: FindManyOptions<PurchaseOrder> = {
       order: { order_date: 'DESC', id: 'DESC' },
       relations: ['supplier', 'warehouse', 'items', 'items.item'],
@@ -274,7 +306,10 @@ export class PurchaseOrdersService {
     return purchaseOrders.map((po) => this.transformPoForClient(po));
   }
 
-  async findOne(id: number, companyId: number): Promise<any> {
+  async findOne(
+    id: number,
+    companyId: number,
+  ): Promise<PurchaseOrderClientView> {
     const po = await this.repo.findOne({
       where: { id, company_id: companyId },
       relations: ['supplier', 'warehouse', 'items', 'items.item'],
@@ -311,22 +346,30 @@ export class PurchaseOrdersService {
       .select('po.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .groupBy('po.status')
-      .getRawMany();
+      .getRawMany<{ status: string; count: string }>();
 
-    return rows.reduce((acc: Record<string, number>, r: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return rows.reduce<Record<string, number>>((acc, r) => {
       acc[r.status] = Number(r.count);
       return acc;
     }, {});
   }
 
-  async getRecent(companyId: number, limit = 5): Promise<any[]> {
+  async getRecent(
+    companyId: number,
+    limit = 5,
+  ): Promise<PurchaseOrderClientView[]> {
     const recentPOs = await this.repo.find({
       where: { company_id: companyId },
       relations: ['supplier', 'warehouse'],
       order: { created_at: 'DESC' },
       take: limit,
     });
-    return recentPOs.map(this.transformPoForClient);
+    // Was `recentPOs.map(this.transformPoForClient)` — an unbound method
+    // reference loses its `this` binding when .map() invokes it. Harmless
+    // today only because transformPoForClient happens not to touch `this`;
+    // a landmine for whoever adds a `this.something` to it next. The
+    // arrow-function wrapper (already used correctly in findAll() above)
+    // keeps `this` bound to the service instance.
+    return recentPOs.map((po) => this.transformPoForClient(po));
   }
 }

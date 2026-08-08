@@ -44,4 +44,7 @@ async function bootstrap() {
   await app.listen(3001);
   console.log(`🚀 ERP Backend running on: http://localhost:3001/api`);
 }
-bootstrap();
+bootstrap().catch((err: unknown) => {
+  console.error('Fatal error during application bootstrap:', err);
+  process.exit(1);
+});

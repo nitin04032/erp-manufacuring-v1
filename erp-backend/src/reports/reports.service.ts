@@ -21,6 +21,21 @@ export interface ReportFilters {
   to?: Date;
 }
 
+/**
+ * exportToPdf() below resolves an arbitrary dot-path (e.g. "supplier.name")
+ * into each report row, so the result is genuinely unknown at compile time
+ * — a plain `String(value)` would print "[object Object]" for any column
+ * whose path lands on a nested object instead of a primitive (a
+ * misconfigured `columns` list, most likely). Handles the shapes report
+ * rows actually contain explicitly instead.
+ */
+function cellToString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toLocaleDateString();
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -182,14 +197,20 @@ export class ReportsService {
       doc.moveDown(1);
       const rowY = doc.y;
       columns.forEach((column, i) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        // column.key.split('.') is already string[] — the `as any[]` this
+        // replaced was a pointless cast that only downgraded a properly
+        // typed value, cascading into an unsafe reduce accumulator.
         const value =
-          (column.key.split('.') as any[]).reduce(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            (acc, part) => acc && acc[part],
-            row,
-          ) ?? '';
-        doc.text(String(value), doc.x + (i === 0 ? 0 : 5), rowY, {
+          column.key
+            .split('.')
+            .reduce<unknown>(
+              (acc, part) =>
+                acc && typeof acc === 'object'
+                  ? (acc as Record<string, unknown>)[part]
+                  : acc,
+              row as unknown,
+            ) ?? '';
+        doc.text(cellToString(value), doc.x + (i === 0 ? 0 : 5), rowY, {
           width: column.width,
           continued: true,
         });

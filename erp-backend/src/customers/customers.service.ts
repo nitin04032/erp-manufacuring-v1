@@ -6,7 +6,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { Customer } from './customer.entity';
-import { CreateCustomerDto, QueryCustomerDto } from './dto/create-customer.dto';
+import {
+  CreateCustomerDto,
+  CustomerStatus,
+  QueryCustomerDto,
+} from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 // Mirrors erp-backend/src/suppliers/suppliers.service.ts
@@ -47,11 +51,9 @@ export class CustomersService {
     query: QueryCustomerDto,
     companyId: number,
   ): Promise<Customer[]> {
-    const where: any = { company_id: companyId };
+    const where: Partial<Customer> = { company_id: companyId };
 
-    if (query.status)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-enum-comparison
-      where.is_active = query.status === 'active' ? true : false;
+    if (query.status) where.is_active = query.status === CustomerStatus.ACTIVE;
 
     if (query.search) {
       return this.repo.find({

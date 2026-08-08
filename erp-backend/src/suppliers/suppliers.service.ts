@@ -6,7 +6,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { Supplier } from './supplier.entity';
-import { CreateSupplierDto, QuerySupplierDto } from './dto/create-supplier.dto';
+import {
+  CreateSupplierDto,
+  QuerySupplierDto,
+  SupplierStatus,
+} from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 
 // Multi-company Phase 1: every method takes companyId and every query is
@@ -50,11 +54,9 @@ export class SuppliersService {
     query: QuerySupplierDto,
     companyId: number,
   ): Promise<Supplier[]> {
-    const where: any = { company_id: companyId };
+    const where: Partial<Supplier> = { company_id: companyId };
 
-    if (query.status)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-enum-comparison
-      where.is_active = query.status === 'active' ? true : false;
+    if (query.status) where.is_active = query.status === SupplierStatus.ACTIVE;
 
     if (query.search) {
       return this.repo.find({
