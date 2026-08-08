@@ -1,0 +1,77 @@
+# Local dev stack: Postgres + Redis + erp-backend + erp-frontend.
+#
+# ROADMAP.md Phase 1 (platform foundation) — closes AUDIT_REPORT.md §1.5's
+# "no docker-compose, no way to spin up Postgres+backend+frontend together"
+# finding. Redis is stood up here ahead of the app actually using it (session/
+# permission cache, dashboard cache, throttler storage — see
+# V2_ARCHITECTURE.md §7); nothing in erp-backend talks to it yet.
+#
+# Usage:
+#   docker compose up --build
+#   Backend:  http://localhost:3001/api
+#   Frontend: http://localhost:3000
+#
+# First boot: backend auto-runs migrations against the fresh `erp` database
+# (migrationsRun: true in app.module.ts) — no separate migration step needed.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp_dev_password
+      POSTGRES_DB: erp
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U erp -d erp']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./erp-backend
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://erp:erp_dev_password@postgres:5432/erp
+      DB_SSL: 'false'
+      JWT_SECRET: local-dev-only-secret-do-not-use-in-production
+      JWT_EXPIRES_IN: 1d
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./erp-frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
