@@ -30,6 +30,7 @@ const itemVariants: Variants = {
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
+    company: "",
     name: "",
     email: "",
     password: "",
@@ -65,14 +66,27 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!form.company.trim()) {
+      setFlash({ type: "danger", message: "Company name is required." });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // 🛠️ Bug fix: backend username must match /^[a-zA-Z0-9_.]+$/ (letters,
-      // numbers, underscore, dot only — no spaces). We were sending the raw
-      // Full Name straight through, so any name with a space (i.e. almost
-      // every real name) always failed registration with a 400. Derive a
-      // sanitized handle from the name instead, and fall back to the email
+      // 🛠️ Bug fix: this used to POST to /auth/register, which only ever
+      // joins an *existing* company (see AuthService.register — it 404s if
+      // company_id doesn't reference a real company) and was never sent one
+      // in the first place. There was no way to create the very first
+      // account on a fresh database through this page at all —
+      // company_id must be a positive number, always, for everyone.
+      // POST /api/companies (CompaniesService.createWithAdmin) is the real
+      // "sign up" entry point: it creates a Company and its first
+      // COMPANY_ADMIN user together in one call.
+      //
+      // Username must match /^[a-zA-Z0-9_.]+$/ (letters, numbers,
+      // underscore, dot only — no spaces), same constraint as before;
+      // derive a sanitized handle from the name, falling back to the email
       // local-part if sanitizing the name leaves nothing usable.
       const toUsername = (value: string) =>
         value
@@ -87,15 +101,15 @@ export default function RegisterPage() {
 
       // 🛠️ Note: Ensure NEXT_PUBLIC_API_URL includes '/api' in your .env (e.g., http://localhost:3001/api)
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+        `${process.env.NEXT_PUBLIC_API_URL}/companies`,
         {
           method: "POST",
           body: JSON.stringify({
-            username,
-            email: form.email,
-            password: form.password,
-            full_name: form.name,
-            // 🛡️ P0 Security Fix: 'role' field nikal diya hai taaki backend whitelist error na de!
+            name: form.company,
+            admin_username: username,
+            admin_name: form.name,
+            admin_email: form.email,
+            admin_password: form.password,
           }),
           headers: { "Content-Type": "application/json" },
         }
@@ -104,8 +118,8 @@ export default function RegisterPage() {
       const result = await res.json(); // Global response pattern catch karega
 
       if (res.ok && result.success) { // 🛠️ P1 Response Check integration
-        setFlash({ type: "success", message: "Account created successfully!" });
-        setForm({ name: "", email: "", password: "", confirm: "", terms: false });
+        setFlash({ type: "success", message: "Company and account created successfully! You can now sign in." });
+        setForm({ company: "", name: "", email: "", password: "", confirm: "", terms: false });
       } else {
         // Backend ka hamesha ek standard structured message aayega ab
         setFlash({ type: "danger", message: result.message || "Registration failed." });
@@ -152,6 +166,14 @@ export default function RegisterPage() {
               )}
 
               <form onSubmit={handleSubmit} noValidate>
+                <motion.div variants={itemVariants} className="mb-3">
+                  <label htmlFor="company" className="form-label">Company Name *</label>
+                  <div className="input-group">
+                    <span className="input-group-text"><i className="bi bi-building"></i></span>
+                    <input type="text" id="company" className="form-control" placeholder="Enter your company's name" required value={form.company} onChange={handleChange} />
+                  </div>
+                  <div className="form-text">This creates a new company — you&apos;ll be its first admin.</div>
+                </motion.div>
                 <div className="row">
                   <motion.div variants={itemVariants} className="col-md-6 mb-3">
                     <label htmlFor="name" className="form-label">Full Name *</label>
