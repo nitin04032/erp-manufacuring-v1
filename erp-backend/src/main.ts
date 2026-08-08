@@ -29,8 +29,15 @@ async function bootstrap() {
   // 4. Global Response Interceptor (P1)
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // CORS Enabled (Just in case frontend interacts from another port)
-  app.enableCors();
+  // CORS — Audit fix #6 (AUDIT_REPORT.md §1.7): app.enableCors() with no
+  // options accepts every origin, which is fine for a quick local check but
+  // not something to carry into staging/production. CORS_ORIGINS is a
+  // comma-separated allow-list (e.g. "https://app.example.com,https://admin.example.com");
+  // unset, it falls back to the frontend's local dev origins only.
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  app.enableCors({ origin: corsOrigins, credentials: true });
 
   await app.listen(3001);
   console.log(`🚀 ERP Backend running on: http://localhost:3001/api`);

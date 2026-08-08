@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { NotFoundException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { CompaniesService } from '../companies/companies.service';
 import { UserRole, UserStatus } from '../users/enums/user.enum';
 
 describe('AuthService', () => {
@@ -10,21 +12,24 @@ describe('AuthService', () => {
     create: jest.Mock;
     findOne: jest.Mock;
     updateLastLogin: jest.Mock;
-    count: jest.Mock;
   };
+  let companiesService: { findOne: jest.Mock };
 
   beforeEach(async () => {
     usersService = {
       create: jest.fn().mockImplementation((payload) => Promise.resolve({ id: 1, ...payload })),
       findOne: jest.fn(),
       updateLastLogin: jest.fn(),
-      count: jest.fn().mockResolvedValue(0),
+    };
+    companiesService = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, name: 'Acme Manufacturing' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UsersService, useValue: usersService },
+        { provide: CompaniesService, useValue: companiesService },
         {
           provide: JwtService,
           useValue: {
@@ -41,35 +46,38 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  // Regression test for the bootstrap fix: registration used to hardcode
-  // UserRole.USER unconditionally, which meant nobody could ever become an
-  // admin on a fresh install (promoting a user requires already being one).
-  describe('register() first-user bootstrap', () => {
+  // Multi-company Phase 1: the old "first user in the whole DB becomes
+  // SUPERADMIN" bootstrap is gone — that role now belongs to
+  // CompaniesService.createWithAdmin (see companies.service.ts). This
+  // endpoint only ever joins an *existing* company as a plain USER.
+  describe('register()', () => {
     const basePayload = {
-      username: 'admin1',
-      email: 'admin@example.com',
+      company_id: 1,
+      username: 'user1',
+      email: 'user1@example.com',
       password: 'password123',
-      full_name: 'Admin One',
+      full_name: 'Regular User',
     };
 
-    it('makes the first registered user SUPERADMIN when the DB has no users yet', async () => {
-      usersService.count.mockResolvedValue(0);
+    it('validates the given company_id exists before creating the user', async () => {
+      await service.register(basePayload);
 
+      expect(companiesService.findOne).toHaveBeenCalledWith(1);
+    });
+
+    it('always creates a plain USER, scoped to the given company', async () => {
       await service.register(basePayload);
 
       expect(usersService.create).toHaveBeenCalledWith(
-        expect.objectContaining({ role: UserRole.SUPERADMIN, status: UserStatus.ACTIVE }),
+        expect.objectContaining({ company_id: 1, role: UserRole.USER, status: UserStatus.ACTIVE }),
       );
     });
 
-    it('makes subsequent registrations a regular USER', async () => {
-      usersService.count.mockResolvedValue(1);
+    it('propagates NotFoundException when the company does not exist', async () => {
+      companiesService.findOne.mockRejectedValue(new NotFoundException('Company not found.'));
 
-      await service.register({ ...basePayload, username: 'user2', email: 'user2@example.com' });
-
-      expect(usersService.create).toHaveBeenCalledWith(
-        expect.objectContaining({ role: UserRole.USER }),
-      );
+      await expect(service.register(basePayload)).rejects.toThrow(NotFoundException);
+      expect(usersService.create).not.toHaveBeenCalled();
     });
   });
 });

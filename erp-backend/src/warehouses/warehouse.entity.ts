@@ -5,14 +5,28 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
+import { Company } from '../companies/company.entity';
 
+// Multi-company Phase 1: code uniqueness is now per-company (was global —
+// see Multi-Company Architecture Audit §7).
 @Entity('warehouses')
+@Unique(['company_id', 'code'])
 export class Warehouse {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
+  @Column()
+  company_id!: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
   code!: string | null;
 
   @Column({ type: 'varchar', length: 255 })

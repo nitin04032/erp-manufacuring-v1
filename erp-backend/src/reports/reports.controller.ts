@@ -1,6 +1,7 @@
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CompanyId } from '../common/decorators/company-id.decorator';
 import type { Response } from 'express';
 
 @Controller('reports')
@@ -11,6 +12,7 @@ export class ReportsController {
   @Get('purchase-orders')
   async getPurchaseReport(
     @Res() res: Response,
+    @CompanyId() companyId: number,
     @Query('status') status?: string,
     @Query('supplierId') supplierId?: number,
     @Query('from') from?: Date,
@@ -18,7 +20,7 @@ export class ReportsController {
     @Query('export') exportType?: string,
   ) {
     const filters = { status, supplierId, from, to };
-    const data = await this.reportsService.getPurchaseReport(filters);
+    const data = await this.reportsService.getPurchaseReport(filters, companyId);
 
     if (exportType) {
       const columns = [
@@ -62,13 +64,14 @@ export class ReportsController {
   @Get('grn')
   async getGrnReport(
     @Res() res: Response,
+    @CompanyId() companyId: number,
     @Query('supplierId') supplierId?: number,
     @Query('from') from?: Date,
     @Query('to') to?: Date,
     @Query('export') exportType?: string,
   ) {
     const filters = { supplierId, from, to };
-    const data = await this.reportsService.getGrnReport(filters);
+    const data = await this.reportsService.getGrnReport(filters, companyId);
 
     if (exportType) {
       const columns = [
@@ -106,13 +109,14 @@ export class ReportsController {
   @Get('dispatch')
   async getDispatchReport(
     @Res() res: Response,
+    @CompanyId() companyId: number,
     @Query('customer') customer?: string,
     @Query('from') from?: Date,
     @Query('to') to?: Date,
     @Query('export') exportType?: string,
   ) {
     const filters = { customer, from, to };
-    const data = await this.reportsService.getDispatchReport(filters);
+    const data = await this.reportsService.getDispatchReport(filters, companyId);
 
     if (exportType) {
       const columns = [
@@ -146,9 +150,10 @@ export class ReportsController {
   @Get('stock')
   async getStockReport(
     @Res() res: Response,
+    @CompanyId() companyId: number,
     @Query('export') exportType?: string,
   ) {
-    const data = await this.reportsService.getStockReport();
+    const data = await this.reportsService.getStockReport(companyId);
 
     if (exportType) {
       const columns = [

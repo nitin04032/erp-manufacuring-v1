@@ -19,16 +19,17 @@ export class FgrService {
     private dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateFgrDto): Promise<FinishedGoodsReceipt> {
+  async create(dto: CreateFgrDto, companyId: number): Promise<FinishedGoodsReceipt> {
     // Resolve item by code and warehouse by name up front.
-    const item = await this.itemsService.findByCode(dto.item_code);
-    const warehouse = await this.warehousesService.findByName(dto.warehouse_name);
+    const item = await this.itemsService.findByCode(dto.item_code, companyId);
+    const warehouse = await this.warehousesService.findByName(dto.warehouse_name, companyId);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
       const fgr = queryRunner.manager.create(FinishedGoodsReceipt, {
+        company_id: companyId,
         receipt_number: dto.receipt_number,
         production_order_no: dto.production_order_no,
         item_name: dto.item_name,
@@ -42,7 +43,7 @@ export class FgrService {
 
       const savedFgr = await queryRunner.manager.save(FinishedGoodsReceipt, fgr);
 
-      await this.inventoryService.increaseStock(item.id, warehouse.id, dto.quantity, {
+      await this.inventoryService.increaseStock(item.id, warehouse.id, dto.quantity, companyId, {
         reference_type: 'fgr_receipt',
         reference_id: savedFgr.id,
         remarks: `FGR ${savedFgr.receipt_number}`,
@@ -59,34 +60,36 @@ export class FgrService {
     }
   }
 
-  findAll(): Promise<FinishedGoodsReceipt[]> {
+  findAll(companyId: number): Promise<FinishedGoodsReceipt[]> {
     return this.repo.find({
+      where: { company_id: companyId },
       order: { receipt_date: 'DESC' },
     });
   }
 
-  async findOne(id: number): Promise<FinishedGoodsReceipt> {
-    const rec = await this.repo.findOne({ where: { id } });
+  async findOne(id: number, companyId: number): Promise<FinishedGoodsReceipt> {
+    const rec = await this.repo.findOne({ where: { id, company_id: companyId } });
     if (!rec) throw new NotFoundException(`FGR #${id} not found`);
     return rec;
   }
 
-  async update(id: number, dto: UpdateFgrDto): Promise<FinishedGoodsReceipt> {
+  async update(id: number, dto: UpdateFgrDto, companyId: number): Promise<FinishedGoodsReceipt> {
     // Note: Updating FGR is complex as it requires reversing/adjusting stock.
     // This is a simplified update. Phase 1 scope: header-only, no stock re-adjustment.
+    await this.findOne(id, companyId); // 404s before preload() if cross-company
     const rec = await this.repo.preload({ id, ...dto });
     if (!rec) throw new NotFoundException(`FGR #${id} not found`);
     return this.repo.save(rec);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number, companyId: number): Promise<void> {
     // Note: A real remove would need to reverse the stock transaction.
     // Phase 1 scope: not implemented — flagged as a Phase 2 follow-up.
-    const res = await this.repo.softDelete(id);
+    const res = await this.repo.softDelete({ id, company_id: companyId });
     if (res.affected === 0) throw new NotFoundException(`FGR #${id} not found`);
   }
 
-  count(): Promise<number> {
-    return this.repo.count();
+  count(companyId: number): Promise<number> {
+    return this.repo.count({ where: { company_id: companyId } });
   }
 }

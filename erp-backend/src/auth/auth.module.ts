@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { RefreshStrategy } from './refresh.strategy'; // 🔹 Naya import add kiya
 import { UsersModule } from '../users/users.module';
+import { CompaniesModule } from '../companies/companies.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { UsersModule } from '../users/users.module';
       },
     }),
     UsersModule,
+    CompaniesModule,
   ],
   // 🔹 RefreshStrategy ko providers me add kar diya hai taaki NestJS isko recognize kare
   providers: [AuthService, JwtStrategy, RefreshStrategy],

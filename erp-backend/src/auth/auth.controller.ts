@@ -13,6 +13,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -27,6 +28,10 @@ export class AuthController {
    * POST /auth/register
    * Naye user ko register karne ke liye endpoint.
    */
+  // Audit fix #5 (AUDIT_REPORT.md §1.3/§1.7): 5 attempts/min per IP —
+  // tighter than the app-wide default, since this and login are the two
+  // routes a brute-force/spam attempt would actually target.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   async register(
     @Body() registerDto: RegisterDto,
@@ -69,6 +74,10 @@ export class AuthController {
    * POST /auth/login
    * User ko login karke JWT token generate karne ke liye endpoint.
    */
+  // Audit fix #5 (AUDIT_REPORT.md §1.3/§1.7): 5 attempts/min per IP — no
+  // rate limiting existed on login before this, so credential brute-forcing
+  // was unbounded.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   // Safal login par hamesha '200 OK' status code bhejenge.
   @HttpCode(HttpStatus.OK)

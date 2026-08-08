@@ -5,14 +5,29 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
+import { Company } from '../companies/company.entity';
 
+// Multi-company Phase 1: supplier_code/email uniqueness is now per-company
+// (was a global unique constraint — see Multi-Company Architecture Audit §6-8).
 @Entity('suppliers')
+@Unique(['company_id', 'supplier_code'])
+@Unique(['company_id', 'email'])
 export class Supplier {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
+  @Column()
+  company_id!: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
   supplier_code!: string | null;
 
   @Column({ type: 'varchar', length: 255 })
@@ -21,7 +36,7 @@ export class Supplier {
   @Column({ type: 'varchar', length: 255 })
   contact_person!: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255 })
   email!: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })

@@ -12,10 +12,12 @@ import { InventoryService } from '../inventory/inventory.service';
 // receipt but never updated warehouse stock at all — receiving never
 // affected inventory. It now calls InventoryService.increaseStock() per
 // line item inside the same transaction.
+const TEST_COMPANY_ID = 1;
+
 describe('GrnService', () => {
   let service: GrnService;
   let warehouseRepo: { findOne: jest.Mock };
-  let itemRepo: { findByIds: jest.Mock };
+  let itemRepo: { find: jest.Mock };
   let grnRepo: { findOne: jest.Mock; create: jest.Mock };
   let inventoryService: { increaseStock: jest.Mock };
 
@@ -35,7 +37,7 @@ describe('GrnService', () => {
   beforeEach(async () => {
     warehouseRepo = { findOne: jest.fn().mockResolvedValue({ id: 10, name: 'Main WH' }) };
     itemRepo = {
-      findByIds: jest.fn().mockResolvedValue([{ id: 20, sku: 'ITEM-001' }]),
+      find: jest.fn().mockResolvedValue([{ id: 20, sku: 'ITEM-001' }]),
     };
     grnRepo = {
       findOne: jest
@@ -64,7 +66,7 @@ describe('GrnService', () => {
     service = module.get<GrnService>(GrnService);
     jest.clearAllMocks();
     warehouseRepo.findOne.mockResolvedValue({ id: 10, name: 'Main WH' });
-    itemRepo.findByIds.mockResolvedValue([{ id: 20, sku: 'ITEM-001' }]);
+    itemRepo.find.mockResolvedValue([{ id: 20, sku: 'ITEM-001' }]);
     grnRepo.findOne.mockResolvedValue({ id: 1, grn_number: 'GRN-000001' });
   });
 
@@ -79,12 +81,13 @@ describe('GrnService', () => {
       items: [{ item_id: 20, received_qty: 50 }],
     } as any;
 
-    await service.create(dto);
+    await service.create(dto, TEST_COMPANY_ID);
 
     expect(inventoryService.increaseStock).toHaveBeenCalledWith(
       20,
       10,
       50,
+      TEST_COMPANY_ID,
       expect.objectContaining({ reference_type: 'grn_receipt', queryRunner: mockQueryRunner }),
     );
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();

@@ -1,16 +1,38 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { Repository, QueryRunner } from 'typeorm';
+import { Repository, QueryRunner, DataSource, EntityManager } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { StockItem } from './stock-item.entity';
 import { StockLedger } from './stock-ledger.entity';
 
 /**
  * InventoryService provides simple atomic helpers:
- * - checkAvailability(item_id, warehouse_id, qty, queryRunner?)
- * - decreaseStock(item_id, warehouse_id, qty, opts)
- * - increaseStock(item_id, warehouse_id, qty, opts)
+ * - checkAvailability(item_id, warehouse_id, qty, companyId, queryRunner?)
+ * - decreaseStock(item_id, warehouse_id, qty, companyId, opts)
+ * - increaseStock(item_id, warehouse_id, qty, companyId, opts)
  *
  * opts: { reference_type, reference_id, remarks, queryRunner }
+ *
+ * Multi-company Phase 1: every method takes companyId — item_id/warehouse_id
+ * alone already belong to exactly one company transitively, but stock_items/
+ * stock_ledger carry their own company_id column too (see Multi-Company
+ * Architecture Audit §6) so every query here filters directly on it rather
+ * than trusting an unscoped item_id/warehouse_id pair.
+ *
+ * Audit fix #4 (AUDIT_REPORT.md §1.6): decreaseStock/increaseStock used to
+ * read the current StockItem row, compute a new balance in application
+ * memory, then save it — with no row lock and, for callers that didn't pass
+ * a queryRunner (e.g. the manual stock-adjust endpoint), no transaction at
+ * all. Two concurrent movements against the same (item_id, warehouse_id)
+ * could both read the same starting quantity and silently lose one of the
+ * updates, or race past the "enough stock?" check and drive the balance
+ * negative. mutateStock() below is now the single place either operation
+ * happens: it always runs inside a transaction (the caller's, if a
+ * queryRunner was passed — every real caller already opens one; see
+ * dispatch.service.ts, grn.service.ts, fgr.service.ts, production.service.ts
+ * — otherwise one this service opens and manages itself) and takes a
+ * pessimistic write lock on the StockItem row before computing the new
+ * balance, so a concurrent writer for the same row blocks until this
+ * transaction commits instead of racing it.
  */
 @Injectable()
 export class InventoryService {
@@ -19,16 +41,18 @@ export class InventoryService {
     private stockItemRepo: Repository<StockItem>,
     @InjectRepository(StockLedger)
     private stockLedgerRepo: Repository<StockLedger>,
+    private dataSource: DataSource,
   ) {}
 
   // helper: fetch StockItem with optional queryRunner
   private async findStockRow(
     item_id: number,
     warehouse_id: number,
+    companyId: number,
     qr?: QueryRunner,
   ): Promise<StockItem | null> {
     const repo = qr ? qr.manager.getRepository(StockItem) : this.stockItemRepo;
-    return repo.findOne({ where: { item_id, warehouse_id } });
+    return repo.findOne({ where: { item_id, warehouse_id, company_id: companyId } });
   }
 
   // check availability (throws if not enough)
@@ -36,9 +60,10 @@ export class InventoryService {
     item_id: number,
     warehouse_id: number,
     qty: number,
+    companyId: number,
     qr?: QueryRunner,
   ) {
-    const row = await this.findStockRow(item_id, warehouse_id, qr);
+    const row = await this.findStockRow(item_id, warehouse_id, companyId, qr);
     const available = row ? Number(row.quantity) : 0;
     if (available < qty) {
       throw new BadRequestException(
@@ -48,11 +73,108 @@ export class InventoryService {
     return true;
   }
 
+  /**
+   * Shared core for decreaseStock/increaseStock (see class-level comment for
+   * why this exists). `delta` is signed: positive increases the balance,
+   * negative decreases it. Always called with a manager that belongs to an
+   * open transaction — either the caller's (via their queryRunner) or one
+   * this service opened itself in runMutation() below.
+   */
+  private async mutateStock(
+    manager: EntityManager,
+    item_id: number,
+    warehouse_id: number,
+    delta: number,
+    companyId: number,
+    opts: { reference_type: string; reference_id: number | null; remarks: string | null },
+  ): Promise<{ newQty: number }> {
+    const stockRepo = manager.getRepository(StockItem);
+    const ledgerRepo = manager.getRepository(StockLedger);
+
+    // Pessimistic write lock: blocks any other transaction trying to read
+    // (with a lock) or write this same row until this transaction commits
+    // or rolls back — the fix for the lost-update race described above.
+    let row = await stockRepo.findOne({
+      where: { item_id, warehouse_id, company_id: companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const prevQty = row ? Number(row.quantity) : 0;
+    const newQty = prevQty + delta;
+
+    if (newQty < 0) {
+      throw new BadRequestException(
+        `Insufficient stock for item ${item_id} in warehouse ${warehouse_id}. Available ${prevQty}, required ${-delta}.`,
+      );
+    }
+
+    if (row) {
+      row.quantity = newQty;
+      row.updated_at = new Date();
+      await stockRepo.save(row);
+    } else {
+      row = stockRepo.create({ item_id, warehouse_id, company_id: companyId, quantity: newQty });
+      await stockRepo.save(row);
+    }
+
+    const ledger = ledgerRepo.create({
+      company_id: companyId,
+      item_id,
+      warehouse_id,
+      qty_in: delta > 0 ? delta : 0,
+      qty_out: delta < 0 ? -delta : 0,
+      balance: newQty,
+      reference_type: opts.reference_type,
+      reference_id: opts.reference_id,
+      remarks: opts.remarks,
+    } as StockLedger);
+    await ledgerRepo.save(ledger);
+
+    return { newQty };
+  }
+
+  private async runMutation(
+    item_id: number,
+    warehouse_id: number,
+    delta: number,
+    companyId: number,
+    opts: {
+      reference_type?: string;
+      reference_id?: number;
+      remarks?: string;
+      queryRunner?: QueryRunner;
+    },
+  ): Promise<{ newQty: number }> {
+    const mutationOpts = {
+      reference_type: opts.reference_type ?? 'unknown',
+      reference_id: opts.reference_id ?? null,
+      remarks: opts.remarks ?? null,
+    };
+
+    if (opts.queryRunner) {
+      return this.mutateStock(
+        opts.queryRunner.manager,
+        item_id,
+        warehouse_id,
+        delta,
+        companyId,
+        mutationOpts,
+      );
+    }
+
+    // No caller-supplied transaction (e.g. the manual stock-adjust endpoint)
+    // — open and manage our own so the lock+read+write+ledger sequence is
+    // still atomic.
+    return this.dataSource.transaction((manager) =>
+      this.mutateStock(manager, item_id, warehouse_id, delta, companyId, mutationOpts),
+    );
+  }
+
   // decreaseStock: will create or update stock_items row and create a stock_ledger entry
   async decreaseStock(
     item_id: number,
     warehouse_id: number,
     qty: number,
+    companyId: number,
     opts: {
       reference_type?: string;
       reference_id?: number;
@@ -61,55 +183,7 @@ export class InventoryService {
     } = {},
   ) {
     if (qty <= 0) throw new BadRequestException('Quantity must be > 0');
-
-    const {
-      reference_type = 'unknown',
-      reference_id = null,
-      remarks = null,
-      queryRunner,
-    } = opts;
-    const repo = queryRunner
-      ? queryRunner.manager.getRepository(StockItem)
-      : this.stockItemRepo;
-    const ledgerRepo = queryRunner
-      ? queryRunner.manager.getRepository(StockLedger)
-      : this.stockLedgerRepo;
-
-    // lock/select for update if queryRunner used (depends on DB isolation)
-    let row = await repo.findOne({ where: { item_id, warehouse_id } });
-    const prevQty = row ? Number(row.quantity) : 0;
-    if (prevQty < qty) {
-      throw new BadRequestException(
-        `Insufficient stock. Item ${item_id} in warehouse ${warehouse_id}.`,
-      );
-    }
-
-    const newQty = prevQty - qty;
-
-    if (row) {
-      row.quantity = newQty;
-      row.updated_at = new Date();
-      await repo.save(row);
-    } else {
-      // this case won't normally happen because prevQty < qty caught earlier,
-      // but handle for safety.
-      row = repo.create({ item_id, warehouse_id, quantity: 0 });
-      await repo.save(row);
-    }
-
-    // push ledger
-    const ledger = ledgerRepo.create({
-      item_id,
-      warehouse_id,
-      qty_in: 0,
-      qty_out: qty,
-      balance: newQty,
-      reference_type,
-      reference_id: reference_id ?? null,
-      remarks: remarks ?? null,
-    } as StockLedger);
-    await ledgerRepo.save(ledger);
-    return { newQty };
+    return this.runMutation(item_id, warehouse_id, -qty, companyId, opts);
   }
 
   // increaseStock: increment and create ledger
@@ -117,6 +191,7 @@ export class InventoryService {
     item_id: number,
     warehouse_id: number,
     qty: number,
+    companyId: number,
     opts: {
       reference_type?: string;
       reference_id?: number;
@@ -125,54 +200,12 @@ export class InventoryService {
     } = {},
   ) {
     if (qty <= 0) throw new BadRequestException('Quantity must be > 0');
-
-    const {
-      reference_type = 'unknown',
-      reference_id = null,
-      remarks = null,
-      queryRunner,
-    } = opts;
-    const repo = queryRunner
-      ? queryRunner.manager.getRepository(StockItem)
-      : this.stockItemRepo;
-    const ledgerRepo = queryRunner
-      ? queryRunner.manager.getRepository(StockLedger)
-      : this.stockLedgerRepo;
-
-    let row = await repo.findOne({ where: { item_id, warehouse_id } });
-    const prevQty = row ? Number(row.quantity) : 0;
-    const newQty = prevQty + qty;
-
-    if (row) {
-      row.quantity = newQty;
-      row.updated_at = new Date();
-      await repo.save(row);
-    } else {
-      row = repo.create({
-        item_id,
-        warehouse_id,
-        quantity: newQty,
-      });
-      await repo.save(row);
-    }
-
-    const ledger = ledgerRepo.create({
-      item_id,
-      warehouse_id,
-      qty_in: qty,
-      qty_out: 0,
-      balance: newQty,
-      reference_type,
-      reference_id: reference_id ?? null,
-      remarks: remarks ?? null,
-    } as StockLedger);
-    await ledgerRepo.save(ledger);
-    return { newQty };
+    return this.runMutation(item_id, warehouse_id, qty, companyId, opts);
   }
 
   // convenience: get balance
-  async getBalance(item_id: number, warehouse_id: number, qr?: QueryRunner) {
-    const row = await this.findStockRow(item_id, warehouse_id, qr);
+  async getBalance(item_id: number, warehouse_id: number, companyId: number, qr?: QueryRunner) {
+    const row = await this.findStockRow(item_id, warehouse_id, companyId, qr);
     return row ? Number(row.quantity) : 0;
   }
 
@@ -180,21 +213,23 @@ export class InventoryService {
   // StockItem carries no TypeORM relations (just numeric item_id/warehouse_id),
   // so these join against the 'items'/'warehouses' tables directly by id.
 
-  async getTotalStockValue(): Promise<number> {
+  async getTotalStockValue(companyId: number): Promise<number> {
     const result = await this.stockItemRepo
       .createQueryBuilder('si')
       .innerJoin('items', 'item', 'item.id = si.item_id')
+      .where('si.company_id = :companyId', { companyId })
       .select('SUM(si.quantity * item.purchase_rate)', 'totalValue')
       .getRawOne<{ totalValue: string | null }>();
     return parseFloat(result?.totalValue ?? '0') || 0;
   }
 
   /** Base query joining stock_items -> items -> warehouses, flattened for reporting/dashboard use. */
-  private stockDetailsQuery() {
+  private stockDetailsQuery(companyId: number) {
     return this.stockItemRepo
       .createQueryBuilder('si')
       .innerJoin('items', 'item', 'item.id = si.item_id')
       .innerJoin('warehouses', 'wh', 'wh.id = si.warehouse_id')
+      .where('si.company_id = :companyId', { companyId })
       .select([
         'si.id AS id',
         'si.item_id AS item_id',
@@ -208,20 +243,23 @@ export class InventoryService {
       ]);
   }
 
-  async getLowStockItems(limit = 10): Promise<StockDetailRow[]> {
-    return this.stockDetailsQuery()
-      .where('si.quantity <= item.reorder_level AND item.reorder_level > 0')
+  async getLowStockItems(companyId: number, limit = 10): Promise<StockDetailRow[]> {
+    return this.stockDetailsQuery(companyId)
+      .andWhere('si.quantity <= item.reorder_level AND item.reorder_level > 0')
       .orderBy('si.quantity', 'ASC')
       .limit(limit)
       .getRawMany();
   }
 
   /** All current stock rows with item/warehouse details, for the stock report and current-stock page. */
-  async getAllStockWithDetails(filters?: {
-    search?: string;
-    warehouse_id?: number;
-  }): Promise<StockDetailRow[]> {
-    const qb = this.stockDetailsQuery();
+  async getAllStockWithDetails(
+    companyId: number,
+    filters?: {
+      search?: string;
+      warehouse_id?: number;
+    },
+  ): Promise<StockDetailRow[]> {
+    const qb = this.stockDetailsQuery(companyId);
     if (filters?.warehouse_id) {
       qb.andWhere('si.warehouse_id = :warehouse_id', {
         warehouse_id: filters.warehouse_id,
@@ -236,14 +274,18 @@ export class InventoryService {
   }
 
   /** Stock ledger entries with item/warehouse details, for the stock ledger page. */
-  async getLedger(filters?: {
-    search?: string;
-    warehouse_id?: number;
-  }): Promise<LedgerRow[]> {
+  async getLedger(
+    companyId: number,
+    filters?: {
+      search?: string;
+      warehouse_id?: number;
+    },
+  ): Promise<LedgerRow[]> {
     const qb = this.stockLedgerRepo
       .createQueryBuilder('sl')
       .innerJoin('items', 'item', 'item.id = sl.item_id')
       .innerJoin('warehouses', 'wh', 'wh.id = sl.warehouse_id')
+      .where('sl.company_id = :companyId', { companyId })
       .select([
         'sl.id AS id',
         'sl.created_at AS transaction_date',

@@ -29,11 +29,14 @@ export class ReportsService {
   ) {}
 
   // --- Data Fetching Methods with Advanced Filtering ---
+  // Multi-company Phase 1: every query starts from a company_id andWhere —
+  // see Multi-Company Architecture Audit §10 (reports were fully global).
 
-  async getPurchaseReport(filters: ReportFilters): Promise<PurchaseOrder[]> {
+  async getPurchaseReport(filters: ReportFilters, companyId: number): Promise<PurchaseOrder[]> {
     const query = this.poRepo
       .createQueryBuilder('po')
-      .leftJoinAndSelect('po.supplier', 'supplier');
+      .leftJoinAndSelect('po.supplier', 'supplier')
+      .where('po.company_id = :companyId', { companyId });
 
     if (filters.status) {
       query.andWhere('po.status = :status', { status: filters.status });
@@ -53,10 +56,11 @@ export class ReportsService {
     return query.orderBy('po.order_date', 'DESC').getMany();
   }
 
-  async getGrnReport(filters: ReportFilters): Promise<Grn[]> {
+  async getGrnReport(filters: ReportFilters, companyId: number): Promise<Grn[]> {
     const query = this.grnRepo
       .createQueryBuilder('grn')
-      .leftJoinAndSelect('grn.purchaseOrder', 'po');
+      .leftJoinAndSelect('grn.purchaseOrder', 'po')
+      .where('grn.company_id = :companyId', { companyId });
 
     if (filters.from && filters.to) {
       query.andWhere('grn.received_date BETWEEN :from AND :to', {
@@ -74,8 +78,10 @@ export class ReportsService {
     return query.orderBy('grn.received_date', 'DESC').getMany();
   }
 
-  async getDispatchReport(filters: ReportFilters): Promise<DispatchOrder[]> {
-    const query = this.dispatchRepo.createQueryBuilder('dispatch');
+  async getDispatchReport(filters: ReportFilters, companyId: number): Promise<DispatchOrder[]> {
+    const query = this.dispatchRepo
+      .createQueryBuilder('dispatch')
+      .where('dispatch.company_id = :companyId', { companyId });
 
     if (filters.customer) {
       query.andWhere('dispatch.customer_name LIKE :customer', {
@@ -92,8 +98,8 @@ export class ReportsService {
     return query.orderBy('dispatch.dispatch_date', 'DESC').getMany();
   }
 
-  getStockReport(): Promise<StockDetailRow[]> {
-    return this.inventoryService.getAllStockWithDetails();
+  getStockReport(companyId: number): Promise<StockDetailRow[]> {
+    return this.inventoryService.getAllStockWithDetails(companyId);
   }
 
   // --- Export Utility Methods (exportToExcel, exportToPdf) ---

@@ -1,8 +1,10 @@
 // erp-backend/src/app.module.ts
 
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -25,6 +27,7 @@ import { ReportsModule } from './reports/reports.module';
 import { SystemModule } from './system/system.module';
 import { RolesModule } from './rbac/roles/roles.module';
 import { CustomersModule } from './customers/customers.module';
+import { CompaniesModule } from './companies/companies.module';
 
 @Module({
   imports: [
@@ -34,17 +37,31 @@ import { CustomersModule } from './customers/customers.module';
       envFilePath: '.env', // Makes ConfigService available everywhere
     }),
 
+    // Audit fix #5 (AUDIT_REPORT.md §1.3/§1.7): no rate limiting existed
+    // anywhere, so /api/auth/login and the public /api/companies
+    // self-registration endpoint were open to unlimited attempts. This is a
+    // permissive global default (100 req/min per IP, applied to every route
+    // via the APP_GUARD below); AuthController.login/register and
+    // CompaniesController.create additionally carry a much tighter
+    // route-level @Throttle() (see those files) since brute-forcing
+    // credentials or spamming account creation is the actual risk.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),
+
     // Step 2: Configure TypeORM for the Supabase (PostgreSQL) connection
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
         const dbType = configService.get<string>('DB_TYPE') ?? 'postgres';
-        
-        // 🛡️ P0 - Production-Safe Condition Variable
-        const isProduction = configService.get<string>('NODE_ENV') === 'production';
-        // Production par schema automatic sync nahi hoga, migrations best strategy hain
-        const shouldSynchronize = !isProduction; 
+
+        // 🛠️ Multi-company Phase 1: synchronize is now OFF unconditionally.
+        // Real TypeORM migrations exist from here on (see src/data-source.ts,
+        // src/migrations/, and the migration:* npm scripts) — auto-sync would
+        // fight them and cause schema drift. Dev workflow is now: pull code,
+        // then `npm run migration:run` (also auto-applied on boot below via
+        // migrationsRun, for convenience).
+        const migrations = [__dirname + '/migrations/*{.ts,.js}'];
+        const migrationsRun = true;
 
         // SQLite local/dev fallback
         if (dbType === 'sqlite') {
@@ -52,7 +69,9 @@ import { CustomersModule } from './customers/customers.module';
             type: 'sqlite',
             database: configService.get<string>('DB_DATABASE') ?? 'data/sqlite.db',
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: shouldSynchronize, // 🛡️ Safe Option Applied
+            migrations,
+            migrationsRun,
+            synchronize: false,
           } as TypeOrmModuleOptions;
         }
 
@@ -61,8 +80,13 @@ import { CustomersModule } from './customers/customers.module';
           return {
             type: 'postgres',
             url: configService.get<string>('DATABASE_URL'),
+            // Optional: point at an isolated Postgres schema (e.g.
+            // DB_SCHEMA=erp_test) instead of "public" — see src/data-source.ts.
+            schema: configService.get<string>('DB_SCHEMA') || undefined,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: shouldSynchronize, // 🛡️ Safe Option Applied
+            migrations,
+            migrationsRun,
+            synchronize: false,
             ssl: configService.get<string>('DB_SSL') === 'true' || false,
             extra:
               configService.get<string>('DB_SSL') === 'true'
@@ -80,7 +104,9 @@ import { CustomersModule } from './customers/customers.module';
           password: configService.get<string>('DB_PASSWORD'),
           database: configService.get<string>('DB_DATABASE') ?? 'postgres',
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: shouldSynchronize, // 🛡️ Safe Option Applied
+          migrations,
+          migrationsRun,
+          synchronize: false,
           ssl: configService.get<string>('DB_SSL') === 'true' || false,
           extra:
             configService.get<string>('DB_SSL') === 'true'
@@ -112,8 +138,13 @@ import { CustomersModule } from './customers/customers.module';
     SystemModule,
     RolesModule,
     CustomersModule,
+    CompaniesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Applies ThrottlerModule's limits to every route by default.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

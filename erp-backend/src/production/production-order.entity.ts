@@ -5,8 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
 import { ProductionOrderItem } from './production-order-item.entity';
+import { Company } from '../companies/company.entity';
 
 export type ProductionOrderStatus =
   | 'draft'
@@ -15,12 +19,22 @@ export type ProductionOrderStatus =
   | 'completed'
   | 'cancelled';
 
+// Multi-company Phase 1: order_number uniqueness is now per-company (was
+// global — see Multi-Company Architecture Audit §9).
 @Entity({ name: 'production_orders' })
+@Unique(['company_id', 'order_number'])
 export class ProductionOrder {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column()
+  company_id: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
+
+  @Column()
   order_number: string;
 
   @Column()

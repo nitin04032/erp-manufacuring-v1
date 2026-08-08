@@ -23,17 +23,20 @@ export class SystemService {
     private itemsRepository: Repository<Item>,
   ) {}
 
-  async getStatus() {
+  // Multi-company Phase 1: scoped by companyId — this previously returned
+  // record counts across every company in the database (see Multi-Company
+  // Architecture Audit §10).
+  async getStatus(companyId: number) {
     try {
       // ✅ Check DB connection
       await this.usersRepository.query('SELECT 1');
       const dbStatus = true;
 
       // ✅ Stats
-      const supplierCount = await this.suppliersRepository.count();
-      const userCount = await this.usersRepository.count();
-      const warehouseCount = await this.warehousesRepository.count();
-      const itemCount = await this.itemsRepository.count();
+      const supplierCount = await this.suppliersRepository.count({ where: { company_id: companyId } });
+      const userCount = await this.usersRepository.count({ where: { company_id: companyId } });
+      const warehouseCount = await this.warehousesRepository.count({ where: { company_id: companyId } });
+      const itemCount = await this.itemsRepository.count({ where: { company_id: companyId } });
       const locationCount = 0;
 
       return {

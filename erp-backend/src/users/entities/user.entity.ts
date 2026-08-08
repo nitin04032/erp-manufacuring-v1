@@ -11,11 +11,22 @@ import {
 } from 'typeorm';
 import { UserRole, UserStatus } from '../enums/user.enum'; // 🛠️ Path Fix (Ek folder peeche)
 import { Role } from '../../rbac/roles/entities/role.entity'; // 🛠️ Path Fix (Do folder peeche)
+import { Company } from '../../companies/company.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
+
+  // Tenant boundary (see Multi-Company Architecture Audit — Phase 1). Every
+  // user belongs to exactly one company; username/email stay globally unique
+  // by design (one-company-per-user model), not scoped per company.
+  @Column()
+  company_id: number;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company?: Company;
 
   @Column({ unique: true })
   username: string;

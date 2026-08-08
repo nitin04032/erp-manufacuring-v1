@@ -11,6 +11,8 @@ import { InventoryService } from '../inventory/inventory.service';
 // this.stocksService['itemsService'].findByCode(...), a property that never
 // existed on StocksService, crashing every FGR creation with a TypeError.
 // It now resolves the item/warehouse directly and moves stock via InventoryService.
+const TEST_COMPANY_ID = 1;
+
 describe('FgrService', () => {
   let service: FgrService;
   let itemsService: { findByCode: jest.Mock };
@@ -71,14 +73,15 @@ describe('FgrService', () => {
       receipt_date: '2026-01-01',
     } as any;
 
-    const result = await service.create(dto);
+    const result = await service.create(dto, TEST_COMPANY_ID);
 
-    expect(itemsService.findByCode).toHaveBeenCalledWith('FG-001');
-    expect(warehousesService.findByName).toHaveBeenCalledWith('FG Store');
+    expect(itemsService.findByCode).toHaveBeenCalledWith('FG-001', TEST_COMPANY_ID);
+    expect(warehousesService.findByName).toHaveBeenCalledWith('FG Store', TEST_COMPANY_ID);
     expect(inventoryService.increaseStock).toHaveBeenCalledWith(
       30,
       40,
       10,
+      TEST_COMPANY_ID,
       expect.objectContaining({ reference_type: 'fgr_receipt', queryRunner: mockQueryRunner }),
     );
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
