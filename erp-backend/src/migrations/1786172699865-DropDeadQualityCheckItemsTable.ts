@@ -20,23 +20,23 @@ export class DropDeadQualityCheckItemsTable1786172699865
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."quality_check_items" DROP CONSTRAINT "FK_ac9ad5be8ae0e197d5a1bff9a8b"`,
+      `ALTER TABLE "quality_check_items" DROP CONSTRAINT "FK_ac9ad5be8ae0e197d5a1bff9a8b"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."quality_check_items" DROP CONSTRAINT "FK_580d476ef191ec7c385d66171a5"`,
+      `ALTER TABLE "quality_check_items" DROP CONSTRAINT "FK_580d476ef191ec7c385d66171a5"`,
     );
-    await queryRunner.query(`DROP TABLE "erp_test"."quality_check_items"`);
+    await queryRunner.query(`DROP TABLE "quality_check_items"`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `CREATE TABLE "erp_test"."quality_check_items" ("id" SERIAL NOT NULL, "received_qty" integer NOT NULL, "checked_qty" integer NOT NULL, "passed_qty" integer NOT NULL, "failed_qty" integer NOT NULL, "remarks" text, "qualityCheckId" integer, "itemId" integer, CONSTRAINT "PK_63fe2d89f2735b6d70f7a5ca753" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "quality_check_items" ("id" SERIAL NOT NULL, "received_qty" integer NOT NULL, "checked_qty" integer NOT NULL, "passed_qty" integer NOT NULL, "failed_qty" integer NOT NULL, "remarks" text, "qualityCheckId" integer, "itemId" integer, CONSTRAINT "PK_63fe2d89f2735b6d70f7a5ca753" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."quality_check_items" ADD CONSTRAINT "FK_580d476ef191ec7c385d66171a5" FOREIGN KEY ("qualityCheckId") REFERENCES "erp_test"."quality_checks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      `ALTER TABLE "quality_check_items" ADD CONSTRAINT "FK_580d476ef191ec7c385d66171a5" FOREIGN KEY ("qualityCheckId") REFERENCES "quality_checks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."quality_check_items" ADD CONSTRAINT "FK_ac9ad5be8ae0e197d5a1bff9a8b" FOREIGN KEY ("itemId") REFERENCES "erp_test"."items"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+      `ALTER TABLE "quality_check_items" ADD CONSTRAINT "FK_ac9ad5be8ae0e197d5a1bff9a8b" FOREIGN KEY ("itemId") REFERENCES "items"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
   }
 }

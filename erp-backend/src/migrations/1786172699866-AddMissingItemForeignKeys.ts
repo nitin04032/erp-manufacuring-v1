@@ -28,31 +28,29 @@ export class AddMissingItemForeignKeys1786172699866
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `CREATE INDEX "IDX_bom_items_item_id" ON "erp_test"."bom_items" ("item_id")`,
+      `CREATE INDEX "IDX_bom_items_item_id" ON "bom_items" ("item_id")`,
     );
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."bom_items" ADD CONSTRAINT "FK_bom_items_item_id" FOREIGN KEY ("item_id") REFERENCES "erp_test"."items"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+      `ALTER TABLE "bom_items" ADD CONSTRAINT "FK_bom_items_item_id" FOREIGN KEY ("item_id") REFERENCES "items"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_production_order_items_item_id" ON "erp_test"."production_order_items" ("item_id")`,
+      `CREATE INDEX "IDX_production_order_items_item_id" ON "production_order_items" ("item_id")`,
     );
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."production_order_items" ADD CONSTRAINT "FK_production_order_items_item_id" FOREIGN KEY ("item_id") REFERENCES "erp_test"."items"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+      `ALTER TABLE "production_order_items" ADD CONSTRAINT "FK_production_order_items_item_id" FOREIGN KEY ("item_id") REFERENCES "items"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."production_order_items" DROP CONSTRAINT "FK_production_order_items_item_id"`,
+      `ALTER TABLE "production_order_items" DROP CONSTRAINT "FK_production_order_items_item_id"`,
     );
-    await queryRunner.query(
-      `DROP INDEX "erp_test"."IDX_production_order_items_item_id"`,
-    );
+    await queryRunner.query(`DROP INDEX "IDX_production_order_items_item_id"`);
 
     await queryRunner.query(
-      `ALTER TABLE "erp_test"."bom_items" DROP CONSTRAINT "FK_bom_items_item_id"`,
+      `ALTER TABLE "bom_items" DROP CONSTRAINT "FK_bom_items_item_id"`,
     );
-    await queryRunner.query(`DROP INDEX "erp_test"."IDX_bom_items_item_id"`);
+    await queryRunner.query(`DROP INDEX "IDX_bom_items_item_id"`);
   }
 }
