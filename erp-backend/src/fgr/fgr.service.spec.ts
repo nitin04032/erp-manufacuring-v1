@@ -6,6 +6,7 @@ import { FinishedGoodsReceipt } from './fgr.entity';
 import { ItemsService } from '../items/items.service';
 import { WarehousesService } from '../warehouses/warehouses.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { CreateFgrDto } from './dto/create-fgr.dto';
 
 // Regression test for the Phase 1 fix: FgrService.create() used to call
 // this.stocksService['itemsService'].findByCode(...), a property that never
@@ -26,8 +27,11 @@ describe('FgrService', () => {
     rollbackTransaction: jest.fn(),
     release: jest.fn(),
     manager: {
-      create: jest.fn((_entity, data) => ({ id: 1, ...data })),
-      save: jest.fn((_entity, data) => Promise.resolve(data)),
+      create: jest.fn((_entity: unknown, data: Record<string, unknown>) => ({
+        id: 1,
+        ...data,
+      })),
+      save: jest.fn((_entity: unknown, data: unknown) => Promise.resolve(data)),
     },
   };
 
@@ -67,7 +71,7 @@ describe('FgrService', () => {
       name: 'FG Store',
     });
 
-    const dto = {
+    const dto: CreateFgrDto = {
       receipt_number: 'FGR-001',
       production_order_no: 'PROD-001',
       item_code: 'FG-001',
@@ -76,7 +80,7 @@ describe('FgrService', () => {
       uom: 'PCS',
       warehouse_name: 'FG Store',
       receipt_date: '2026-01-01',
-    } as any;
+    };
 
     const result = await service.create(dto, TEST_COMPANY_ID);
 

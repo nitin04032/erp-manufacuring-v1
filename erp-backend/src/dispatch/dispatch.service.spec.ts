@@ -6,6 +6,7 @@ import { DispatchOrder } from './dispatch.entity';
 import { ItemsService } from '../items/items.service';
 import { WarehousesService } from '../warehouses/warehouses.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { CreateDispatchDto } from './dto/create-dispatch.dto';
 
 // Regression test for the Phase 1 fix: DispatchService.create() used to reach
 // into StocksService for a nonexistent `itemsService` property
@@ -30,8 +31,11 @@ describe('DispatchService', () => {
     rollbackTransaction: jest.fn(),
     release: jest.fn(),
     manager: {
-      create: jest.fn((_entity, data) => ({ id: 1, ...data })),
-      save: jest.fn((_entity, data) => Promise.resolve(data)),
+      create: jest.fn((_entity: unknown, data: Record<string, unknown>) => ({
+        id: 1,
+        ...data,
+      })),
+      save: jest.fn((_entity: unknown, data: unknown) => Promise.resolve(data)),
     },
   };
 
@@ -71,13 +75,13 @@ describe('DispatchService', () => {
     warehousesService.findByName.mockResolvedValue({ id: 10, name: 'Main WH' });
     itemsService.findByCode.mockResolvedValue({ id: 20, sku: 'ITEM-001' });
 
-    const dto = {
+    const dto: CreateDispatchDto = {
       dispatch_number: 'DISP-001',
       customer_name: 'Acme',
       warehouse_name: 'Main WH',
       dispatch_date: '2026-01-01',
       items: [{ item_code: 'ITEM-001', dispatched_qty: 5 }],
-    } as any;
+    };
 
     const result = await service.create(dto, TEST_COMPANY_ID);
 
@@ -117,13 +121,13 @@ describe('DispatchService', () => {
       new Error('Insufficient stock'),
     );
 
-    const dto = {
+    const dto: CreateDispatchDto = {
       dispatch_number: 'DISP-002',
       customer_name: 'Acme',
       warehouse_name: 'Main WH',
       dispatch_date: '2026-01-01',
       items: [{ item_code: 'ITEM-001', dispatched_qty: 999 }],
-    } as any;
+    };
 
     await expect(service.create(dto, TEST_COMPANY_ID)).rejects.toThrow(
       'Insufficient stock',

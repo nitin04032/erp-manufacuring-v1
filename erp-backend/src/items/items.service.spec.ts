@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ItemsService } from './items.service';
 import { Item } from './item.entity';
+import { CreateItemDto } from './dto/create-item.dto';
 
 // Written alongside the TenantScopedRepository migration (see
 // items.service.ts's class comment, V2_ARCHITECTURE.md §3) — this module
@@ -28,8 +29,10 @@ describe('ItemsService', () => {
     repo = {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((v) => v),
-      save: jest.fn((v) => Promise.resolve({ id: 1, ...v })),
+      create: jest.fn((v: unknown) => v),
+      save: jest.fn((v: Record<string, unknown>) =>
+        Promise.resolve({ id: 1, ...v }),
+      ),
       softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
       count: jest.fn().mockResolvedValue(0),
     };
@@ -46,7 +49,8 @@ describe('ItemsService', () => {
 
   describe('create', () => {
     it("scopes the duplicate-check and the save to the caller's company", async () => {
-      await service.create({ sku: 'SKU-1', name: 'Widget' } as any, COMPANY_A);
+      const dto: CreateItemDto = { sku: 'SKU-1', name: 'Widget' };
+      await service.create(dto, COMPANY_A);
 
       expect(repo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -67,16 +71,18 @@ describe('ItemsService', () => {
 
     it('throws ConflictException when an item with the same SKU/name already exists in this company', async () => {
       repo.findOne.mockResolvedValueOnce({ id: 9, sku: 'SKU-1' });
-      await expect(
-        service.create({ sku: 'SKU-1', name: 'Widget' } as any, COMPANY_A),
-      ).rejects.toThrow(ConflictException);
+      const dto: CreateItemDto = { sku: 'SKU-1', name: 'Widget' };
+      await expect(service.create(dto, COMPANY_A)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('auto-generates a SKU scoped to this company when none is supplied', async () => {
       repo.findOne
         .mockResolvedValueOnce({ sku: 'ITEM-00003' })
         .mockResolvedValueOnce(null);
-      await service.create({ name: 'Widget' } as any, COMPANY_A);
+      const dto: CreateItemDto = { name: 'Widget' };
+      await service.create(dto, COMPANY_A);
 
       // First call is generateSku()'s "last item for this company" lookup.
       expect(repo.findOne).toHaveBeenNthCalledWith(
@@ -99,7 +105,14 @@ describe('ItemsService', () => {
 
     it("scopes every OR clause of a search query to the caller's company", async () => {
       await service.findAll(COMPANY_A, { search: 'bolt' });
-      const call = repo.find.mock.calls[0][0];
+      // Cast right after `.mock.calls` (still `any` there, from jest.Mock's
+      // untyped default generic) rather than on the final indexed result —
+      // casting only the end value still leaves each intermediate [0]
+      // index operating on `any`, which is what was actually flagged.
+      const calls = repo.find.mock.calls as {
+        where: { company_id: number }[];
+      }[][];
+      const call = calls[0][0];
       expect(call.where).toHaveLength(3);
       for (const clause of call.where) {
         expect(clause.company_id).toBe(COMPANY_A);

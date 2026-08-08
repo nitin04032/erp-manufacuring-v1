@@ -23,8 +23,8 @@ describe('TenantScopedRepository', () => {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue(null),
       count: jest.fn().mockResolvedValue(0),
-      create: jest.fn().mockImplementation((x) => x),
-      save: jest.fn().mockImplementation((x) => Promise.resolve(x)),
+      create: jest.fn().mockImplementation((x: unknown) => x),
+      save: jest.fn().mockImplementation((x: unknown) => Promise.resolve(x)),
       softDelete: jest
         .fn()
         .mockResolvedValue({ affected: 1, raw: [], generatedMaps: [] }),
@@ -71,14 +71,14 @@ describe('TenantScopedRepository', () => {
   });
 
   it("a caller cannot override company_id via the where clause — the scope's value always wins", async () => {
-    await scoped.findOne({ where: { company_id: 999, id: 5 } as any });
+    await scoped.findOne({ where: { company_id: 999, id: 5 } });
     expect(repo.findOne).toHaveBeenCalledWith(
       expect.objectContaining({ where: { company_id: companyId, id: 5 } }),
     );
   });
 
   it('create() stamps company_id onto the new entity', () => {
-    scoped.create({ name: 'widget' } as any);
+    scoped.create({ name: 'widget' });
     expect(repo.create).toHaveBeenCalledWith({
       name: 'widget',
       company_id: companyId,
@@ -86,7 +86,7 @@ describe('TenantScopedRepository', () => {
   });
 
   it('save() stamps company_id when absent', async () => {
-    await scoped.save({ name: 'widget' } as any);
+    await scoped.save({ name: 'widget' });
     expect(repo.save).toHaveBeenCalledWith({
       name: 'widget',
       company_id: companyId,
@@ -94,7 +94,7 @@ describe('TenantScopedRepository', () => {
   });
 
   it('save() allows a matching company_id through unchanged', async () => {
-    await scoped.save({ name: 'widget', company_id: companyId } as any);
+    await scoped.save({ name: 'widget', company_id: companyId });
     expect(repo.save).toHaveBeenCalledWith({
       name: 'widget',
       company_id: companyId,
@@ -103,13 +103,13 @@ describe('TenantScopedRepository', () => {
 
   it('save() throws rather than silently cross-writing a different company_id', async () => {
     await expect(
-      scoped.save({ name: 'widget', company_id: 999 } as any),
+      scoped.save({ name: 'widget', company_id: 999 }),
     ).rejects.toThrow(/refusing to save/);
     expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('softDelete() scopes by company_id', async () => {
-    await scoped.softDelete({ id: 5 } as any);
+    await scoped.softDelete({ id: 5 });
     expect(repo.softDelete).toHaveBeenCalledWith({
       company_id: companyId,
       id: 5,

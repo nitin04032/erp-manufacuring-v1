@@ -7,6 +7,7 @@ import { GrnItem } from './entities/grn-item.entity';
 import { Item } from '../items/item.entity';
 import { Warehouse } from '../warehouses/warehouse.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import { CreateGrnDto } from './dto/create-grn.dto';
 
 // Regression test for the Phase 1 fix: GRN.create() persisted the goods
 // receipt but never updated warehouse stock at all — receiving never
@@ -48,8 +49,8 @@ describe('GrnService', () => {
         .fn()
         .mockResolvedValue(null) // used by generateGrnNumber()
         .mockResolvedValueOnce(null),
-      create: jest.fn((v) => v),
-    } as any;
+      create: jest.fn((v: unknown) => v),
+    };
     inventoryService = {
       increaseStock: jest.fn().mockResolvedValue({ newQty: 25 }),
     };
@@ -60,7 +61,7 @@ describe('GrnService', () => {
         { provide: getRepositoryToken(Grn), useValue: grnRepo },
         {
           provide: getRepositoryToken(GrnItem),
-          useValue: { create: jest.fn((v) => v) },
+          useValue: { create: jest.fn((v: unknown) => v) },
         },
         { provide: getRepositoryToken(Item), useValue: itemRepo },
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepo },
@@ -84,11 +85,11 @@ describe('GrnService', () => {
   });
 
   it('increases stock via InventoryService for each received line item', async () => {
-    const dto = {
+    const dto: CreateGrnDto = {
       grn_date: '2026-01-01',
       warehouse_id: 10,
       items: [{ item_id: 20, received_qty: 50 }],
-    } as any;
+    };
 
     await service.create(dto, TEST_COMPANY_ID);
 
