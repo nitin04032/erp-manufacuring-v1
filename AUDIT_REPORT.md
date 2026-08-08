@@ -174,7 +174,7 @@ Also note: `stock_items` has a unique constraint on `(item_id, warehouse_id)` **
 1. **Stock race condition** (§1.6) — the most serious integrity risk in the current system; not locking the read-modify-write cycle on `stock_items` means concurrent writers can corrupt the balance.
 2. **Two FK gaps** above (§2.4).
 3. **`stocks` vs `stock_items`/`stock_ledger` duplication** (§3.1) — two different tables can independently claim to represent "current stock," with no mechanism keeping them in sync. If both are actually read from anywhere in the frontend, they can disagree.
-4. **Dead `quality_check_items` table** created by the migration but never written to by any live code path (§3.2) — schema noise today, a trap for a future developer who finds the table and assumes it's the real one.
+4. **Dead `quality_check_items` table** — created by the migration (with its own FKs to `quality_checks` and `items`) but never written to by any live code path (§3.2) — schema noise today, a trap for a future developer who finds the table and assumes it's the real one (the real table is `qc_items`).
 5. No soft-delete-aware uniqueness: several entities use `deleted_at` (soft delete) alongside a plain unique constraint (e.g. `items` unique on `(company_id, sku)` with no `WHERE deleted_at IS NULL` partial-index qualifier). Soft-deleting an item and creating a new one with the same SKU will hit a unique-constraint violation even though the old row is "deleted." Worth a partial unique index (`... WHERE deleted_at IS NULL`) wherever soft delete and uniqueness combine.
 
 ### 2.6 Scalability concerns
