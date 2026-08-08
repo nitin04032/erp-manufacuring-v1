@@ -8,7 +8,7 @@ import {
   MinLength,
   Matches,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Trim, TrimLower } from '../../common/transformers/trim.transformer';
 
 export class RegisterDto {
   // Tenant boundary (see Multi-Company Architecture Audit — Phase 1). Must
@@ -18,7 +18,7 @@ export class RegisterDto {
   @IsPositive()
   company_id: number;
 
-  @Transform(({ value }) => value?.trim())
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
@@ -27,7 +27,7 @@ export class RegisterDto {
   })
   username: string;
 
-  @Transform(({ value }) => value?.trim().toLowerCase())
+  @TrimLower()
   @IsEmail()
   email: string;
 
@@ -35,7 +35,7 @@ export class RegisterDto {
   @MaxLength(100)
   password: string;
 
-  @Transform(({ value }) => value?.trim())
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

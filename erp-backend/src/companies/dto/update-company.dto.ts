@@ -1,9 +1,6 @@
 // erp-backend/src/companies/dto/update-company.dto.ts
 import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
-import { Transform } from 'class-transformer';
-
-const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
+import { Trim } from '../../common/transformers/trim.transformer';
 
 // Deliberately separate from CreateCompanyDto (not a PartialType of it) — the
 // admin_* fields on create are a one-time bootstrap action, not something

@@ -8,10 +8,7 @@ import {
   MinLength,
   Matches,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
-
-const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
+import { Trim, TrimLower } from '../../common/transformers/trim.transformer';
 
 // Creates a Company row AND its first COMPANY_ADMIN user in one call — this
 // is the replacement for the old "first user in the whole DB becomes
@@ -61,7 +58,7 @@ export class CreateCompanyDto {
   country?: string;
 
   // --- First admin user fields (mirrors RegisterDto's shape/validation) ---
-  @Transform(({ value }) => value?.trim())
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
@@ -71,13 +68,13 @@ export class CreateCompanyDto {
   })
   admin_username!: string;
 
-  @Transform(({ value }) => value?.trim())
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   admin_name!: string;
 
-  @Transform(({ value }) => value?.trim().toLowerCase())
+  @TrimLower()
   @IsEmail()
   admin_email!: string;
 

@@ -8,9 +8,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-
-export const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
+import { Trim } from '../../common/transformers/trim.transformer';
 
 export class CreateItemDto {
   @IsOptional()
@@ -54,6 +52,9 @@ export class CreateItemDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => (value === undefined ? true : value)) // eslint-disable-line @typescript-eslint/no-unsafe-return
+  @Transform(({ value }) => {
+    const v: unknown = value;
+    return v === undefined ? true : v;
+  })
   is_active?: boolean = true;
 }

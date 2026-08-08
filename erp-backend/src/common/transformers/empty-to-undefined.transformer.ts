@@ -14,4 +14,7 @@ import { Transform } from 'class-transformer';
  * "" to `undefined` so @IsOptional() actually takes effect.
  */
 export const EmptyToUndefined = () =>
-  Transform(({ value }) => (value === '' ? undefined : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
+  Transform(({ value }) => {
+    const v: unknown = value;
+    return v === '' ? undefined : v;
+  });

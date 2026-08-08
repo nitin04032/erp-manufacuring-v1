@@ -8,11 +8,8 @@ import {
   IsPhoneNumber,
   ValidateIf,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 import { EmptyToUndefined } from '../../common/transformers/empty-to-undefined.transformer';
-
-export const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
+import { Trim } from '../../common/transformers/trim.transformer';
 
 export class CreateWarehouseDto {
   @IsOptional()

@@ -11,12 +11,10 @@ import {
   Min,
   Matches,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 import { EmptyToUndefined } from '../../common/transformers/empty-to-undefined.transformer';
+import { Trim } from '../../common/transformers/trim.transformer';
 
 // Mirrors erp-backend/src/suppliers/dto/create-supplier.dto.ts
-export const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)); // eslint-disable-line @typescript-eslint/no-unsafe-return
 
 export enum CustomerStatus {
   ACTIVE = 'active',
