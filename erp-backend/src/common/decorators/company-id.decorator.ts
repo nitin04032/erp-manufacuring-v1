@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { AuthenticatedRequest } from '../types/authenticated-request';
 
 /**
  * Multi-company Phase 1 tenant boundary. Pulls the authenticated request's
@@ -21,7 +22,7 @@ import {
  */
 export const CompanyId = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): number => {
-    const request = ctx.switchToHttp().getRequest();
+    const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
     const companyId: number | undefined = request.user?.companyId;
 
     if (companyId === undefined || companyId === null) {

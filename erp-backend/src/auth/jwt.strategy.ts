@@ -5,6 +5,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { Permission } from '../rbac/permissions/entities/permission.entity';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -55,8 +56,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     // 🛡️ Flattening permissions: Database nodes se identifiers ko array context ['inventory.view', 'user.create'] me convert kiya
-    const permissions =
-      user.roleRelation?.permissions?.map((p: any) => p.code || p.name) || [];
+    // (Permission has no `name` field — only `code` — so the `|| p.name`
+    // this replaced was always a no-op fallback to `undefined`, dead code
+    // hidden by the untyped `p: any`.)
+    const permissions: string[] =
+      user.roleRelation?.permissions?.map((p: Permission) => p.code) || [];
 
     // Yeh return object seedhe controllers me `req.user` (`@Req() req`) ke roop me automatically accessible ho jayega
     return {

@@ -12,12 +12,22 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { User } from '../users/entities/user.entity';
+import { AuthenticatedRequest } from '../common/types/authenticated-request';
+
+// Populated by RefreshStrategy.validate() (src/auth/refresh.strategy.ts),
+// distinct from AuthenticatedRequest — the refresh endpoint runs the
+// 'jwt-refresh' strategy, not 'jwt', so req.user here is only { id,
+// refreshToken }, not the full RequestUser shape.
+interface RefreshAuthenticatedRequest extends Request {
+  user: { id: number; refreshToken: string };
+}
 
 // '/auth' route par saare requests yahan aayenge
 @Controller('auth')
@@ -46,20 +56,29 @@ export class AuthController {
         message: 'User registered successfully',
         user,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Agar 'users.service' se 'ConflictException' (409) aati hai (duplicate email/username)
       if (error instanceof ConflictException) {
         throw new HttpException(error.message, HttpStatus.CONFLICT);
       }
 
-      // Agar class-validator se koi validation error aata hai
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error?.response?.message) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const messages = Array.isArray(error.response.message)
-          ? error.response.message.join(', ') // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          : error.response.message; // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        throw new HttpException(messages, HttpStatus.BAD_REQUEST);
+      // Agar class-validator se koi validation error aata hai. `.response`
+      // used to be poked at directly (error?.response?.message) — it's a
+      // *private* field on HttpException (only compiled because `error`
+      // was typed `any`, which turns off visibility checks entirely);
+      // .getResponse() is the actual public API for this.
+      if (error instanceof HttpException) {
+        const body = error.getResponse();
+        const bodyMessage =
+          typeof body === 'object' && body !== null && 'message' in body
+            ? (body as { message: unknown }).message
+            : undefined;
+        if (bodyMessage) {
+          const messages = Array.isArray(bodyMessage)
+            ? bodyMessage.join(', ')
+            : String(bodyMessage);
+          throw new HttpException(messages, HttpStatus.BAD_REQUEST);
+        }
       }
 
       // Baaki sabhi errors ke liye ek general error bhejte hain.
@@ -105,7 +124,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt-refresh'))
-  async refresh(@Req() req: any) {
+  async refresh(@Req() req: RefreshAuthenticatedRequest) {
     // Strategy se request me 'user' object attach hota hai jisme id aur refreshToken hota hai
     return this.authService.refreshTokens(req.user.id, req.user.refreshToken);
   }
@@ -117,7 +136,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt')) // Standard Access Token verification guard
-  async logout(@Req() req: any) {
+  async logout(@Req() req: AuthenticatedRequest) {
     // Strategy se mile user id ke base par token clear karenge
     return this.authService.logout(req.user.id);
   }

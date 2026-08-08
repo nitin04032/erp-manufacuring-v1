@@ -125,10 +125,15 @@ export class UsersService {
     updates: Partial<User>,
     companyId: number,
   ): Promise<any> {
-    // Security check: Password update karne se rokein is function se
-    delete (updates as any).password_hash;
+    // Security check: Password update karne se rokein is function se.
+    // `updates` is Partial<User>, so both fields are already optional —
+    // the `as any` cast here wasn't needed for `delete` to type-check,
+    // and it was silently turning off type-checking on every property
+    // access on `updates` for the rest of this block (flagged by
+    // @typescript-eslint/no-unsafe-member-access).
+    delete updates.password_hash;
     // Also never let a generic update move a user to a different company.
-    delete (updates as any).company_id;
+    delete updates.company_id;
     const result = await this.usersRepository.update(
       { id, company_id: companyId },
       updates,

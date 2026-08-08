@@ -20,7 +20,7 @@ export class TransformInterceptor<T>
 {
   intercept(
     context: ExecutionContext,
-    next: CallHandler,
+    next: CallHandler<T>,
   ): Observable<ResponseFormat<T>> {
     return next.handle().pipe(
       map((data) => ({
