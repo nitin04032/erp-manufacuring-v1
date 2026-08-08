@@ -32,8 +32,18 @@ export interface ReportFilters {
 function cellToString(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) return value.toLocaleDateString();
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint'
+  ) {
+    return String(value);
+  }
+  // Functions, symbols, or a plain object/array a misconfigured column
+  // path landed on — JSON.stringify is at least informative, unlike
+  // String()'s "[object Object]".
+  return JSON.stringify(value) ?? '';
 }
 
 @Injectable()

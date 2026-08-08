@@ -19,7 +19,16 @@ export default tseslint.config(
       },
       sourceType: 'commonjs',
       parserOptions: {
-        projectService: true,
+        // test/*.ts (e2e specs) aren't included by tsconfig.json's build
+        // config (deliberately — rootDir: "./src" means test files must
+        // stay out of it) or by any other tsconfig, so the project
+        // service can't otherwise find a project for them. allowDefaultProject
+        // is typescript-eslint's sanctioned escape hatch for exactly this
+        // (config files, test files) — an ad-hoc in-memory project using
+        // the nearest tsconfig's compiler options, just for linting.
+        projectService: {
+          allowDefaultProject: ['test/*.ts'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
