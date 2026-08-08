@@ -11,6 +11,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -28,6 +29,10 @@ export class CompaniesController {
    * Creates a Company and its first COMPANY_ADMIN user together; this is the
    * new "sign up" entry point (see CompaniesService.createWithAdmin).
    */
+  // Audit fix #5 (AUDIT_REPORT.md §1.3/§1.7): 5 attempts/min per IP — this
+  // endpoint creates a company *and* its first admin user's password in one
+  // unauthenticated call, so it deserves the same limit as login/register.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post()
   create(@Body() dto: CreateCompanyDto) {
     return this.companiesService.createWithAdmin(dto);

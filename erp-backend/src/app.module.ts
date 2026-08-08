@@ -1,8 +1,10 @@
 // erp-backend/src/app.module.ts
 
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -34,6 +36,16 @@ import { CompaniesModule } from './companies/companies.module';
       isGlobal: true,
       envFilePath: '.env', // Makes ConfigService available everywhere
     }),
+
+    // Audit fix #5 (AUDIT_REPORT.md §1.3/§1.7): no rate limiting existed
+    // anywhere, so /api/auth/login and the public /api/companies
+    // self-registration endpoint were open to unlimited attempts. This is a
+    // permissive global default (100 req/min per IP, applied to every route
+    // via the APP_GUARD below); AuthController.login/register and
+    // CompaniesController.create additionally carry a much tighter
+    // route-level @Throttle() (see those files) since brute-forcing
+    // credentials or spamming account creation is the actual risk.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),
 
     // Step 2: Configure TypeORM for the Supabase (PostgreSQL) connection
     TypeOrmModule.forRootAsync({
@@ -129,6 +141,10 @@ import { CompaniesModule } from './companies/companies.module';
     CompaniesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Applies ThrottlerModule's limits to every route by default.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
