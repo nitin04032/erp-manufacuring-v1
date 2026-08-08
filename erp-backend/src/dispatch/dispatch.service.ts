@@ -19,8 +19,14 @@ export class DispatchService {
     private dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateDispatchDto, companyId: number): Promise<DispatchOrder> {
-    const warehouse = await this.warehousesService.findByName(dto.warehouse_name, companyId);
+  async create(
+    dto: CreateDispatchDto,
+    companyId: number,
+  ): Promise<DispatchOrder> {
+    const warehouse = await this.warehousesService.findByName(
+      dto.warehouse_name,
+      companyId,
+    );
 
     // Resolve every item code to its entity up front so we fail fast (before
     // opening a transaction) if the dispatch references an unknown item.
@@ -52,17 +58,26 @@ export class DispatchService {
         company_id: companyId,
         dispatch_date: new Date(dto.dispatch_date),
       });
-      const savedDispatch = await queryRunner.manager.save(DispatchOrder, dispatch);
+      const savedDispatch = await queryRunner.manager.save(
+        DispatchOrder,
+        dispatch,
+      );
 
       // 2) Decrease stock for each item, with a ledger entry pointing back
       // at this dispatch order.
       for (const { item, dispatched_qty } of resolvedItems) {
-        await this.inventoryService.decreaseStock(item.id, warehouse.id, dispatched_qty, companyId, {
-          reference_type: 'dispatch',
-          reference_id: savedDispatch.id,
-          remarks: `Dispatch ${savedDispatch.dispatch_number}`,
-          queryRunner,
-        });
+        await this.inventoryService.decreaseStock(
+          item.id,
+          warehouse.id,
+          dispatched_qty,
+          companyId,
+          {
+            reference_type: 'dispatch',
+            reference_id: savedDispatch.id,
+            remarks: `Dispatch ${savedDispatch.dispatch_number}`,
+            queryRunner,
+          },
+        );
       }
 
       await queryRunner.commitTransaction();
@@ -76,16 +91,25 @@ export class DispatchService {
   }
 
   findAll(companyId: number): Promise<DispatchOrder[]> {
-    return this.repo.find({ where: { company_id: companyId }, order: { dispatch_date: 'DESC' } });
+    return this.repo.find({
+      where: { company_id: companyId },
+      order: { dispatch_date: 'DESC' },
+    });
   }
 
   async findOne(id: number, companyId: number): Promise<DispatchOrder> {
-    const order = await this.repo.findOne({ where: { id, company_id: companyId } });
+    const order = await this.repo.findOne({
+      where: { id, company_id: companyId },
+    });
     if (!order) throw new NotFoundException(`Dispatch order #${id} not found`);
     return order;
   }
 
-  async update(id: number, dto: UpdateDispatchDto, companyId: number): Promise<DispatchOrder> {
+  async update(
+    id: number,
+    dto: UpdateDispatchDto,
+    companyId: number,
+  ): Promise<DispatchOrder> {
     // Note: A real-world update is complex. It might need to reverse old stock
     // changes before applying new ones, especially if quantities change.
     // Phase 1 scope: header-only update, no stock re-adjustment.

@@ -35,7 +35,9 @@ async function bootstrap() {
   // comma-separated allow-list (e.g. "https://app.example.com,https://admin.example.com");
   // unset, it falls back to the frontend's local dev origins only.
   const corsOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    ? process.env.CORS_ORIGINS.split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
     : ['http://localhost:3000', 'http://127.0.0.1:3000'];
   app.enableCors({ origin: corsOrigins, credentials: true });
 

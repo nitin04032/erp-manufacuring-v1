@@ -96,17 +96,27 @@ export class WarehousesService {
    * DTOs carry a warehouse_name string instead of a numeric warehouse_id.
    */
   async findByName(name: string, companyId: number): Promise<Warehouse> {
-    const w = await this.repo.findOne({ where: { name, company_id: companyId } });
+    const w = await this.repo.findOne({
+      where: { name, company_id: companyId },
+    });
     if (!w) throw new NotFoundException(`Warehouse "${name}" not found.`);
     return w;
   }
 
-  async update(id: number, dto: UpdateWarehouseDto, companyId: number): Promise<Warehouse> {
-    const existing = await this.repo.findOne({ where: { id, company_id: companyId } });
+  async update(
+    id: number,
+    dto: UpdateWarehouseDto,
+    companyId: number,
+  ): Promise<Warehouse> {
+    const existing = await this.repo.findOne({
+      where: { id, company_id: companyId },
+    });
     if (!existing) throw new NotFoundException('Warehouse not found.');
 
     if (dto.code && dto.code !== existing.code) {
-      const codeExists = await this.repo.findOne({ where: { code: dto.code, company_id: companyId } });
+      const codeExists = await this.repo.findOne({
+        where: { code: dto.code, company_id: companyId },
+      });
       if (codeExists) throw new ConflictException('Code already in use.');
     }
 

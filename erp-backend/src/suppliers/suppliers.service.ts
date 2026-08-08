@@ -46,7 +46,10 @@ export class SuppliersService {
     return this.repo.save(entity);
   }
 
-  async findAll(query: QuerySupplierDto, companyId: number): Promise<Supplier[]> {
+  async findAll(
+    query: QuerySupplierDto,
+    companyId: number,
+  ): Promise<Supplier[]> {
     const where: any = { company_id: companyId };
 
     if (query.status)
@@ -72,13 +75,21 @@ export class SuppliersService {
   }
 
   async findOne(id: number, companyId: number): Promise<Supplier> {
-    const supplier = await this.repo.findOne({ where: { id, company_id: companyId } });
+    const supplier = await this.repo.findOne({
+      where: { id, company_id: companyId },
+    });
     if (!supplier) throw new NotFoundException('Supplier not found');
     return supplier;
   }
 
-  async update(id: number, dto: UpdateSupplierDto, companyId: number): Promise<Supplier> {
-    const existing = await this.repo.findOne({ where: { id, company_id: companyId } });
+  async update(
+    id: number,
+    dto: UpdateSupplierDto,
+    companyId: number,
+  ): Promise<Supplier> {
+    const existing = await this.repo.findOne({
+      where: { id, company_id: companyId },
+    });
     if (!existing) throw new NotFoundException('Supplier not found');
 
     if (dto.email && dto.email !== existing.email) {

@@ -1,5 +1,9 @@
 // erp-backend/src/auth/auth.service.ts
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { CompaniesService } from '../companies/companies.service';
 import * as bcrypt from 'bcrypt';
@@ -19,7 +23,9 @@ export class AuthService {
   async register(payload: RegisterDto): Promise<Omit<User, 'password_hash'>> {
     const { company_id, username, email, password, full_name } = payload;
     if (!password || password.trim().length < 6) {
-      throw new BadRequestException('Password must be at least 6 characters long.');
+      throw new BadRequestException(
+        'Password must be at least 6 characters long.',
+      );
     }
 
     // 🛠️ Multi-company Phase 1: this endpoint used to bootstrap the very
@@ -49,7 +55,10 @@ export class AuthService {
     return createdUser;
   }
 
-  async validateUser(usernameOrEmail: string, pass: string): Promise<Omit<User, 'password_hash'> | null> {
+  async validateUser(
+    usernameOrEmail: string,
+    pass: string,
+  ): Promise<Omit<User, 'password_hash'> | null> {
     const user = await this.usersService.findOne(usernameOrEmail);
     if (!user) return null;
 
@@ -67,7 +76,7 @@ export class AuthService {
   async login(userPayload: Omit<User, 'password_hash'>) {
     // 1. Database se user ka role detail fetch karein (UsersService ka findById relations ke sath ready hai)
     const userWithRole = await this.usersService.findById(userPayload.id);
-    
+
     // 2. Role ID safely extract karein (User entity me 'roleRelation' naam hai)
     const roleId = userWithRole?.roleRelation?.id || null;
 
@@ -84,8 +93,12 @@ export class AuthService {
       type: 'refresh',
     };
 
-    const accessToken = await this.jwtService.signAsync(accessTokenPayload, { expiresIn: '15m' });
-    const refreshToken = await this.jwtService.signAsync(refreshTokenPayload, { expiresIn: '7d' });
+    const accessToken = await this.jwtService.signAsync(accessTokenPayload, {
+      expiresIn: '15m',
+    });
+    const refreshToken = await this.jwtService.signAsync(refreshTokenPayload, {
+      expiresIn: '7d',
+    });
 
     // Save refresh token hash into DB
     await this.usersService.updateRefreshToken(userPayload.id, refreshToken);
@@ -105,7 +118,10 @@ export class AuthService {
    * 🔹 Optimized Refresh Logic
    */
   async refreshTokens(userId: number, refreshToken: string) {
-    const isTokenValid = await this.usersService.validateRefreshToken(userId, refreshToken);
+    const isTokenValid = await this.usersService.validateRefreshToken(
+      userId,
+      refreshToken,
+    );
     if (!isTokenValid) {
       throw new UnauthorizedException('Access Denied - Invalid Refresh Token');
     }
@@ -123,7 +139,9 @@ export class AuthService {
       type: 'access',
     };
 
-    const newAccessToken = await this.jwtService.signAsync(accessTokenPayload, { expiresIn: '15m' });
+    const newAccessToken = await this.jwtService.signAsync(accessTokenPayload, {
+      expiresIn: '15m',
+    });
     return { accessToken: newAccessToken };
   }
 

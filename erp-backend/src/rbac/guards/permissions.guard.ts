@@ -28,7 +28,9 @@ export class PermissionsGuard implements CanActivate {
     const user = request.user; // ⚡ ZERO-DB CALL OVERHEAD: Strategy has already pre-populated this array live!
 
     if (!user) {
-      throw new ForbiddenException('User session context not found or unauthorized.');
+      throw new ForbiddenException(
+        'User session context not found or unauthorized.',
+      );
     }
 
     const userPermissions: string[] = user.permissions || [];
@@ -39,7 +41,9 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!hasPermission) {
-      throw new ForbiddenException('Access Denied - Insufficient structural access rights');
+      throw new ForbiddenException(
+        'Access Denied - Insufficient structural access rights',
+      );
     }
 
     return true;

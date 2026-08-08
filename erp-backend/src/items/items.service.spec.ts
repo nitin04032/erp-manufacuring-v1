@@ -35,7 +35,10 @@ describe('ItemsService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ItemsService, { provide: getRepositoryToken(Item), useValue: repo }],
+      providers: [
+        ItemsService,
+        { provide: getRepositoryToken(Item), useValue: repo },
+      ],
     }).compile();
 
     service = module.get<ItemsService>(ItemsService);
@@ -54,7 +57,11 @@ describe('ItemsService', () => {
         }),
       );
       expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ company_id: COMPANY_A, sku: 'SKU-1', name: 'Widget' }),
+        expect.objectContaining({
+          company_id: COMPANY_A,
+          sku: 'SKU-1',
+          name: 'Widget',
+        }),
       );
     });
 
@@ -66,7 +73,9 @@ describe('ItemsService', () => {
     });
 
     it('auto-generates a SKU scoped to this company when none is supplied', async () => {
-      repo.findOne.mockResolvedValueOnce({ sku: 'ITEM-00003' }).mockResolvedValueOnce(null);
+      repo.findOne
+        .mockResolvedValueOnce({ sku: 'ITEM-00003' })
+        .mockResolvedValueOnce(null);
       await service.create({ name: 'Widget' } as any, COMPANY_A);
 
       // First call is generateSku()'s "last item for this company" lookup.
@@ -115,19 +124,26 @@ describe('ItemsService', () => {
       // a 404 rather than the row when the repo (correctly) finds nothing
       // for this company.
       repo.findOne.mockResolvedValueOnce(null);
-      await expect(service.findOne(5, COMPANY_A)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(5, COMPANY_A)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('remove', () => {
     it("scopes the soft-delete to the caller's company", async () => {
       await service.remove(5, COMPANY_A);
-      expect(repo.softDelete).toHaveBeenCalledWith({ id: 5, company_id: COMPANY_A });
+      expect(repo.softDelete).toHaveBeenCalledWith({
+        id: 5,
+        company_id: COMPANY_A,
+      });
     });
 
     it('throws NotFoundException when nothing matched (wrong id or wrong company)', async () => {
       repo.softDelete.mockResolvedValueOnce({ affected: 0 });
-      await expect(service.remove(5, COMPANY_A)).rejects.toThrow(NotFoundException);
+      await expect(service.remove(5, COMPANY_A)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

@@ -40,6 +40,6 @@ import { CompaniesModule } from '../companies/companies.module';
   providers: [AuthService, JwtStrategy, RefreshStrategy],
   controllers: [AuthController],
   // ✅ Agar kisi aur module me custom Guard lagana ho, toh RefreshStrategy ko bhi export kar sakte hain
-  exports: [AuthService, JwtStrategy, RefreshStrategy, JwtModule], 
+  exports: [AuthService, JwtStrategy, RefreshStrategy, JwtModule],
 })
 export class AuthModule {}

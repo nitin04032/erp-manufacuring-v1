@@ -44,11 +44,17 @@ export class PurchaseOrdersService {
     return { items, grandTotal };
   }
 
-  async create(dto: CreatePurchaseOrderDto, companyId: number): Promise<PurchaseOrder> {
+  async create(
+    dto: CreatePurchaseOrderDto,
+    companyId: number,
+  ): Promise<PurchaseOrder> {
     // Validate related entities — scoped by company so a PO can't be raised
     // against another company's supplier/warehouse/item by guessing an id
     // (see Multi-Company Architecture Audit §11 cross-reference integrity).
-    const supplier = await this.supplierRepo.findOneBy({ id: dto.supplier_id, company_id: companyId });
+    const supplier = await this.supplierRepo.findOneBy({
+      id: dto.supplier_id,
+      company_id: companyId,
+    });
     if (!supplier) {
       throw new NotFoundException(
         `Supplier with ID ${dto.supplier_id} not found`,
@@ -83,7 +89,10 @@ export class PurchaseOrdersService {
     // Process items
     const poItems: PurchaseOrderItem[] = [];
     for (const itemDto of dto.items) {
-      const item = await this.itemRepo.findOneBy({ id: itemDto.item_id, company_id: companyId });
+      const item = await this.itemRepo.findOneBy({
+        id: itemDto.item_id,
+        company_id: companyId,
+      });
       if (!item) {
         throw new NotFoundException(
           `Item with ID ${itemDto.item_id} not found`,

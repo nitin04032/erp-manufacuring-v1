@@ -29,13 +29,17 @@ describe('GrnService', () => {
     release: jest.fn(),
     manager: {
       save: jest.fn((entityOrList) =>
-        Array.isArray(entityOrList) ? entityOrList : Promise.resolve({ id: 1, ...entityOrList }),
+        Array.isArray(entityOrList)
+          ? entityOrList
+          : Promise.resolve({ id: 1, ...entityOrList }),
       ),
     },
   };
 
   beforeEach(async () => {
-    warehouseRepo = { findOne: jest.fn().mockResolvedValue({ id: 10, name: 'Main WH' }) };
+    warehouseRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 10, name: 'Main WH' }),
+    };
     itemRepo = {
       find: jest.fn().mockResolvedValue([{ id: 20, sku: 'ITEM-001' }]),
     };
@@ -46,13 +50,18 @@ describe('GrnService', () => {
         .mockResolvedValueOnce(null),
       create: jest.fn((v) => v),
     } as any;
-    inventoryService = { increaseStock: jest.fn().mockResolvedValue({ newQty: 25 }) };
+    inventoryService = {
+      increaseStock: jest.fn().mockResolvedValue({ newQty: 25 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GrnService,
         { provide: getRepositoryToken(Grn), useValue: grnRepo },
-        { provide: getRepositoryToken(GrnItem), useValue: { create: jest.fn((v) => v) } },
+        {
+          provide: getRepositoryToken(GrnItem),
+          useValue: { create: jest.fn((v) => v) },
+        },
         { provide: getRepositoryToken(Item), useValue: itemRepo },
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepo },
         { provide: InventoryService, useValue: inventoryService },
@@ -88,7 +97,10 @@ describe('GrnService', () => {
       10,
       50,
       TEST_COMPANY_ID,
-      expect.objectContaining({ reference_type: 'grn_receipt', queryRunner: mockQueryRunner }),
+      expect.objectContaining({
+        reference_type: 'grn_receipt',
+        queryRunner: mockQueryRunner,
+      }),
     );
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
   });

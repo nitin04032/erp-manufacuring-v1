@@ -34,7 +34,9 @@ describe('FgrService', () => {
   beforeEach(async () => {
     itemsService = { findByCode: jest.fn() };
     warehousesService = { findByName: jest.fn() };
-    inventoryService = { increaseStock: jest.fn().mockResolvedValue({ newQty: 15 }) };
+    inventoryService = {
+      increaseStock: jest.fn().mockResolvedValue({ newQty: 15 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -60,7 +62,10 @@ describe('FgrService', () => {
 
   it('resolves item/warehouse and increases stock via InventoryService (no crash)', async () => {
     itemsService.findByCode.mockResolvedValue({ id: 30, sku: 'FG-001' });
-    warehousesService.findByName.mockResolvedValue({ id: 40, name: 'FG Store' });
+    warehousesService.findByName.mockResolvedValue({
+      id: 40,
+      name: 'FG Store',
+    });
 
     const dto = {
       receipt_number: 'FGR-001',
@@ -75,14 +80,23 @@ describe('FgrService', () => {
 
     const result = await service.create(dto, TEST_COMPANY_ID);
 
-    expect(itemsService.findByCode).toHaveBeenCalledWith('FG-001', TEST_COMPANY_ID);
-    expect(warehousesService.findByName).toHaveBeenCalledWith('FG Store', TEST_COMPANY_ID);
+    expect(itemsService.findByCode).toHaveBeenCalledWith(
+      'FG-001',
+      TEST_COMPANY_ID,
+    );
+    expect(warehousesService.findByName).toHaveBeenCalledWith(
+      'FG Store',
+      TEST_COMPANY_ID,
+    );
     expect(inventoryService.increaseStock).toHaveBeenCalledWith(
       30,
       40,
       10,
       TEST_COMPANY_ID,
-      expect.objectContaining({ reference_type: 'fgr_receipt', queryRunner: mockQueryRunner }),
+      expect.objectContaining({
+        reference_type: 'fgr_receipt',
+        queryRunner: mockQueryRunner,
+      }),
     );
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     expect(result).toBeDefined();

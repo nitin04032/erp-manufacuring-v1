@@ -47,8 +47,20 @@ export class InventoryController {
     };
     const result =
       dto.adjustment_type === 'IN'
-        ? await this.service.increaseStock(dto.item_id, dto.warehouse_id, dto.qty, companyId, opts)
-        : await this.service.decreaseStock(dto.item_id, dto.warehouse_id, dto.qty, companyId, opts);
+        ? await this.service.increaseStock(
+            dto.item_id,
+            dto.warehouse_id,
+            dto.qty,
+            companyId,
+            opts,
+          )
+        : await this.service.decreaseStock(
+            dto.item_id,
+            dto.warehouse_id,
+            dto.qty,
+            companyId,
+            opts,
+          );
 
     return {
       adjustment_number: `ADJ-${Date.now()}`,

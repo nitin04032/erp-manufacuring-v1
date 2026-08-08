@@ -34,7 +34,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * Token successfully verify hone ke baad yeh function runtime par chalta hai.
    * Yeh database se Fresh Live Permissions load karke Express ke `req.user` me inject kar dega.
    */
-  async validate(payload: { sub: number; username: string; email: string; type: string }) {
+  async validate(payload: {
+    sub: number;
+    username: string;
+    email: string;
+    type: string;
+  }) {
     // 🛡️ Security Check: Ensure standard access token block condition
     if (payload.type !== 'access') {
       throw new UnauthorizedException('Invalid token type provided');
@@ -44,11 +49,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     // identifier me string conversion bhej rahe hain kyunki findOne handle karta hai generic string queries
     const user = await this.usersService.findOne(payload.username);
     if (!user) {
-      throw new UnauthorizedException('User no longer exists inside the application context');
+      throw new UnauthorizedException(
+        'User no longer exists inside the application context',
+      );
     }
 
     // 🛡️ Flattening permissions: Database nodes se identifiers ko array context ['inventory.view', 'user.create'] me convert kiya
-    const permissions = user.roleRelation?.permissions?.map((p: any) => p.code || p.name) || [];
+    const permissions =
+      user.roleRelation?.permissions?.map((p: any) => p.code || p.name) || [];
 
     // Yeh return object seedhe controllers me `req.user` (`@Req() req`) ke roop me automatically accessible ho jayega
     return {

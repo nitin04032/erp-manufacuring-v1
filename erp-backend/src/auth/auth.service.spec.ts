@@ -17,12 +17,18 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     usersService = {
-      create: jest.fn().mockImplementation((payload) => Promise.resolve({ id: 1, ...payload })),
+      create: jest
+        .fn()
+        .mockImplementation((payload) =>
+          Promise.resolve({ id: 1, ...payload }),
+        ),
       findOne: jest.fn(),
       updateLastLogin: jest.fn(),
     };
     companiesService = {
-      findOne: jest.fn().mockResolvedValue({ id: 1, name: 'Acme Manufacturing' }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: 1, name: 'Acme Manufacturing' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -69,14 +75,22 @@ describe('AuthService', () => {
       await service.register(basePayload);
 
       expect(usersService.create).toHaveBeenCalledWith(
-        expect.objectContaining({ company_id: 1, role: UserRole.USER, status: UserStatus.ACTIVE }),
+        expect.objectContaining({
+          company_id: 1,
+          role: UserRole.USER,
+          status: UserStatus.ACTIVE,
+        }),
       );
     });
 
     it('propagates NotFoundException when the company does not exist', async () => {
-      companiesService.findOne.mockRejectedValue(new NotFoundException('Company not found.'));
+      companiesService.findOne.mockRejectedValue(
+        new NotFoundException('Company not found.'),
+      );
 
-      await expect(service.register(basePayload)).rejects.toThrow(NotFoundException);
+      await expect(service.register(basePayload)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(usersService.create).not.toHaveBeenCalled();
     });
   });

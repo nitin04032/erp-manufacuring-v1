@@ -1,5 +1,9 @@
 // erp-backend/src/common/decorators/company-id.decorator.ts
-import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  createParamDecorator,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 /**
  * Multi-company Phase 1 tenant boundary. Pulls the authenticated request's

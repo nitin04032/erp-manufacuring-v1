@@ -65,15 +65,24 @@ export class TenantScopedRepository<Entity extends { company_id: number }> {
   }
 
   find(options?: FindManyOptions<Entity>): Promise<Entity[]> {
-    return this.repo.find({ ...options, where: this.scopeWhere(options?.where) });
+    return this.repo.find({
+      ...options,
+      where: this.scopeWhere(options?.where),
+    });
   }
 
   findOne(options: FindOneOptions<Entity>): Promise<Entity | null> {
-    return this.repo.findOne({ ...options, where: this.scopeWhere(options.where) });
+    return this.repo.findOne({
+      ...options,
+      where: this.scopeWhere(options.where),
+    });
   }
 
   count(options?: FindManyOptions<Entity>): Promise<number> {
-    return this.repo.count({ ...options, where: this.scopeWhere(options?.where) });
+    return this.repo.count({
+      ...options,
+      where: this.scopeWhere(options?.where),
+    });
   }
 
   /** Stamps company_id onto the new entity — never trust a caller-supplied value here. */
@@ -97,17 +106,25 @@ export class TenantScopedRepository<Entity extends { company_id: number }> {
   // caller doing `scoped.save(...).catch(...)` wouldn't expect.
   async save(entity: DeepPartial<Entity>): Promise<Entity> {
     const existingCompanyId = (entity as Partial<Entity>).company_id;
-    if (existingCompanyId !== undefined && existingCompanyId !== this.companyId) {
+    if (
+      existingCompanyId !== undefined &&
+      existingCompanyId !== this.companyId
+    ) {
       throw new Error(
         `TenantScopedRepository: refusing to save a row with company_id=${String(existingCompanyId)} ` +
           `through a repository scoped to company_id=${this.companyId}.`,
       );
     }
-    return this.repo.save({ ...entity, company_id: this.companyId } as DeepPartial<Entity>);
+    return this.repo.save({
+      ...entity,
+      company_id: this.companyId,
+    } as DeepPartial<Entity>);
   }
 
   softDelete(where: FindOptionsWhere<Entity>): Promise<UpdateResult> {
-    return this.repo.softDelete(this.scopeWhere(where) as FindOptionsWhere<Entity>);
+    return this.repo.softDelete(
+      this.scopeWhere(where) as FindOptionsWhere<Entity>,
+    );
   }
 
   /**

@@ -43,7 +43,10 @@ export class CustomersService {
     return this.repo.save(entity);
   }
 
-  async findAll(query: QueryCustomerDto, companyId: number): Promise<Customer[]> {
+  async findAll(
+    query: QueryCustomerDto,
+    companyId: number,
+  ): Promise<Customer[]> {
     const where: any = { company_id: companyId };
 
     if (query.status)
@@ -66,13 +69,21 @@ export class CustomersService {
   }
 
   async findOne(id: number, companyId: number): Promise<Customer> {
-    const customer = await this.repo.findOne({ where: { id, company_id: companyId } });
+    const customer = await this.repo.findOne({
+      where: { id, company_id: companyId },
+    });
     if (!customer) throw new NotFoundException('Customer not found');
     return customer;
   }
 
-  async update(id: number, dto: UpdateCustomerDto, companyId: number): Promise<Customer> {
-    const existing = await this.repo.findOne({ where: { id, company_id: companyId } });
+  async update(
+    id: number,
+    dto: UpdateCustomerDto,
+    companyId: number,
+  ): Promise<Customer> {
+    const existing = await this.repo.findOne({
+      where: { id, company_id: companyId },
+    });
     if (!existing) throw new NotFoundException('Customer not found');
 
     if (dto.email && dto.email !== existing.email) {

@@ -4,7 +4,10 @@ import { Repository } from 'typeorm';
 import { PurchaseOrder } from '../purchase-orders/purchase-order.entity';
 import { Grn } from '../grn/entities/grn.entity';
 import { DispatchOrder } from '../dispatch/dispatch.entity';
-import { InventoryService, StockDetailRow } from '../inventory/inventory.service';
+import {
+  InventoryService,
+  StockDetailRow,
+} from '../inventory/inventory.service';
 import * as ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
@@ -32,7 +35,10 @@ export class ReportsService {
   // Multi-company Phase 1: every query starts from a company_id andWhere —
   // see Multi-Company Architecture Audit §10 (reports were fully global).
 
-  async getPurchaseReport(filters: ReportFilters, companyId: number): Promise<PurchaseOrder[]> {
+  async getPurchaseReport(
+    filters: ReportFilters,
+    companyId: number,
+  ): Promise<PurchaseOrder[]> {
     const query = this.poRepo
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
@@ -56,7 +62,10 @@ export class ReportsService {
     return query.orderBy('po.order_date', 'DESC').getMany();
   }
 
-  async getGrnReport(filters: ReportFilters, companyId: number): Promise<Grn[]> {
+  async getGrnReport(
+    filters: ReportFilters,
+    companyId: number,
+  ): Promise<Grn[]> {
     const query = this.grnRepo
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.purchaseOrder', 'po')
@@ -78,7 +87,10 @@ export class ReportsService {
     return query.orderBy('grn.received_date', 'DESC').getMany();
   }
 
-  async getDispatchReport(filters: ReportFilters, companyId: number): Promise<DispatchOrder[]> {
+  async getDispatchReport(
+    filters: ReportFilters,
+    companyId: number,
+  ): Promise<DispatchOrder[]> {
     const query = this.dispatchRepo
       .createQueryBuilder('dispatch')
       .where('dispatch.company_id = :companyId', { companyId });

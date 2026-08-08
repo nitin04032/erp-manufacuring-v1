@@ -66,7 +66,8 @@ export class CreateCompanyDto {
   @IsNotEmpty()
   @MaxLength(50)
   @Matches(/^[a-zA-Z0-9_.]+$/, {
-    message: 'Admin username can contain only letters, numbers, underscore and dot.',
+    message:
+      'Admin username can contain only letters, numbers, underscore and dot.',
   })
   admin_username!: string;
 

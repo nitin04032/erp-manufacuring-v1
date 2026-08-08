@@ -104,11 +104,16 @@ export class ItemsService {
    */
   async findByCode(code: string, companyId: number): Promise<Item> {
     const item = await this.scoped(companyId).findOne({ where: { sku: code } });
-    if (!item) throw new NotFoundException(`Item with code "${code}" not found.`);
+    if (!item)
+      throw new NotFoundException(`Item with code "${code}" not found.`);
     return item;
   }
 
-  async update(id: number, dto: UpdateItemDto, companyId: number): Promise<Item> {
+  async update(
+    id: number,
+    dto: UpdateItemDto,
+    companyId: number,
+  ): Promise<Item> {
     const scoped = this.scoped(companyId);
     const item = await scoped.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Item not found.');
@@ -123,7 +128,9 @@ export class ItemsService {
   }
 
   async remove(id: number, companyId: number): Promise<void> {
-    const res = await this.scoped(companyId).softDelete({ id } as Partial<Item>);
+    const res = await this.scoped(companyId).softDelete({
+      id,
+    } as Partial<Item>);
     if (!res.affected) throw new NotFoundException('Item not found.');
   }
 
